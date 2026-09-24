@@ -72,3 +72,18 @@ export interface ListSessionsResponse {
   totalCount: number;
   nextToken?: string;
 }
+
+export interface PersonalTime {
+  personalTimeId: string;
+  startDateTime: string;
+  endDateTime: string;
+  title: string;
+  description: string;
+  location?: string;
+}
+
+export interface Schedule {
+  reserved: string[];
+  favorites: string[];
+  personalTime: PersonalTime[];
+}

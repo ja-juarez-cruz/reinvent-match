@@ -1,6 +1,15 @@
 #!/usr/bin/env node
+import { spawn } from "node:child_process";
 import { parseArgs } from "node:util";
 import { EventsApiError, EventsClient } from "./api/client.js";
+import {
+  buildBrowserSignOutUrl,
+  emailFromIdToken,
+  listenOnReservedPort,
+  revokeRefreshToken,
+  signIn,
+} from "./auth/oauth.js";
+import { AuthSession, FileTokenStore, NotSignedInError, credentialsPath } from "./auth/session.js";
 import { loadCatalog, saveCatalog } from "./catalog/cache.js";
 import { normalizeSession, type NormalizedSession } from "./catalog/normalize.js";
 import { CATEGORIES, matchSessions, type Category, type MatchResult } from "./match/engine.js";
@@ -9,6 +18,10 @@ import { loadProfile } from "./profile/profile.js";
 const HELP = `rematch - person-to-session matching for AWS events (unofficial)
 
 Usage:
+  rematch login                           Sign in with your AWS Builder ID (opens the browser)
+  rematch logout [--browser]              Revoke and delete tokens; --browser also ends the Builder ID session
+  rematch whoami                          Show who is signed in
+  rematch schedule <eventId>              Show your reservations, favorites and personal time
   rematch events                          List ongoing and upcoming AWS events
   rematch fetch <eventId> [--locale en-US] Download an event catalog into .rematch/cache
   rematch vocab <eventId> [--field tags]   Show catalog labels to use in your profile
@@ -44,6 +57,7 @@ async function main(argv: string[]): Promise<number> {
       json: { type: "boolean" },
       locale: { type: "string" },
       field: { type: "string" },
+      browser: { type: "boolean" },
       help: { type: "boolean", short: "h" },
     },
   });
@@ -53,9 +67,58 @@ async function main(argv: string[]): Promise<number> {
     return command ? 0 : 1;
   }
 
-  const client = new EventsClient({ getAccessToken: async () => process.env.REMATCH_ACCESS_TOKEN });
+  const store = new FileTokenStore();
+  const auth = new AuthSession(store);
+  const client = new EventsClient({
+    getAccessToken: async (opts) => process.env.REMATCH_ACCESS_TOKEN ?? auth.getAccessToken(opts),
+  });
 
   switch (command) {
+    case "login": {
+      console.log("Opening your browser to sign in with AWS Builder ID...");
+      const tokens = await signIn({
+        openBrowser: (url) => {
+          console.log(`If it does not open, visit:\n${url}\n`);
+          openInBrowser(url);
+        },
+      });
+      await store.save(tokens);
+      console.log(`Signed in${describeUser(tokens.idToken)}. Tokens saved to ${credentialsPath()}.`);
+      return 0;
+    }
+    case "logout": {
+      const tokens = await store.load();
+      if (tokens) {
+        await revokeRefreshToken(tokens.refreshToken).catch((error: unknown) =>
+          console.warn(`Could not revoke the refresh token: ${error instanceof Error ? error.message : error}`),
+        );
+        await store.clear();
+        console.log("Signed out of Re:Match: refresh token revoked and tokens deleted.");
+      } else {
+        console.log("No Re:Match session found.");
+      }
+      if (values.browser) await signOutBrowser();
+      else console.log("Your Builder ID browser session is still active; use `rematch logout --browser` to end it.");
+      return 0;
+    }
+    case "whoami": {
+      const tokens = await store.load();
+      if (!tokens) throw new NotSignedInError();
+      await auth.getAccessToken();
+      const refreshed = await store.load();
+      console.log(`Signed in${describeUser(refreshed?.idToken ?? tokens.idToken)}.`);
+      return 0;
+    }
+    case "schedule": {
+      requireEvent(eventId);
+      if (!(await auth.isSignedIn()) && !process.env.REMATCH_ACCESS_TOKEN) throw new NotSignedInError();
+      const schedule = await client.getSchedule(eventId);
+      console.log(`Reserved (${schedule.reserved.length}): ${schedule.reserved.join(", ") || "-"}`);
+      console.log(`Favorites (${schedule.favorites.length}): ${schedule.favorites.join(", ") || "-"}`);
+      console.log(`Personal time (${schedule.personalTime.length}):`);
+      for (const p of schedule.personalTime) console.log(`  ${p.startDateTime} → ${p.endDateTime} UTC  ${p.title}`);
+      return 0;
+    }
     case "events": {
       const events = await client.listEvents();
       for (const e of events) {
@@ -118,6 +181,36 @@ async function main(argv: string[]): Promise<number> {
   }
 }
 
+function describeUser(idToken: string | undefined): string {
+  const email = emailFromIdToken(idToken);
+  return email ? ` as ${email}` : "";
+}
+
+function openInBrowser(url: string): void {
+  const [cmd, args] =
+    process.platform === "darwin"
+      ? ["open", [url]]
+      : process.platform === "win32"
+        ? ["cmd", ["/c", "start", "", url]]
+        : ["xdg-open", [url]];
+  spawn(cmd, args, { stdio: "ignore", detached: true }).on("error", () => {}).unref();
+}
+
+async function signOutBrowser(): Promise<void> {
+  let done!: () => void;
+  const landed = new Promise<void>((resolve) => (done = resolve));
+  const { server, port } = await listenOnReservedPort((url, respond) => {
+    if (url.pathname !== "/logout") return respond(404, "");
+    respond(200, "<!doctype html><meta charset=utf-8><p>Signed out of AWS Builder ID. You can close this tab.</p>");
+    done();
+  });
+  openInBrowser(buildBrowserSignOutUrl(port));
+  const timeout = new Promise<void>((resolve) => setTimeout(resolve, 60_000));
+  await Promise.race([landed, timeout]);
+  server.close();
+  console.log("Builder ID browser session ended.");
+}
+
 function requireEvent(eventId: string | undefined): asserts eventId is string {
   if (!eventId) throw new Error("An eventId is required. Run `rematch events` to list them.");
 }
@@ -170,8 +263,10 @@ function toJson(r: MatchResult) {
 main(process.argv.slice(2)).then(
   (code) => process.exit(code),
   (error: unknown) => {
-    if (error instanceof EventsApiError && (error.status === 401 || error.status === 403)) {
-      console.error(`${error.message}\nThis event requires sign-in as a registered attendee (\`rematch login\` is coming next).`);
+    if (error instanceof EventsApiError && error.status === 401) {
+      console.error(`${error.message}\nThis event requires sign-in. Run \`rematch login\`.`);
+    } else if (error instanceof EventsApiError && error.status === 403) {
+      console.error(`${error.message}\nYou are signed in but not registered for this event; register on the event site.`);
     } else {
       console.error(error instanceof Error ? error.message : error);
     }

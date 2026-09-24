@@ -1,4 +1,4 @@
-import type { AwsEvent, ListEventsResponse, ListSessionsResponse, Session } from "./types.js";
+import type { AwsEvent, ListEventsResponse, ListSessionsResponse, Schedule, Session } from "./types.js";
 
 export const DEFAULT_BASE_URL = "https://api.awsevents.com";
 
@@ -15,8 +15,11 @@ export class EventsApiError extends Error {
 
 export interface EventsClientOptions {
   baseUrl?: string;
-  /** Returns a bearer token for the signed-in attendee, or undefined for anonymous calls. */
-  getAccessToken?: () => Promise<string | undefined>;
+  /**
+   * Returns a bearer token for the signed-in attendee, or undefined for anonymous calls. Called with
+   * `forceRefresh` after a 401, as the API asks: refresh once, retry once.
+   */
+  getAccessToken?: (opts?: { forceRefresh?: boolean }) => Promise<string | undefined>;
   fetchImpl?: typeof fetch;
   maxRetries?: number;
   /** Injected for tests so retries do not wait in real time. */
@@ -47,6 +50,10 @@ export class EventsClient {
     return this.get<AwsEvent>(`/v1/events/${encodeURIComponent(eventId)}`);
   }
 
+  async getSchedule(eventId: string): Promise<Schedule> {
+    return this.get<Schedule>(`/v1/events/${encodeURIComponent(eventId)}/schedule`);
+  }
+
   /** Walks every page of an event's catalog. The API returns at most 250 sessions per page. */
   async listAllSessions(
     eventId: string,
@@ -70,13 +77,20 @@ export class EventsClient {
   }
 
   private async get<T>(path: string): Promise<T> {
-    const headers: Record<string, string> = { Accept: "application/json" };
-    const token = await this.options.getAccessToken?.();
-    if (token) headers.Authorization = `Bearer ${token}`;
+    let token = await this.options.getAccessToken?.();
+    let refreshed = false;
 
     for (let attempt = 0; ; attempt++) {
+      const headers: Record<string, string> = { Accept: "application/json" };
+      if (token) headers.Authorization = `Bearer ${token}`;
       const res = await this.fetchImpl(`${this.baseUrl}${path}`, { headers });
       if (res.ok) return (await res.json()) as T;
+
+      if (res.status === 401 && token && !refreshed) {
+        refreshed = true;
+        token = await this.options.getAccessToken?.({ forceRefresh: true });
+        continue;
+      }
 
       const body = await res.json().catch(() => undefined);
       const retryable = res.status === 429 || res.status >= 500;
