@@ -1,5 +1,6 @@
 import type {
   AwsEvent,
+  CatalogReport,
   CatalogStatus,
   Decision,
   FavoritesSyncResult,
@@ -46,6 +47,7 @@ export const api = {
   catalog: (eventId: string) => call<CatalogStatus>("GET", `/api/catalog/${enc(eventId)}`),
   refreshCatalog: (eventId: string) => call<CatalogStatus>("POST", `/api/catalog/${enc(eventId)}/refresh`),
   vocab: (eventId: string) => call<VocabEntry[]>("GET", `/api/catalog/${enc(eventId)}/vocab`),
+  report: (eventId: string) => call<CatalogReport>("GET", `/api/report/${enc(eventId)}`),
   templates: () => call<ProfileTemplate[]>("GET", "/api/templates"),
   profiles: () => call<StoredProfile[]>("GET", "/api/profiles"),
   saveProfile: (id: string, profile: Profile) => call<StoredProfile>("PUT", `/api/profiles/${enc(id)}`, profile),

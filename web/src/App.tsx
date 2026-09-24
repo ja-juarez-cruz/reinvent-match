@@ -1,17 +1,18 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "./api";
 import { HomePage } from "./pages/HomePage";
+import { InsightsPage } from "./pages/InsightsPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { ShortlistPage } from "./pages/ShortlistPage";
 import { SwipePage } from "./pages/SwipePage";
 import type { AwsEvent, SessionInfo } from "./types";
 import { useStored } from "./useStored";
 
-type Route = "home" | "profile" | "swipe" | "shortlist";
+type Route = "home" | "insights" | "profile" | "swipe" | "shortlist";
 
 function routeFromHash(): Route {
   const r = window.location.hash.replace(/^#\/?/, "").split("?")[0];
-  return r === "profile" || r === "swipe" || r === "shortlist" ? r : "home";
+  return r === "insights" || r === "profile" || r === "swipe" || r === "shortlist" ? r : "home";
 }
 
 export function navigate(route: Route): void {
@@ -20,6 +21,7 @@ export function navigate(route: Route): void {
 
 const STEPS: { route: Route; label: string }[] = [
   { route: "home", label: "1 · Event" },
+  { route: "insights", label: "Insights" },
   { route: "profile", label: "2 · Profile" },
   { route: "swipe", label: "3 · Swipe" },
   { route: "shortlist", label: "4 · Shortlist" },
@@ -105,6 +107,7 @@ export function App() {
             onSignIn={signIn}
           />
         )}
+        {route === "insights" && <InsightsPage event={event} eventId={eventId} />}
         {route === "profile" && (
           <ProfilePage eventId={eventId} profileId={profileId} onSelectProfile={setProfileId} />
         )}

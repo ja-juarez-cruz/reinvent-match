@@ -37,6 +37,7 @@ npm run ui
 This builds the web UI and opens Re:Match in your browser at `http://127.0.0.1:8484`. It runs entirely on your machine:
 
 1. **Event:** pick re:Invent (sign in with your AWS Builder ID) or a public Summit catalog, and download it.
+   **Insights:** every session tagged on nine dimensions (topic, technology, audience, learning style, content type, concept, level…) with drill-down charts. See [docs/TAXONOMY.md](docs/TAXONOMY.md).
 2. **Profile:** start from a template or a saved profile; sort catalog topics into Know / Grow / Explore / Ignore with a proficiency for each.
 3. **Swipe:** one session at a time with its category, match and reasons. ← not for me · ↓ maybe · → interested · U undo.
 4. **Shortlist:** your picks by day with overlaps flagged, and one click to send ❤️ to your official re:Invent favorites.
@@ -95,6 +96,7 @@ src/
 ├── catalog/    session normalization and local cache
 ├── profile/    profile schema and loading
 ├── match/      match engine, label aliasing, topic neighbor graph
+├── taxonomy/   session tagging on nine dimensions and the catalog report
 └── cli.ts
 ```
 

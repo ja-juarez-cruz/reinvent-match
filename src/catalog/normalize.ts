@@ -41,7 +41,12 @@ export interface NormalizedSession {
   /** Catalog labels the session is tagged with: topics, areas of interest and services. */
   tags: string[];
   topics: string[];
+  areasOfInterest: string[];
   services: string[];
+  /** Job roles the catalog says the session is aimed at. */
+  roles: string[];
+  industries: string[];
+  features: string[];
   restrictedTo: string[];
   schedule: {
     date: string | null;
@@ -139,7 +144,11 @@ export function normalizeSession(session: Session): NormalizedSession {
     archDepth: estimateArchDepth(text, topics),
     tags: unique([...topics, ...(session.areasOfInterest ?? []), ...services]),
     topics,
+    areasOfInterest: session.areasOfInterest ?? [],
     services,
+    roles: session.roles ?? [],
+    industries: session.industries ?? [],
+    features: session.features ?? [],
     restrictedTo: session.experiences ?? [],
     schedule: {
       date: session.sessionTime?.date ?? null,

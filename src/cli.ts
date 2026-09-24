@@ -15,6 +15,7 @@ import { normalizeSession, type NormalizedSession } from "./catalog/normalize.js
 import { CATEGORIES, matchSessions, type Category, type MatchResult } from "./match/engine.js";
 import { loadProfile } from "./profile/profile.js";
 import { startServer } from "./server/index.js";
+import { buildReport, type Bucket } from "./taxonomy/report.js";
 
 const HELP = `rematch - person-to-session matching for AWS events (unofficial)
 
@@ -27,6 +28,7 @@ Usage:
   rematch events                          List ongoing and upcoming AWS events
   rematch fetch <eventId> [--locale en-US] Download an event catalog into .rematch/cache
   rematch vocab <eventId> [--field tags]   Show catalog labels to use in your profile
+  rematch report <eventId> [--json]       Tag every session and summarize the catalog by dimension
   rematch match <eventId> --profile <file> [options]
 
 Match options:
@@ -162,6 +164,39 @@ async function main(argv: string[]): Promise<number> {
       for (const [label, count] of [...counts].sort((a, b) => b[1] - a[1])) {
         console.log(`${String(count).padStart(5)}  ${label}`);
       }
+      return 0;
+    }
+    case "report": {
+      requireEvent(eventId);
+      const catalog = await loadCatalog(eventId);
+      if (!catalog) throw new Error(`No cached catalog for ${eventId}. Run \`rematch fetch ${eventId}\` first.`);
+      const report = buildReport(eventId, catalog.fetchedAt, catalog.sessions.map(normalizeSession));
+      if (values.json) {
+        console.log(JSON.stringify(report, null, 2));
+        return 0;
+      }
+      console.log(`${report.total} sessions in ${eventId} (catalog from ${catalog.fetchedAt})`);
+      const sections: [string, Bucket[], number?][] = [
+        ["Primary domain (one per session)", report.dimensions.primaryDomain],
+        ["Domain (any; a session can have several)", report.dimensions.domain],
+        ["AI subtopics", report.dimensions.aiSubtopic],
+        ["Top technologies", report.dimensions.technology, 25],
+        ["Audience (catalog roles)", report.dimensions.audience],
+        ["Learning style", report.dimensions.learningStyle],
+        ["Content type", report.dimensions.contentType],
+        ["Architecture & engineering concepts", report.dimensions.concept],
+        ["Level", report.dimensions.level],
+        ["Day", report.dimensions.day],
+      ];
+      for (const [title, buckets, limit] of sections) {
+        console.log(`\n${title}`);
+        for (const b of buckets.slice(0, limit)) {
+          const pct = ((100 * b.count) / report.total).toFixed(1).padStart(5);
+          console.log(`  ${String(b.count).padStart(5)}  ${pct}%  ${b.label}`);
+        }
+      }
+      console.log("\nData quality");
+      for (const q of report.quality) console.log(`  ${String(q.count).padStart(5)}  ${q.label}`);
       return 0;
     }
     case "match": {

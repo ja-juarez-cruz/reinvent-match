@@ -107,9 +107,14 @@ export function HomePage({ session, events, eventId, onSelectEvent, onSignIn }: 
                   {busy ? "Downloading…" : status?.downloaded ? "Refresh catalog" : "Download catalog"}
                 </button>
                 {status?.downloaded && (
-                  <button className="primary" onClick={() => navigate("profile")}>
-                    Next: your profile →
-                  </button>
+                  <>
+                    <button className="ghost" onClick={() => navigate("insights")}>
+                      Explore the catalog
+                    </button>
+                    <button className="primary" onClick={() => navigate("profile")}>
+                      Next: your profile →
+                    </button>
+                  </>
                 )}
               </div>
               {error && <p className="error">{error}</p>}

@@ -745,3 +745,266 @@ main {
     display: none;
   }
 }
+
+/* Insights (charts follow the dataviz reference palette: one blue hue for magnitude) */
+
+:root {
+  --viz-primary: #2a78d6;
+  --viz-any: #b7d3f6;
+  --viz-track: transparent;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --viz-primary: #3987e5;
+    --viz-any: #184f95;
+  }
+}
+
+.insights .panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.4rem;
+}
+
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  position: sticky;
+  top: 56px;
+  z-index: 4;
+  padding: 0.5rem 0;
+  background: var(--bg);
+}
+
+.filter-bar .search {
+  max-width: 320px;
+}
+
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.75rem;
+}
+
+.kpi {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.8rem 1rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.kpi-value {
+  font-size: 1.7rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.legend {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--muted);
+}
+
+.swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  margin-left: 0.5rem;
+}
+
+.swatch-primary {
+  background: var(--viz-primary);
+}
+
+.swatch-any {
+  background: var(--viz-any);
+}
+
+.bars {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bar-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 44%) 1fr 5.5rem;
+  align-items: center;
+  gap: 0.6rem;
+  border: none;
+  background: none;
+  border-radius: 8px;
+  padding: 0.22rem 0.35rem;
+  text-align: left;
+}
+
+.bar-row:hover {
+  background: var(--surface-2);
+}
+
+.bar-row.selected {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  outline: 1px solid var(--accent);
+}
+
+.bar-label {
+  font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bar-track {
+  position: relative;
+  height: 12px;
+}
+
+.bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 0 4px 4px 0;
+  min-width: 2px;
+}
+
+.bar-any {
+  background: var(--viz-any);
+}
+
+.bar-primary {
+  background: var(--viz-primary);
+}
+
+.bar-value {
+  font-size: 0.8rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.dimension-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(440px, 1fr));
+  gap: 0.75rem;
+}
+
+.dimension-grid .panel {
+  padding: 0.9rem 1rem;
+}
+
+.heatmap-wrap,
+.table-wrap {
+  overflow-x: auto;
+}
+
+.heatmap {
+  border-collapse: separate;
+  border-spacing: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.heatmap th {
+  font-weight: 500;
+  color: var(--muted);
+  text-align: left;
+  padding: 0 0.4rem;
+  white-space: nowrap;
+}
+
+.heatmap thead th {
+  text-align: center;
+  vertical-align: bottom;
+}
+
+.heatmap .cell {
+  width: 4.2rem;
+  height: 1.9rem;
+  border: none;
+  border-radius: 4px;
+  background: var(--surface-2);
+  font-size: 0.8rem;
+  padding: 0;
+}
+
+.heatmap .cell:disabled {
+  opacity: 1;
+}
+
+.heatmap .cell:not(:disabled):hover {
+  outline: 2px solid var(--accent);
+}
+
+.sessions-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.sessions-table th {
+  text-align: left;
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-weight: 500;
+  padding: 0.4rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.sessions-table td {
+  padding: 0.55rem 0.4rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.tag {
+  font-size: 0.72rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.tag-primary {
+  border-color: var(--viz-primary);
+  font-weight: 600;
+}
+
+.tag-tech {
+  border-style: dashed;
+}
+
+.tag-concept {
+  font-style: italic;
+}
+
+@media (max-width: 640px) {
+  .dimension-grid {
+    grid-template-columns: 1fr;
+  }
+  .bar-row {
+    grid-template-columns: 40% 1fr 4.5rem;
+  }
+  .sessions-table th:nth-child(3),
+  .sessions-table td:nth-child(3) {
+    display: none;
+  }
+}

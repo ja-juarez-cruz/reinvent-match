@@ -16,6 +16,7 @@ import { loadCatalog, saveCatalog } from "../catalog/cache.js";
 import { normalizeSession, type NormalizedSession } from "../catalog/normalize.js";
 import { matchSessions } from "../match/engine.js";
 import { TEMPLATES } from "../profile/templates.js";
+import { buildReport } from "../taxonomy/report.js";
 import { getProfile, listProfiles, saveProfile } from "../store/profiles.js";
 import { DECISIONS, loadSwipes, recordSwipe, type Decision } from "../store/swipes.js";
 import { syncFavorites } from "../sync/favorites.js";
@@ -149,6 +150,14 @@ export function createApp(ctx: AppContext) {
           }
         }
         return [...counts.values()].sort((a, b) => b.count - a.count);
+      },
+    ],
+    [
+      "GET",
+      /^\/api\/report\/([^/]+)$/,
+      async (_req, _url, [eventId]) => {
+        const { sessions, fetchedAt } = await sessionsFor(eventId!);
+        return buildReport(eventId!, fetchedAt, sessions);
       },
     ],
     ["GET", /^\/api\/templates$/, async () => TEMPLATES],

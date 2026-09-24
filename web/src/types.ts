@@ -111,3 +111,55 @@ export interface FavoritesSyncResult {
   failed: { sessionId: string; code: string; action: "add" | "remove" }[];
   favorites: string[];
 }
+
+export interface CountBucket {
+  id: string;
+  label: string;
+  count: number;
+}
+
+export interface TaggedSession {
+  id: string;
+  code: string;
+  title: string;
+  date: string | null;
+  startTime: string | null;
+  durationMin: number | null;
+  venue: string | null;
+  format: string;
+  formatLabel: string | null;
+  levelLabel: string | null;
+  track: { code: string; label: string } | null;
+  primaryDomain: string;
+  domains: string[];
+  aiSubtopics: string[];
+  technologies: string[];
+  audiences: string[];
+  learningStyle: string;
+  contentTypes: string[];
+  concepts: string[];
+  level: string;
+}
+
+export type DimensionKey =
+  | "primaryDomain"
+  | "domain"
+  | "aiSubtopic"
+  | "technology"
+  | "audience"
+  | "learningStyle"
+  | "contentType"
+  | "concept"
+  | "level"
+  | "track"
+  | "day"
+  | "venue";
+
+export interface CatalogReport {
+  eventId: string;
+  fetchedAt: string;
+  total: number;
+  quality: { label: string; count: number }[];
+  dimensions: Record<DimensionKey, CountBucket[]>;
+  sessions: TaggedSession[];
+}
