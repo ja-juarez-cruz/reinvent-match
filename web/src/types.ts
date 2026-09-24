@@ -1,36 +1,6 @@
 // Shapes returned by the local Re:Match server (src/server/app.ts).
 
-export type Bucket = "know" | "grow" | "explore" | "ignore";
-export type Category = "deep-dive" | "growth" | "foundation" | "discovery" | "skip";
 export type Decision = "like" | "pass" | "save";
-export type Goal = "deepen-known" | "learn-new" | "architecture-role" | "hands-on" | "networking";
-
-export interface Interest {
-  name: string;
-  bucket: Bucket;
-  proficiency?: number;
-  keywords?: string[];
-}
-
-export interface Profile {
-  name?: string;
-  goals: Goal[];
-  interests: Interest[];
-  formatPreferences: Record<string, number>;
-  weights: Record<string, number>;
-}
-
-export interface StoredProfile {
-  id: string;
-  profile: Profile;
-}
-
-export interface ProfileTemplate {
-  id: string;
-  title: string;
-  description: string;
-  profile: Profile;
-}
 
 export interface AwsEvent {
   eventId: string;
@@ -45,12 +15,6 @@ export interface CatalogStatus {
   downloaded: boolean;
   fetchedAt?: string;
   count?: number;
-}
-
-export interface VocabEntry {
-  label: string;
-  kind: "topic" | "service" | "area";
-  count: number;
 }
 
 export interface Reason {
@@ -78,20 +42,7 @@ export interface Session {
   };
 }
 
-export interface MatchResult {
-  category: Category;
-  score: number;
-  reasons: Reason[];
-  session: Session;
-}
-
 export type SwipeLog = Record<string, { decision: Decision; at: string }>;
-
-export interface MatchResponse {
-  fetchedAt: string;
-  results: MatchResult[];
-  swipes: SwipeLog;
-}
 
 export interface SessionInfo {
   signedIn: boolean;
@@ -162,4 +113,62 @@ export interface CatalogReport {
   quality: { label: string; count: number }[];
   dimensions: Record<DimensionKey, CountBucket[]>;
   sessions: TaggedSession[];
+}
+
+export type SelfLevel = "basic" | "intermediate" | "advanced";
+export type Intent = "reinforce" | "broaden" | "learn";
+
+export interface Answers {
+  name?: string;
+  known: string[];
+  learn: string[];
+  level: SelfLevel;
+  formats: string[];
+}
+
+export interface OnboardingOptions {
+  maxKnown: number;
+  maxLearn: number;
+  levels: SelfLevel[];
+  formats: { id: string; label: string }[];
+}
+
+export interface VocabularyEntry {
+  key: string;
+  label: string;
+  count: number;
+  domain?: string;
+}
+
+export interface Vocabulary {
+  domains: VocabularyEntry[];
+  technologies: VocabularyEntry[];
+  concepts: VocabularyEntry[];
+}
+
+export interface PlanItem {
+  intent: Intent;
+  score: number;
+  reasons: Reason[];
+  session: Session & { format: string };
+  keys: string[];
+  learningStyle: string;
+}
+
+export interface PlanContext {
+  known: string[];
+  learn: string[];
+  knownDomains: string[];
+  neighborDomains: string[];
+  techDomain: Record<string, string>;
+  labels: Record<string, string>;
+}
+
+export interface PlanResponse {
+  fetchedAt: string;
+  answers: Answers;
+  results: PlanItem[];
+  hidden: { format: number; tooBasic: number; other: number };
+  context: PlanContext;
+  swipes: SwipeLog;
 }

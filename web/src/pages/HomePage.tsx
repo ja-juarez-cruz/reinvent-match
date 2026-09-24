@@ -112,7 +112,7 @@ export function HomePage({ session, events, eventId, onSelectEvent, onSignIn }: 
                       Explore the catalog
                     </button>
                     <button className="primary" onClick={() => navigate("profile")}>
-                      Next: your profile →
+                      Next: about you →
                     </button>
                   </>
                 )}

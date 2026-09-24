@@ -40,9 +40,9 @@ Esto compila la interfaz y abre Re:Match en tu navegador en `http://127.0.0.1:84
 
 1. **Evento:** eliges re:Invent (inicias sesión con tu AWS Builder ID) o el catálogo público de un Summit, y lo descargas.
    **Insights:** cada sesión etiquetada en nueve dimensiones (tema, tecnología, audiencia, estilo de aprendizaje, tipo de contenido, concepto, nivel…) con gráficas para ir al detalle. Ver [docs/TAXONOMY.es.md](docs/TAXONOMY.es.md).
-2. **Perfil:** partes de una plantilla o de un perfil guardado; acomodas los temas del catálogo en Know / Grow / Explore / Ignore con tu dominio en cada uno.
-3. **Swipe:** una sesión a la vez con su categoría, match y razones. ← no es para mí · ↓ quizá · → me interesa · U deshacer.
-4. **Shortlist:** tus elegidas por día, con los choques de horario marcados, y un clic para mandar tus ❤️ a tus favoritos oficiales de re:Invent.
+2. **Sobre ti:** cuatro preguntas. Lo que ya sabes (hasta 8 temas, tecnologías o prácticas de la taxonomía), lo que quieres aprender (opcional, hasta 5), el nivel con el que te identificas (básico, intermedio, alto) y los formatos que quieres (uno, varios o todos).
+3. **Swipe:** tu pre-lista dividida en 💪 **Reforzar** (lo que sabes, a tu nivel o más arriba), 🧭 **Ampliar** (lo que sabes, llevado a temas vecinos) y 🌱 **Aprender** (temas nuevos a un nivel de entrada adecuado para ti). Cada tarjeta dice por qué. ← no es para mí · ↓ quizá · → me interesa · U deshacer. Al lado, **Tu plan de aprendizaje** se llena con cada ❤️: qué vas a reforzar, ampliar y aprender, las habilidades que vas a desarrollar, horas, sesiones hands-on y choques.
+4. **Shortlist:** tus elegidas por día con los choques marcados, el plan de aprendizaje y un clic para mandar tus ❤️ a tus favoritos oficiales de re:Invent.
 
 Tus datos se quedan en `~/.rematch/` (tokens que solo tú puedes leer, catálogos, perfiles y swipes).
 

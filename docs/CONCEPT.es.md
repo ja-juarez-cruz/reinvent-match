@@ -61,6 +61,26 @@ Además:
 
 Cada `name` puede ser una etiqueta del catálogo (`"AWS Lambda"`, `"Agentic AI"`) o un concepto libre (`"Multi-Region"`) que se busca en el título y el abstract. Los alias se resuelven solos: `"EKS"` encuentra `"Amazon Elastic Kubernetes Service (Amazon EKS)"`. Ejemplo completo: [`examples/profile.example.json`](../examples/profile.example.json).
 
+## 3b. Onboarding v2: preguntas en lugar del editor de perfil (implementado)
+
+La app hace cuatro preguntas en lugar de mostrar el editor Know/Grow/Explore/Ignore:
+
+1. **Lo que sabes:** hasta 8 etiquetas de la taxonomía (temas, tecnologías, prácticas). El límite obliga a elegir con precisión.
+2. **Lo que quieres aprender:** opcional, hasta 5. Sin esto, "Aprender" se infiere; la IA está en el 71% de las sesiones de re:Invent, así que nombrar un objetivo mantiene esa lista enfocada.
+3. **Nivel:** básico, intermedio o alto; se aplica a lo que sabes (apunta a 200 / 300 / 400) y a temas nuevos (100–200 / 200–300 / 300).
+4. **Formatos:** uno, varios o todos; es un filtro estricto.
+
+Cada sesión de los formatos elegidos recibe una intención (ver [`src/plan/plan.ts`](../src/plan/plan.ts)):
+
+| Intención | Regla |
+|---|---|
+| 💪 Reforzar | una etiqueta que conoces es central en la sesión y su tema principal es uno que conoces; se oculta si está dos o más niveles por debajo del tuyo |
+| 🌱 Aprender (explícito) | la sesión cubre algo que quieres aprender |
+| 🧭 Ampliar | usa lo que sabes en otro tema, o su tema principal es conocido o vecino de uno conocido |
+| 🌱 Aprender (inferido) | todo lo demás, solo si no nombraste objetivos de aprendizaje |
+
+**Tu plan de aprendizaje** convierte cada ❤️ en cuatro grupos: lo que **refuerzas** (etiquetas conocidas y tecnologías dentro de un tema conocido), lo que **amplías** (etiquetas nuevas junto a lo que sabes), lo que **aprendes** (tus objetivos y terreno nuevo) y las **habilidades** que desarrollas (conceptos de arquitectura e ingeniería). El comando `rematch match` sigue usando el modelo de perfil de §3.
+
 ## 4. Modelo de sesión
 
 La fuente es el objeto `Session` del [AWS Events API](https://docs.aws.amazon.com/events/latest/devguide/what-is-events-api.html) (ver §8). Ya trae casi todo lo necesario, así que la v1 **no necesita LLM** para enriquecer datos.

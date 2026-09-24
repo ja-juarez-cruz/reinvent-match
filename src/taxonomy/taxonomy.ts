@@ -333,3 +333,26 @@ export const LEVEL_BINS = [
   { id: "400+", label: "400–500 Expert" },
   { id: "none", label: "No level" },
 ] as const;
+
+/** Topics that sit next to each other: knowing one makes the other a natural way to broaden. */
+export const DOMAIN_NEIGHBORS: Record<string, string[]> = {
+  serverless: ["integration", "containers", "databases", "architecture", "observability", "devtools"],
+  integration: ["serverless", "analytics", "architecture", "databases"],
+  containers: ["serverless", "compute", "observability", "devtools", "networking"],
+  compute: ["containers", "hybrid", "cost", "ai"],
+  databases: ["analytics", "serverless", "storage", "integration", "migration"],
+  analytics: ["databases", "ai", "integration", "storage"],
+  storage: ["databases", "analytics", "compute"],
+  networking: ["security", "hybrid", "containers", "architecture"],
+  security: ["networking", "observability", "architecture"],
+  observability: ["architecture", "devtools", "cost", "security"],
+  devtools: ["observability", "ai", "serverless", "containers"],
+  architecture: ["serverless", "integration", "observability", "security", "cost", "databases"],
+  migration: ["architecture", "databases", "containers", "compute"],
+  cost: ["architecture", "observability", "compute"],
+  business: ["ai", "industry", "cost"],
+  hybrid: ["networking", "compute", "migration"],
+  industry: ["business", "ai"],
+  learning: ["devtools", "ai"],
+  ai: ["analytics", "devtools", "integration", "business"],
+};

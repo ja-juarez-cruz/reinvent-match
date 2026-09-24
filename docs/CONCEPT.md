@@ -61,6 +61,26 @@ Plus:
 
 Each `name` can be a catalog label (`"AWS Lambda"`, `"Agentic AI"`) or a free concept (`"Multi-Region"`) searched in titles and abstracts. Aliases resolve automatically: `"EKS"` finds `"Amazon Elastic Kubernetes Service (Amazon EKS)"`. Full example: [`examples/profile.example.json`](../examples/profile.example.json).
 
+## 3b. Onboarding v2: answers instead of a profile editor (implemented)
+
+The web app asks four questions instead of exposing the Know/Grow/Explore/Ignore editor:
+
+1. **What you know:** up to 8 tags from the taxonomy (topics, technologies, practices). The cap forces sharp picks.
+2. **What you want to learn:** optional, up to 5. Without it, "Learn" is inferred; AI is in 71% of re:Invent sessions, so naming a goal keeps that list focused.
+3. **Level:** basic, intermediate or advanced, applied to what you know (targets 200 / 300 / 400) and to new topics (100–200 / 200–300 / 300).
+4. **Formats:** one, several or all; a hard filter.
+
+Every session in the chosen formats gets one intent (see [`src/plan/plan.ts`](../src/plan/plan.ts)):
+
+| Intent | Rule |
+|---|---|
+| 💪 Reinforce | a known tag is central to the session and its main topic is one you know; hidden if two or more levels below yours |
+| 🌱 Learn (explicit) | the session covers something you want to learn |
+| 🧭 Broaden | uses what you know in another topic, or its main topic is known or next to a known one |
+| 🌱 Learn (inferred) | everything else, only when you did not name learning goals |
+
+**Your learning plan** turns every ❤️ into four groups: what you **reinforce** (known tags, and technologies inside a known topic), what you **broaden** (new tags next to what you know), what you **learn** (your goals and new ground) and the **skills** you develop (architecture and engineering concepts). The CLI `rematch match` still uses the profile model in §3.
+
 ## 4. Session model
 
 The source is the `Session` object from the [AWS Events API](https://docs.aws.amazon.com/events/latest/devguide/what-is-events-api.html) (see §8). It already carries almost everything needed, so v1 **needs no LLM** for enrichment.

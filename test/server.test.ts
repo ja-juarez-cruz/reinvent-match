@@ -102,3 +102,26 @@ describe("local server", () => {
     expect((await fetch(`${base}/callback?code=x&state=unknown`)).status).toBe(400);
   });
 });
+
+describe("onboarding and plan", () => {
+  it("rejects invalid answers and builds a plan from saved ones", async () => {
+    expect((await write("/api/answers/me", "PUT", { known: [], level: "basic", formats: ["chalk"] })).status).toBe(400);
+    const saved = await write("/api/answers/me", "PUT", {
+      known: ["domain:ai", "tech:Amazon Bedrock"],
+      level: "intermediate",
+      formats: ["workshop", "chalk", "code", "breakout"],
+    });
+    expect(saved.status).toBe(200);
+    const plan = await (await fetch(`${base}/api/plan/Summit-Dubai-2026?answers=me`)).json();
+    expect(plan.results.length).toBeGreaterThan(0);
+    expect(plan.results.every((r: { session: { format: string } }) => ["workshop", "chalk-talk", "code-talk", "breakout", "bootcamp", "dev-chat", "panel", "other"].includes(r.session.format))).toBe(true);
+    expect(plan.context.known).toEqual(["domain:ai", "tech:Amazon Bedrock"]);
+  });
+
+  it("serves the vocabulary and onboarding options", async () => {
+    const vocab = await (await fetch(`${base}/api/vocabulary/Summit-Dubai-2026`)).json();
+    expect(vocab.technologies.length).toBeGreaterThan(0);
+    const options = await (await fetch(`${base}/api/onboarding`)).json();
+    expect(options.maxKnown).toBe(8);
+  });
+});

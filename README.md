@@ -38,9 +38,9 @@ This builds the web UI and opens Re:Match in your browser at `http://127.0.0.1:8
 
 1. **Event:** pick re:Invent (sign in with your AWS Builder ID) or a public Summit catalog, and download it.
    **Insights:** every session tagged on nine dimensions (topic, technology, audience, learning style, content type, concept, level…) with drill-down charts. See [docs/TAXONOMY.md](docs/TAXONOMY.md).
-2. **Profile:** start from a template or a saved profile; sort catalog topics into Know / Grow / Explore / Ignore with a proficiency for each.
-3. **Swipe:** one session at a time with its category, match and reasons. ← not for me · ↓ maybe · → interested · U undo.
-4. **Shortlist:** your picks by day with overlaps flagged, and one click to send ❤️ to your official re:Invent favorites.
+2. **About you:** four questions. What you already know (up to 8 topics, technologies or practices from the taxonomy), what you want to learn (optional, up to 5), the level you identify with (basic, intermediate, advanced) and the formats you want (one, several or all).
+3. **Swipe:** your pre-list split into 💪 **Reinforce** (what you know, at your level or above), 🧭 **Broaden** (what you know, into neighboring topics) and 🌱 **Learn** (new ground at an entry level that fits you). Each card says why. ← not for me · ↓ maybe · → interested · U undo. Beside it, **Your learning plan** fills in with every ❤️: what you will reinforce, broaden and learn, the skills you will develop, hours, hands-on sessions and overlaps.
+4. **Shortlist:** your picks by day with overlaps flagged, the learning plan, and one click to send ❤️ to your official re:Invent favorites.
 
 Your data stays in `~/.rematch/` (tokens readable only by you, catalogs, profiles, swipes).
 
@@ -97,6 +97,7 @@ src/
 ├── profile/    profile schema and loading
 ├── match/      match engine, label aliasing, topic neighbor graph
 ├── taxonomy/   session tagging on nine dimensions and the catalog report
+├── plan/       onboarding answers and the Reinforce / Broaden / Learn pre-list
 └── cli.ts
 ```
 

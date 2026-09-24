@@ -1,20 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
 import { ApiError, api } from "../api";
 import { navigate } from "../App";
-import { CATEGORY_META, formatDay, formatTimeRange, overlaps, sessionInterval, venueOf } from "../format";
-import type { AwsEvent, Decision, FavoritesSyncResult, MatchResult, Schedule, SessionInfo } from "../types";
-import { useMatch } from "../useMatch";
+import { LearningPlanPanel } from "../components/LearningPlanPanel";
+import { formatDay, formatTimeRange, overlaps, sessionInterval, venueOf } from "../format";
+import { buildLearningPlan } from "../learningPlan";
+import type { AwsEvent, Decision, FavoritesSyncResult, PlanItem, Schedule, SessionInfo } from "../types";
+import { usePlan } from "../usePlan";
+import { INTENT_META } from "./SwipePage";
 
 interface Props {
   event: AwsEvent | null;
   eventId: string | null;
-  profileId: string | null;
+  answersId: string | null;
   session: SessionInfo | null;
   onSignIn: () => void;
 }
 
-export function ShortlistPage({ event, eventId, profileId, session, onSignIn }: Props) {
-  const { data, error, decide } = useMatch(eventId, profileId);
+export function ShortlistPage({ event, eventId, answersId, session, onSignIn }: Props) {
+  const { data, error, decide } = usePlan(eventId, answersId);
   const [schedule, setSchedule] = useState<Schedule | null>(null);
   const [sync, setSync] = useState<FavoritesSyncResult | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -41,7 +44,7 @@ export function ShortlistPage({ event, eventId, profileId, session, onSignIn }: 
   }, [data]);
 
   const days = useMemo(() => {
-    const groups = new Map<string, MatchResult[]>();
+    const groups = new Map<string, PlanItem[]>();
     for (const r of picked) {
       const day = r.session.schedule.date ?? "";
       groups.set(day, [...(groups.get(day) ?? []), r]);
@@ -66,20 +69,22 @@ export function ShortlistPage({ event, eventId, profileId, session, onSignIn }: 
     }
   }
 
-  if (!profileId) {
+  const plan = useMemo(() => (data ? buildLearningPlan(data.results, data.swipes, data.context) : null), [data]);
+
+  if (!answersId) {
     return (
       <section className="page">
         <div className="panel">
-          <p>Create a profile first, then swipe to build your shortlist.</p>
+          <p>Tell Re:Match about you first, then swipe to build your shortlist.</p>
           <button className="primary" onClick={() => navigate("profile")}>
-            Build your profile →
+            About you →
           </button>
         </div>
       </section>
     );
   }
   if (error) return <section className="page error">{error.message}</section>;
-  if (!data) return <section className="page muted">Loading your shortlist…</section>;
+  if (!data || !plan) return <section className="page muted">Loading your shortlist…</section>;
 
   return (
     <section className="page">
@@ -88,6 +93,8 @@ export function ShortlistPage({ event, eventId, profileId, session, onSignIn }: 
         {liked.length} interested · {picked.length - liked.length} maybe. Overlapping sessions are flagged so you can
         decide before reserving; the agenda builder comes next.
       </p>
+
+      <LearningPlanPanel plan={plan} />
 
       {event?.authenticationRequired && (
         <div className="panel sync-panel">
@@ -147,7 +154,9 @@ export function ShortlistPage({ event, eventId, profileId, session, onSignIn }: 
                   <div className="slot-time">{formatTimeRange(s)}</div>
                   <div className="slot-body">
                     <div>
-                      <span className={`badge small cat-${r.category}`}>{CATEGORY_META[r.category].icon}</span>{" "}
+                      <span className={`badge small intent-${r.intent}`} title={INTENT_META[r.intent].label}>
+                        {INTENT_META[r.intent].icon}
+                      </span>{" "}
                       <strong>{s.title}</strong>
                       {favorites.has(s.id) && <span className="pill pill-ok small">★ favorite</span>}
                     </div>

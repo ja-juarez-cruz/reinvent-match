@@ -15,7 +15,10 @@ import { NotSignedInError, type AuthSession, type TokenStore } from "../auth/ses
 import { loadCatalog, saveCatalog } from "../catalog/cache.js";
 import { normalizeSession, type NormalizedSession } from "../catalog/normalize.js";
 import { matchSessions } from "../match/engine.js";
+import { FORMAT_CHOICES, LEVELS, MAX_KNOWN, MAX_LEARN } from "../plan/answers.js";
+import { buildPlan, buildVocabulary } from "../plan/plan.js";
 import { TEMPLATES } from "../profile/templates.js";
+import { getAnswers, listAnswers, saveAnswers } from "../store/answers.js";
 import { buildReport } from "../taxonomy/report.js";
 import { getProfile, listProfiles, saveProfile } from "../store/profiles.js";
 import { DECISIONS, loadSwipes, recordSwipe, type Decision } from "../store/swipes.js";
@@ -158,6 +161,39 @@ export function createApp(ctx: AppContext) {
       async (_req, _url, [eventId]) => {
         const { sessions, fetchedAt } = await sessionsFor(eventId!);
         return buildReport(eventId!, fetchedAt, sessions);
+      },
+    ],
+    [
+      "GET",
+      /^\/api\/onboarding$/,
+      async () => ({
+        maxKnown: MAX_KNOWN,
+        maxLearn: MAX_LEARN,
+        levels: LEVELS,
+        formats: FORMAT_CHOICES.map(({ id, label }) => ({ id, label })),
+      }),
+    ],
+    [
+      "GET",
+      /^\/api\/vocabulary\/([^/]+)$/,
+      async (_req, _url, [eventId]) => buildVocabulary((await sessionsFor(eventId!)).sessions),
+    ],
+    ["GET", /^\/api\/answers$/, async () => listAnswers()],
+    [
+      "PUT",
+      /^\/api\/answers\/([^/]+)$/,
+      async (req, _url, [id]) => ({ id, answers: await saveAnswers(id!, await readBody(req)) }),
+    ],
+    [
+      "GET",
+      /^\/api\/plan\/([^/]+)$/,
+      async (_req, url, [eventId]) => {
+        const id = url.searchParams.get("answers");
+        if (!id) throw new HttpError(400, "answers-required", "Tell Re:Match about yourself first.");
+        const answers = await getAnswers(id);
+        if (!answers) throw new HttpError(404, "answers-missing", `No answers saved as ${id}.`);
+        const [{ sessions, fetchedAt }, swipes] = await Promise.all([sessionsFor(eventId!), loadSwipes(eventId!)]);
+        return { fetchedAt, answers, ...buildPlan(sessions, answers), swipes };
       },
     ],
     ["GET", /^\/api\/templates$/, async () => TEMPLATES],

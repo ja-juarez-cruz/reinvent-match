@@ -1,12 +1,4 @@
-import type { Category, Session } from "./types";
-
-export const CATEGORY_META: Record<Category, { label: string; icon: string; hint: string }> = {
-  "deep-dive": { label: "Deep Dive", icon: "🔥", hint: "Takes what you already know further" },
-  growth: { label: "Growth", icon: "🚀", hint: "Where you want to go next" },
-  foundation: { label: "Foundation", icon: "📚", hint: "Solid ground before going deep" },
-  discovery: { label: "Discovery", icon: "🧭", hint: "You might not have searched for it" },
-  skip: { label: "Skip", icon: "⏭️", hint: "Probably not worth your time" },
-};
+import type { Session } from "./types";
 
 const DAY = new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
 
@@ -46,14 +38,3 @@ export function venueOf(s: Session): string {
   return s.schedule.venue ?? s.schedule.room?.split("|")[0]?.trim() ?? "Venue TBA";
 }
 
-export function slugify(text: string): string {
-  return (
-    text
-      .normalize("NFD")
-      .replace(/[̀-ͯ]/g, "")
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "")
-      .slice(0, 40) || "my-profile"
-  );
-}

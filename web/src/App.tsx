@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "./api";
+import { AboutYouPage } from "./pages/AboutYouPage";
 import { HomePage } from "./pages/HomePage";
 import { InsightsPage } from "./pages/InsightsPage";
-import { ProfilePage } from "./pages/ProfilePage";
 import { ShortlistPage } from "./pages/ShortlistPage";
 import { SwipePage } from "./pages/SwipePage";
 import type { AwsEvent, SessionInfo } from "./types";
@@ -22,7 +22,7 @@ export function navigate(route: Route): void {
 const STEPS: { route: Route; label: string }[] = [
   { route: "home", label: "1 · Event" },
   { route: "insights", label: "Insights" },
-  { route: "profile", label: "2 · Profile" },
+  { route: "profile", label: "2 · About you" },
   { route: "swipe", label: "3 · Swipe" },
   { route: "shortlist", label: "4 · Shortlist" },
 ];
@@ -32,7 +32,7 @@ export function App() {
   const [session, setSession] = useState<SessionInfo | null>(null);
   const [events, setEvents] = useState<AwsEvent[]>([]);
   const [eventId, setEventId] = useStored("rematch.event", "reinvent2026");
-  const [profileId, setProfileId] = useStored("rematch.profile", null);
+  const [answersId, setAnswersId] = useStored("rematch.answers", null);
   const [justSignedIn, setJustSignedIn] = useState(window.location.hash.includes("signed-in"));
 
   const refreshSession = useCallback(() => api.session().then(setSession), []);
@@ -108,12 +108,10 @@ export function App() {
           />
         )}
         {route === "insights" && <InsightsPage event={event} eventId={eventId} />}
-        {route === "profile" && (
-          <ProfilePage eventId={eventId} profileId={profileId} onSelectProfile={setProfileId} />
-        )}
-        {route === "swipe" && <SwipePage event={event} eventId={eventId} profileId={profileId} />}
+        {route === "profile" && <AboutYouPage eventId={eventId} answersId={answersId} onSaved={setAnswersId} />}
+        {route === "swipe" && <SwipePage event={event} eventId={eventId} answersId={answersId} />}
         {route === "shortlist" && (
-          <ShortlistPage event={event} eventId={eventId} profileId={profileId} session={session} onSignIn={signIn} />
+          <ShortlistPage event={event} eventId={eventId} answersId={answersId} session={session} onSignIn={signIn} />
         )}
       </main>
 

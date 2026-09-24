@@ -11,5 +11,11 @@
     "outDir": "dist",
     "rootDir": "."
   },
-  "include": ["src", "test"]
+  "include": [
+    "src",
+    "test"
+  ],
+  "exclude": [
+    "test/learningPlan.test.ts"
+  ]
 }

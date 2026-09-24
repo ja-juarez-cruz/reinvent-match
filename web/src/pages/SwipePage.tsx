@@ -1,41 +1,44 @@
 import { useEffect, useMemo, useState } from "react";
 import { navigate } from "../App";
-import { CATEGORY_META, formatDay, formatTimeRange, venueOf } from "../format";
-import type { AwsEvent, Category, Decision, MatchResult } from "../types";
-import { useMatch } from "../useMatch";
+import { LearningPlanPanel } from "../components/LearningPlanPanel";
+import { formatDay, formatTimeRange, venueOf } from "../format";
+import { buildLearningPlan } from "../learningPlan";
+import type { AwsEvent, Decision, Intent, PlanItem } from "../types";
+import { usePlan } from "../usePlan";
 
 interface Props {
   event: AwsEvent | null;
   eventId: string | null;
-  profileId: string | null;
+  answersId: string | null;
 }
 
-const TABS: Category[] = ["deep-dive", "growth", "foundation", "discovery"];
+export const INTENT_META: Record<Intent, { label: string; icon: string; hint: string }> = {
+  reinforce: { label: "Reinforce", icon: "💪", hint: "Go deeper on what you already know, at your level or above." },
+  broaden: { label: "Broaden", icon: "🧭", hint: "Take what you know into neighboring topics." },
+  learn: { label: "Learn", icon: "🌱", hint: "New topics, at an entry level that fits your experience." },
+};
+
+const TABS: Intent[] = ["reinforce", "broaden", "learn"];
 const REASON_ICON = { pro: "✅", con: "⚠️", info: "ℹ️" } as const;
 
-export function SwipePage({ event, eventId, profileId }: Props) {
-  const { data, error, decide } = useMatch(eventId, profileId);
-  const [tab, setTab] = useState<Category>("deep-dive");
+export function SwipePage({ event, eventId, answersId }: Props) {
+  const { data, error, decide } = usePlan(eventId, answersId);
+  const [tab, setTab] = useState<Intent>("reinforce");
   const [history, setHistory] = useState<string[]>([]);
   const [expanded, setExpanded] = useState(false);
 
-  const byCategory = useMemo(() => {
-    const groups = new Map<Category, MatchResult[]>();
-    for (const r of data?.results ?? []) groups.set(r.category, [...(groups.get(r.category) ?? []), r]);
+  const byIntent = useMemo(() => {
+    const groups = new Map<Intent, PlanItem[]>();
+    for (const r of data?.results ?? []) groups.set(r.intent, [...(groups.get(r.intent) ?? []), r]);
     return groups;
   }, [data]);
 
   const queue = useMemo(
-    () => (byCategory.get(tab) ?? []).filter((r) => !data?.swipes[r.session.id]),
-    [byCategory, tab, data],
+    () => (byIntent.get(tab) ?? []).filter((r) => !data?.swipes[r.session.id]),
+    [byIntent, tab, data],
   );
   const current = queue[0];
-
-  const tally = useMemo(() => {
-    const counts = { like: 0, save: 0, pass: 0 };
-    for (const s of Object.values(data?.swipes ?? {})) counts[s.decision] += 1;
-    return counts;
-  }, [data]);
+  const plan = useMemo(() => (data ? buildLearningPlan(data.results, data.swipes, data.context) : null), [data]);
 
   async function act(decision: Decision) {
     if (!current) return;
@@ -48,8 +51,8 @@ export function SwipePage({ event, eventId, profileId }: Props) {
     const last = history.at(-1);
     if (!last) return;
     setHistory((h) => h.slice(0, -1));
-    const result = data?.results.find((r) => r.session.id === last);
-    if (result) setTab(result.category === "skip" ? tab : result.category);
+    const item = data?.results.find((r) => r.session.id === last);
+    if (item) setTab(item.intent);
     await decide(last, null);
   }
 
@@ -67,13 +70,13 @@ export function SwipePage({ event, eventId, profileId }: Props) {
     return () => window.removeEventListener("keydown", onKey);
   });
 
-  if (!profileId) {
+  if (!answersId) {
     return (
       <section className="page">
         <div className="panel">
-          <p>Create a profile first so Re:Match knows what fits you.</p>
+          <p>Tell Re:Match what you know first; it builds your pre-list from that.</p>
           <button className="primary" onClick={() => navigate("profile")}>
-            Build your profile →
+            About you →
           </button>
         </div>
       </section>
@@ -91,105 +94,102 @@ export function SwipePage({ event, eventId, profileId }: Props) {
       </section>
     );
   }
-  if (!data) return <section className="page muted">Matching {event?.name ?? "sessions"}…</section>;
+  if (!data || !plan) return <section className="page muted">Building your pre-list for {event?.name ?? "the event"}…</section>;
 
   const s = current?.session;
-  const meta = current ? CATEGORY_META[current.category] : null;
+  const meta = INTENT_META[tab];
 
   return (
-    <section className="page swipe-page">
-      <div className="swipe-head">
-        <div className="tabs">
-          {TABS.map((c) => {
-            const all = byCategory.get(c) ?? [];
-            const left = all.filter((r) => !data.swipes[r.session.id]).length;
-            return (
-              <button key={c} className={`tab ${tab === c ? "active" : ""}`} onClick={() => setTab(c)}>
-                {CATEGORY_META[c].icon} {CATEGORY_META[c].label}
-                <span className="count">{left}</span>
-              </button>
-            );
-          })}
-        </div>
-        <div className="tally">
-          ❤️ {tally.like} · 🔖 {tally.save} · ❌ {tally.pass}
+    <section className="page swipe-layout">
+      <div className="swipe-main">
+        <div className="swipe-head">
+          <div className="tabs">
+            {TABS.map((i) => {
+              const left = (byIntent.get(i) ?? []).filter((r) => !data.swipes[r.session.id]).length;
+              return (
+                <button key={i} className={`tab ${tab === i ? "active" : ""}`} onClick={() => setTab(i)}>
+                  {INTENT_META[i].icon} {INTENT_META[i].label}
+                  <span className="count">{left}</span>
+                </button>
+              );
+            })}
+          </div>
           <button className="ghost small" onClick={() => navigate("shortlist")}>
             Shortlist →
           </button>
         </div>
-      </div>
-      <p className="muted small">{meta ? meta.hint : CATEGORY_META[tab].hint}</p>
+        <p className="muted small">
+          {meta.hint} {data.hidden.format > 0 && `${data.hidden.format} sessions hidden by your format choices.`}{" "}
+          {data.hidden.tooBasic > 0 && `${data.hidden.tooBasic} too basic for your level.`}
+        </p>
 
-      {!current || !s || !meta ? (
-        <div className="panel empty">
-          <p>
-            You've reviewed every {CATEGORY_META[tab].label} session. Pick another tab or check your shortlist.
-          </p>
-        </div>
-      ) : (
-        <article className={`card cat-${current.category}`} key={s.id}>
-          <div className="card-top">
-            <span className={`badge cat-${current.category}`}>
-              {meta.icon} {meta.label}
-            </span>
-            <span className="score" title="Personal match">
-              {current.score}%
-            </span>
+        {!current || !s ? (
+          <div className="panel empty">
+            <p>You've reviewed every session in {meta.label}. Pick another tab or check your shortlist.</p>
           </div>
-          <div className="code muted small">
-            {s.code}
-            {s.isSponsored ? " · Sponsored" : ""}
-          </div>
-          <h2 className="card-title">{s.title}</h2>
-          <div className="meta">
-            <span>{s.formatLabel ?? s.format}</span>
-            {s.levelLabel && <span>{s.levelLabel}</span>}
-            <span>
-              {formatDay(s.schedule.date)} · {formatTimeRange(s)}
-            </span>
-            <span>{venueOf(s)}</span>
-          </div>
-
-          <ul className="reasons">
-            {current.reasons.map((r, i) => (
-              <li key={i} className={`reason reason-${r.kind}`}>
-                <span>{REASON_ICON[r.kind]}</span> {r.text}
-              </li>
-            ))}
-          </ul>
-
-          <p className={`abstract ${expanded ? "open" : ""}`}>{s.abstract}</p>
-          {s.abstract.length > 280 && (
-            <button className="link small" onClick={() => setExpanded((x) => !x)}>
-              {expanded ? "Show less" : "Read full abstract"}
-            </button>
-          )}
-          {s.speakers.length > 0 && <p className="muted small">🎤 {s.speakers.join(" · ")}</p>}
-
-          <div className="actions">
-            <button className="act pass" onClick={() => act("pass")} title="Not for me (←)">
-              ❌ <span>Not for me</span>
-            </button>
-            <button className="act save" onClick={() => act("save")} title="Maybe (↓)">
-              🔖 <span>Maybe</span>
-            </button>
-            <button className="act like" onClick={() => act("like")} title="Interested (→)">
-              ❤️ <span>Interested</span>
-            </button>
-          </div>
-          <div className="keys muted small">
-            ← not for me · ↓ maybe · → interested · U undo
-            {history.length > 0 && (
-              <button className="link small" onClick={undo}>
-                Undo last
+        ) : (
+          <article className={`card intent-${current.intent}`} key={s.id}>
+            <div className="card-top">
+              <span className={`badge intent-${current.intent}`}>
+                {INTENT_META[current.intent].icon} {INTENT_META[current.intent].label}
+              </span>
+              <span className="score" title="How well it fits your answers">
+                {current.score}%
+              </span>
+            </div>
+            <div className="code muted small">
+              {s.code}
+              {s.isSponsored ? " · Sponsored" : ""}
+            </div>
+            <h2 className="card-title">{s.title}</h2>
+            <div className="meta">
+              <span>{s.formatLabel ?? s.format}</span>
+              {s.levelLabel && <span>{s.levelLabel}</span>}
+              <span>
+                {formatDay(s.schedule.date)} · {formatTimeRange(s)}
+              </span>
+              <span>{venueOf(s)}</span>
+            </div>
+            <ul className="reasons">
+              {current.reasons.map((r, i) => (
+                <li key={i} className={`reason reason-${r.kind}`}>
+                  <span>{REASON_ICON[r.kind]}</span> {r.text}
+                </li>
+              ))}
+            </ul>
+            <p className={`abstract ${expanded ? "open" : ""}`}>{s.abstract}</p>
+            {s.abstract.length > 280 && (
+              <button className="link small" onClick={() => setExpanded((x) => !x)}>
+                {expanded ? "Show less" : "Read full abstract"}
               </button>
             )}
-          </div>
-        </article>
-      )}
-      <p className="muted small center">
-        {queue.length} left in {CATEGORY_META[tab].label}
-      </p>
+            {s.speakers.length > 0 && <p className="muted small">🎤 {s.speakers.join(" · ")}</p>}
+            <div className="actions">
+              <button className="act pass" onClick={() => act("pass")} title="Not for me (←)">
+                ❌ <span>Not for me</span>
+              </button>
+              <button className="act save" onClick={() => act("save")} title="Maybe (↓)">
+                🔖 <span>Maybe</span>
+              </button>
+              <button className="act like" onClick={() => act("like")} title="Interested (→)">
+                ❤️ <span>Interested</span>
+              </button>
+            </div>
+            <div className="keys muted small">
+              ← not for me · ↓ maybe · → interested · U undo
+              {history.length > 0 && (
+                <button className="link small" onClick={undo}>
+                  Undo last
+                </button>
+              )}
+            </div>
+          </article>
+        )}
+        <p className="muted small center">
+          {queue.length} left in {meta.label}
+        </p>
+      </div>
+      <LearningPlanPanel plan={plan} compact />
     </section>
   );
 }

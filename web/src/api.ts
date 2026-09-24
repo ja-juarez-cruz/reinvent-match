@@ -1,17 +1,16 @@
 import type {
+  Answers,
   AwsEvent,
   CatalogReport,
   CatalogStatus,
   Decision,
   FavoritesSyncResult,
-  MatchResponse,
-  Profile,
-  ProfileTemplate,
+  OnboardingOptions,
+  PlanResponse,
   Schedule,
   SessionInfo,
-  StoredProfile,
   SwipeLog,
-  VocabEntry,
+  Vocabulary,
 } from "./types";
 
 export class ApiError extends Error {
@@ -46,13 +45,14 @@ export const api = {
   events: () => call<AwsEvent[]>("GET", "/api/events"),
   catalog: (eventId: string) => call<CatalogStatus>("GET", `/api/catalog/${enc(eventId)}`),
   refreshCatalog: (eventId: string) => call<CatalogStatus>("POST", `/api/catalog/${enc(eventId)}/refresh`),
-  vocab: (eventId: string) => call<VocabEntry[]>("GET", `/api/catalog/${enc(eventId)}/vocab`),
   report: (eventId: string) => call<CatalogReport>("GET", `/api/report/${enc(eventId)}`),
-  templates: () => call<ProfileTemplate[]>("GET", "/api/templates"),
-  profiles: () => call<StoredProfile[]>("GET", "/api/profiles"),
-  saveProfile: (id: string, profile: Profile) => call<StoredProfile>("PUT", `/api/profiles/${enc(id)}`, profile),
-  match: (eventId: string, profileId: string) =>
-    call<MatchResponse>("GET", `/api/match/${enc(eventId)}?profile=${enc(profileId)}`),
+  onboarding: () => call<OnboardingOptions>("GET", "/api/onboarding"),
+  vocabulary: (eventId: string) => call<Vocabulary>("GET", `/api/vocabulary/${enc(eventId)}`),
+  answers: () => call<{ id: string; answers: Answers }[]>("GET", "/api/answers"),
+  saveAnswers: (id: string, answers: Answers) =>
+    call<{ id: string; answers: Answers }>("PUT", `/api/answers/${enc(id)}`, answers),
+  plan: (eventId: string, answersId: string) =>
+    call<PlanResponse>("GET", `/api/plan/${enc(eventId)}?answers=${enc(answersId)}`),
   swipe: (eventId: string, sessionId: string, decision: Decision | null) =>
     call<SwipeLog>("PUT", `/api/swipes/${enc(eventId)}/${enc(sessionId)}`, { decision }),
   schedule: (eventId: string) => call<Schedule>("GET", `/api/schedule/${enc(eventId)}`),
