@@ -55,3 +55,19 @@ describe("normalizeSession", () => {
     expect(deep.archDepth).toBe(3);
   });
 });
+
+describe("venue and repeats", () => {
+  it("takes the venue from the room when the venue field is missing", () => {
+    const s = session({ room: "Wynn/Encore | Upper Convention Promenade | Cristal 2" });
+    expect(s.schedule.venue).toBe("Wynn/Encore");
+    expect(session({ venue: "MGM Grand", room: "Level 3 | Room 304" }).schedule.venue).toBe("MGM Grand");
+    expect(session({ room: "Room 304" }).schedule.venue).toBeNull();
+  });
+
+  it("flags -R codes as likely to repeat and maps bootcamps as hands-on", () => {
+    expect(session({ abbreviation: "ARC409-R" }).mayRepeat).toBe(true);
+    const bootcamp = session({ type: "Bootcamp" });
+    expect(bootcamp.format).toBe("bootcamp");
+    expect(bootcamp.handsOn).toBe(true);
+  });
+});

@@ -165,7 +165,7 @@ describe("EventsClient with auth", () => {
     const fetchImpl = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(jsonResponse({ message: "expired" }, 401))
-      .mockResolvedValueOnce(jsonResponse({ reserved: [], favorites: [], personalTime: [] }));
+      .mockResolvedValueOnce(jsonResponse({ schedule: { reserved: [], favorites: [], personalTime: [] } }));
 
     await new EventsClient({ fetchImpl, getAccessToken }).getSchedule("reinvent2026");
 

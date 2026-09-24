@@ -47,11 +47,13 @@ export class EventsClient {
   }
 
   async getEvent(eventId: string): Promise<AwsEvent> {
-    return this.get<AwsEvent>(`/v1/events/${encodeURIComponent(eventId)}`);
+    const res = await this.get<{ event: AwsEvent }>(`/v1/events/${encodeURIComponent(eventId)}`);
+    return res.event;
   }
 
   async getSchedule(eventId: string): Promise<Schedule> {
-    return this.get<Schedule>(`/v1/events/${encodeURIComponent(eventId)}/schedule`);
+    const res = await this.get<{ schedule: Schedule }>(`/v1/events/${encodeURIComponent(eventId)}/schedule`);
+    return res.schedule;
   }
 
   /** Walks every page of an event's catalog. The API returns at most 250 sessions per page. */

@@ -132,3 +132,15 @@ describe("real catalog (Summit Dubai 2026 snapshot)", () => {
     }
   });
 });
+
+describe("confidence", () => {
+  it("scores abstract-only evidence below the same session tagged in the catalog", () => {
+    const base = { type: "Chalk talk", level: "300 – Advanced" };
+    const tagged = matchSession(session({ ...base, areasOfInterest: ["Multi-Region"] }), serverlessEngineer);
+    const mentioned = matchSession(
+      session({ ...base, abstract: "We touch on multi-region briefly." }),
+      serverlessEngineer,
+    );
+    expect(mentioned.score).toBeLessThan(tagged.score);
+  });
+});

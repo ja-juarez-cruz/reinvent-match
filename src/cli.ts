@@ -237,7 +237,8 @@ function printSummary(results: MatchResult[]): void {
 function printResult(r: MatchResult, explain: boolean): void {
   const s = r.session;
   const when = [s.schedule.date, s.schedule.startTime].filter(Boolean).join(" ");
-  const where = [s.schedule.venue, s.schedule.room].filter(Boolean).join(", ");
+  const { venue, room } = s.schedule;
+  const where = venue && room?.startsWith(venue) ? room : [venue, room].filter(Boolean).join(", ");
   console.log(`  ${String(r.score).padStart(3)}%  ${s.code.padEnd(10)} ${s.title}`);
   console.log(`        ${[s.formatLabel, s.levelLabel, when, where].filter(Boolean).join(" · ")}`);
   if (explain) {

@@ -6,6 +6,7 @@ export type Level = 0 | 1 | 2 | 3;
 
 export type Format =
   | "workshop"
+  | "bootcamp"
   | "builders-session"
   | "chalk-talk"
   | "code-talk"
@@ -33,6 +34,8 @@ export interface NormalizedSession {
   discussion: boolean;
   isCustomerStory: boolean;
   isSponsored: boolean;
+  /** Codes ending in -R mark sessions AWS plans to repeat; the other instance may not be published yet. */
+  mayRepeat: boolean;
   /** 0-3: how much the session is about design decisions rather than implementation. */
   archDepth: Level;
   /** Catalog labels the session is tagged with: topics, areas of interest and services. */
@@ -68,6 +71,7 @@ const FORMAT_PATTERNS: [Format, RegExp][] = [
   ["chalk-talk", /chalk|charlas? explicativas?/],
   ["code-talk", /code talk|charlas? de codigo/],
   ["workshop", /workshop|taller/],
+  ["bootcamp", /bootcamp/],
   ["lab", /\blabs?\b|laboratorio/],
   ["dev-chat", /dev chat/],
   ["gamified", /gamified|jam|gameday/],
@@ -125,10 +129,12 @@ export function normalizeSession(session: Session): NormalizedSession {
     levelLabel: session.level ?? null,
     format,
     formatLabel: session.type ?? null,
-    handsOn: features.includes("hands-on") || ["workshop", "lab", "builders-session", "gamified"].includes(format),
+    handsOn:
+      features.includes("hands-on") || ["workshop", "bootcamp", "lab", "builders-session", "gamified"].includes(format),
     discussion: features.includes("discussion") || ["chalk-talk", "builders-session", "dev-chat"].includes(format),
     isCustomerStory:
       features.includes("customer story") || /^how [a-z0-9]|lessons learned|journey to|'s journey/.test(normalizeText(title)),
+    mayRepeat: /-R\d*$/.test(session.abbreviation ?? ""),
     isSponsored: /-S$/.test(session.abbreviation ?? "") || /\(sponsored by /i.test(title),
     archDepth: estimateArchDepth(text, topics),
     tags: unique([...topics, ...(session.areasOfInterest ?? []), ...services]),
@@ -140,7 +146,7 @@ export function normalizeSession(session: Session): NormalizedSession {
       startTime: session.sessionTime?.time ?? null,
       durationMin: Number.isFinite(duration) && duration > 0 ? duration : null,
       timezone: session.sessionTime?.timezone ?? null,
-      venue: session.venue ?? null,
+      venue: session.venue ?? venueFromRoom(session.room),
       room: session.room ?? null,
       allDay: session.isAllDaySession ?? false,
     },
@@ -148,6 +154,12 @@ export function normalizeSession(session: Session): NormalizedSession {
     seatAvailability: session.seatAvailability ?? null,
     speakers: (session.speakers ?? []).map((s) => s.name ?? "").filter(Boolean),
   };
+}
+
+/** Some sessions carry the venue only as the first segment of the room: "Wynn/Encore | Upper Convention Promenade | …". */
+export function venueFromRoom(room: string | undefined): string | null {
+  const first = room?.split("|")[0]?.trim();
+  return first && room?.includes("|") ? first : null;
 }
 
 function unique<T>(values: T[]): T[] {

@@ -71,6 +71,7 @@ const BUCKET_NAMES: Record<Bucket, string> = {
 const IRREPLACEABILITY: Record<Format, number> = {
   "builders-session": 1,
   workshop: 1,
+  bootcamp: 1,
   "chalk-talk": 0.95,
   gamified: 0.9,
   lab: 0.7,
@@ -88,6 +89,7 @@ const IRREPLACEABILITY: Record<Format, number> = {
 const FORMAT_NAMES: Record<Format, string> = {
   "builders-session": "Builders' session",
   workshop: "Workshop",
+  bootcamp: "Bootcamp",
   "chalk-talk": "Chalk talk",
   gamified: "Gamified session",
   lab: "Lab",
@@ -131,7 +133,14 @@ export function matchSession(session: NormalizedSession, profile: Profile): Matc
 
 function compareResults(a: MatchResult, b: MatchResult): number {
   const byCategory = CATEGORIES.indexOf(a.category) - CATEGORIES.indexOf(b.category);
-  return byCategory !== 0 ? byCategory : b.score - a.score;
+  if (byCategory !== 0) return byCategory;
+  if (b.score !== a.score) return b.score - a.score;
+  // Ties: prefer sessions that touch more of the profile.
+  return relevantHitCount(b) - relevantHitCount(a);
+}
+
+function relevantHitCount(r: MatchResult): number {
+  return r.hits.filter((h) => h.interest.bucket !== "ignore").length;
 }
 
 function prepareInterest(interest: Interest): PreparedInterest {
@@ -299,7 +308,9 @@ function finalize(
     0,
   );
   const sponsorFactor = session.isSponsored ? SPONSORED_FACTOR : 1;
-  const score = unrelated ? 0 : Math.round((100 * weighted * sponsorFactor) / totalWeight);
+  // Weak evidence (abstract mentions, neighbor concepts) lowers the whole score, not just one component.
+  const confidence = deciding ? 0.6 + 0.4 * Math.min(deciding.strength, 1) : 1;
+  const score = unrelated ? 0 : Math.round((100 * weighted * sponsorFactor * confidence) / totalWeight);
 
   return {
     session,
@@ -387,6 +398,9 @@ function explain(
       kind: "pro",
       text: `Discusses design trade-offs (architecture depth ${session.archDepth}/3), aligned with your architecture goal.`,
     });
+  }
+  if (session.mayRepeat) {
+    reasons.push({ kind: "info", text: "Code ends in -R: AWS plans a repeat, so there may be another chance to attend." });
   }
   if (session.isSponsored) reasons.push({ kind: "info", text: "Sponsored session: presented by a partner." });
   if (session.isCustomerStory) reasons.push({ kind: "pro", text: "Customer story: real decisions and trade-offs." });

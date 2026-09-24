@@ -43,4 +43,14 @@ describe("EventsClient", () => {
       status: 401,
     } satisfies Partial<EventsApiError>);
   });
+
+  it("unwraps single-resource responses", async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse({ schedule: { reserved: ["A"], favorites: [], personalTime: [] } }))
+      .mockResolvedValueOnce(jsonResponse({ event: { eventId: "reinvent2026" } }));
+    const client = new EventsClient({ fetchImpl });
+    expect((await client.getSchedule("reinvent2026")).reserved).toEqual(["A"]);
+    expect((await client.getEvent("reinvent2026")).eventId).toBe("reinvent2026");
+  });
 });
