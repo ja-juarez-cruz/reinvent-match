@@ -23,7 +23,7 @@
 3. **Categories.** Each session lands in 🔥 Deep Dive, 🚀 Growth, 📚 Foundation, 🧭 Discovery or ⏭️ Skip.
 4. **Ranking.** Within a category, sessions are ranked by goal alignment, level fit, *irreplaceability* (chalk talks and workshops over recorded breakouts), format preference and architecture depth.
 
-The full design is in [docs/CONCEPT.md](docs/CONCEPT.md).
+The full design is in [docs/CONCEPT.md](docs/CONCEPT.md). Built for the AWS Events API hackathon: see [docs/HACKATHON.md](docs/HACKATHON.md).
 
 ## Quick start
 

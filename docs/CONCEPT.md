@@ -233,7 +233,7 @@ Official API (REST at `https://api.awsevents.com/v1` + MCP server at `https://ap
 
 ## 10. Phased plan
 
-re:Invent 2026: **Nov 30 – Dec 4**, Las Vegas. Reserved seating opens **October 6** in the portal and **October 8** through the API (before then, reserving returns `409`; reading the catalog and favoriting already work).
+re:Invent 2026: **Nov 30 – Dec 4**, Las Vegas. Reserved seating opens **October 6** in the portal and **October 8** through the API (before then, reserving returns `409`; reading the catalog and favoriting already work). The hackathon deadline is **November 6**; the detailed timeline and API coverage are in [HACKATHON.md](HACKATHON.md).
 
 | Phase | Target date | Deliverable | Why |
 |---|---|---|---|

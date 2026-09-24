@@ -25,7 +25,7 @@ La herramienta (comandos, salida y código) está en inglés; la documentación 
 3. **Categorías.** Cada sesión cae en 🔥 Deep Dive, 🚀 Growth, 📚 Foundation, 🧭 Discovery o ⏭️ Skip.
 4. **Orden.** Dentro de cada categoría, las sesiones se ordenan por alineación con tus objetivos, nivel adecuado, *irreemplazabilidad* (chalk talks y workshops por encima de breakouts que se graban), preferencia de formato y profundidad de arquitectura.
 
-El diseño completo está en [docs/CONCEPT.es.md](docs/CONCEPT.es.md).
+El diseño completo está en [docs/CONCEPT.es.md](docs/CONCEPT.es.md). Se construye para el hackatón del AWS Events API: ver [docs/HACKATHON.es.md](docs/HACKATHON.es.md).
 
 ## Inicio rápido
 

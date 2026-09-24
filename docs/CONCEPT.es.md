@@ -233,7 +233,7 @@ API oficial (REST en `https://api.awsevents.com/v1` + servidor MCP en `https://a
 
 ## 10. Plan por fases
 
-re:Invent 2026: **30 nov – 4 dic**, Las Vegas. La reserva de asientos abre el **6 de octubre** en el portal y el **8 de octubre** en el API (antes de esa fecha, reservar devuelve `409`; leer el catálogo y marcar favoritos ya funciona).
+re:Invent 2026: **30 nov – 4 dic**, Las Vegas. La reserva de asientos abre el **6 de octubre** en el portal y el **8 de octubre** en el API (antes de esa fecha, reservar devuelve `409`; leer el catálogo y marcar favoritos ya funciona). La entrega del hackatón es el **6 de noviembre**; el calendario detallado y la cobertura del API están en [HACKATHON.es.md](HACKATHON.es.md).
 
 | Fase | Fecha objetivo | Entregable | Por qué |
 |---|---|---|---|
