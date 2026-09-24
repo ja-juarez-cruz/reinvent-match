@@ -1,0 +1,41 @@
+{
+  "name": "Serverless cloud engineer moving toward architecture",
+  "goals": ["architecture-role", "learn-new", "hands-on", "networking"],
+  "interests": [
+    { "name": "AWS Lambda", "bucket": "know", "proficiency": 3 },
+    { "name": "Amazon API Gateway", "bucket": "know", "proficiency": 3 },
+    { "name": "Amazon DynamoDB", "bucket": "know", "proficiency": 3 },
+    { "name": "AWS Step Functions", "bucket": "know", "proficiency": 2 },
+    { "name": "Amazon SQS", "bucket": "know", "proficiency": 2 },
+    { "name": "Amazon SNS", "bucket": "know", "proficiency": 2 },
+    { "name": "IAM", "bucket": "know", "proficiency": 2 },
+
+    { "name": "Architecture", "bucket": "grow", "proficiency": 1 },
+    { "name": "Resilience", "bucket": "grow", "proficiency": 1, "keywords": ["resiliency", "fault tolerance", "high availability"] },
+    { "name": "Multi-Region", "bucket": "grow", "proficiency": 1, "keywords": ["cross-region", "global tables"] },
+    { "name": "Event-Driven Architecture", "bucket": "grow", "proficiency": 1, "keywords": ["event-driven", "EDA"] },
+    { "name": "Distributed systems", "bucket": "grow", "proficiency": 1 },
+    { "name": "Monitoring & Observability", "bucket": "grow", "proficiency": 1, "keywords": ["observability"] },
+
+    { "name": "EKS", "bucket": "explore" },
+    { "name": "Containers", "bucket": "explore" },
+    { "name": "Amazon Bedrock", "bucket": "explore", "proficiency": 1 },
+    { "name": "Agentic AI", "bucket": "explore" },
+    { "name": "Kafka", "bucket": "explore", "keywords": ["MSK", "streaming"] },
+    { "name": "SageMaker", "bucket": "explore" },
+
+    { "name": "SAP", "bucket": "ignore" },
+    { "name": "Microsoft & .NET", "bucket": "ignore" },
+    { "name": "Oracle", "bucket": "ignore" },
+    { "name": "Mainframe", "bucket": "ignore" }
+  ],
+  "formatPreferences": {
+    "chalk-talk": 1,
+    "builders-session": 0.9,
+    "workshop": 0.9,
+    "code-talk": 0.8,
+    "lab": 0.7,
+    "breakout": 0.4,
+    "lightning-talk": 0.3
+  }
+}

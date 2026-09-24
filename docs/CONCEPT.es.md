@@ -1,0 +1,255 @@
+# Re:Match: concepto y diseño inicial
+
+🇬🇧 [English version](CONCEPT.md)
+
+> Un "Tinder" de **persona ↔ sesión**: no busca *la mejor sesión de re:Invent*, sino *la sesión que mejor encaja contigo*, y explica por qué.
+
+Proyecto comunitario no oficial, sin afiliación con AWS.
+
+---
+
+## 1. Problema
+
+re:Invent tiene más de 2,000 sesiones repartidas en varios venues. Quien va por primera vez:
+
+- no sabe qué nivel (100–500) le corresponde **por tema**;
+- elige por el título y termina en sesiones que explican desde cero lo que ya sabe, o en sesiones 400 de un tema que no conoce;
+- no tiene en cuenta que las sesiones se enciman, ni el tiempo de traslado entre venues, ni lo que deja de ver al elegir una;
+- gasta tiempo presencial en contenido que después se publica grabado.
+
+**Pregunta que resuelve el producto:** *con lo que ya sé, lo que quiero aprender y el tiempo que tengo, ¿qué sesiones me aportan más?*
+
+## 2. Principios
+
+1. **Primero el perfil.** El matching parte de la persona, no del catálogo.
+2. **Fit personal, no calificación absoluta.** Una misma sesión puede ser *Deep Dive* para una persona y *Skip* para otra.
+3. **Toda recomendación dice por qué.** Cada resultado muestra razones a favor y posibles problemas.
+4. **Dar prioridad a lo que es difícil de conseguir fuera del evento.** Workshops, chalk talks y builders' sessions valen más que un breakout que después se sube a YouTube.
+5. **Reglas antes que IA.** La v1 funciona con metadatos, reglas y scoring. El LLM se usa para enriquecer datos y entender el perfil, no para decidir.
+
+## 3. Perfil del asistente
+
+Cada tema o servicio se asigna a uno de cuatro grupos:
+
+| Grupo | Significado | Ejemplo |
+|---|---|---|
+| 🟢 **Know** | Lo uso con regularidad | Lambda, DynamoDB, API Gateway, SQS, Step Functions |
+| 🟡 **Grow** | Lo quiero profundizar | Distributed systems, resiliency, multi-region, EDA |
+| 🔵 **Explore** | Casi no lo conozco, pero me interesa | EKS, Bedrock, Kafka, SageMaker |
+| ⚪ **Ignore** | No es relevante ahora | (lo que la persona decida) |
+
+Además:
+
+- **Dominio por tema** (0–3): `0` nada · `1` básico · `2` práctico · `3` avanzado.
+- **Objetivos** (varios): profundizar lo que sé · aprender tecnologías nuevas · prepararme para un rol de arquitectura · hands-on · networking.
+- **Preferencia de formato**: workshop, chalk talk, builders, code talk, lab, breakout.
+- **Capacidad**: sesiones por día, días que asiste, bloques reservados (Expo, comida, keynotes).
+
+```json
+{
+  "goals": ["architecture-role", "learn-new", "hands-on"],
+  "interests": [
+    { "name": "AWS Lambda", "bucket": "know", "proficiency": 3 },
+    { "name": "Amazon DynamoDB", "bucket": "know", "proficiency": 3 },
+    { "name": "Multi-Region", "bucket": "grow", "proficiency": 1, "keywords": ["cross-region"] },
+    { "name": "EKS", "bucket": "explore" },
+    { "name": "SAP", "bucket": "ignore" }
+  ],
+  "formatPreferences": { "chalk-talk": 1, "workshop": 0.9, "breakout": 0.4 }
+}
+```
+
+Cada `name` puede ser una etiqueta del catálogo (`"AWS Lambda"`, `"Agentic AI"`) o un concepto libre (`"Multi-Region"`) que se busca en el título y el abstract. Los alias se resuelven solos: `"EKS"` encuentra `"Amazon Elastic Kubernetes Service (Amazon EKS)"`. Ejemplo completo: [`examples/profile.example.json`](../examples/profile.example.json).
+
+## 4. Modelo de sesión
+
+La fuente es el objeto `Session` del [AWS Events API](https://docs.aws.amazon.com/events/latest/devguide/what-is-events-api.html) (ver §8). Ya trae casi todo lo necesario, así que la v1 **no necesita LLM** para enriquecer datos.
+
+| Campo Re:Match | Campo del API | Ejemplo real (Summit Dubai 2026) |
+|---|---|---|
+| `id`, `code` | `sessionId`, `abbreviation` | `AIM201` |
+| `title`, `abstract` | `title`, `abstract` | |
+| `level` (0–3) | `level` (texto) | `"300 – Advanced"` → 2 · `"No Level"` → sin nivel |
+| `format` | `type` | Breakout session, Chalk talk, Workshop, Code talk, Lightning talk… |
+| `interaction` | `features` | Lecture-style, Discussion, Hands-on |
+| `topics` | `topics` + `areasOfInterest` | Architecture · Agentic AI |
+| `services` | `services` | Amazon Bedrock, AWS Lambda |
+| `audience` | `roles`, `customerPersonas` | Solution / Systems Architect |
+| `schedule` | `sessionTime` (fecha, hora local, minutos), `venue`, `room` | |
+| `seats` | `isReservable`, `seatAvailability` | available · limited · veryLimited · unavailable · walkUp |
+| `restricted` | `experiences` | "Executive Summit": puede estar restringida |
+| `archDepth` (0–3) | derivado | reglas sobre `features` + palabras del abstract (trade-offs, failure, at scale…); con LLM opcional después |
+| `isCustomerStory` | derivado | patrones del título: "How X…", "Lessons learned…" |
+| `recorded` | regla por `type` | breakout = probablemente sí; chalk/workshop/builders = no |
+
+**El vocabulario del perfil sale del mismo catálogo:** los temas y servicios que la persona marca como Know, Grow, Explore o Ignore son exactamente los valores de `topics`, `areasOfInterest` y `services`. No hay que inventar ni mantener una taxonomía propia; solo el grafo de temas vecinos para Discovery.
+
+## 5. Motor de match
+
+### 5.1 Nivel adecuado por tema (el núcleo)
+
+Se convierte el nivel de la sesión a la misma escala del dominio: `100→0, 200→1, 300→2, 400→3, 500→3`.
+
+```
+stretch = nivel_sesión − dominio_persona   (sobre los temas principales)
+
+stretch ≤ −1  → demasiado básica
+stretch =  0  → repaso; sirve solo en 300/400
+stretch = +1  → punto ideal
+stretch ≥ +2  → demasiado avanzada; conviene una Foundation antes
+```
+
+Es la regla *"servicio conocido → 300/400; servicio desconocido → 100/200"*, expresada de forma que se puede calcular.
+
+### 5.2 Evidencia
+
+Cada interés del perfil se busca en la sesión. La fuerza depende de dónde aparece:
+
+| Dónde | Fuerza |
+|---|---|
+| Etiqueta exacta del catálogo (`services`, `topics`, `areasOfInterest`) | 1.0 |
+| Etiqueta que lo contiene ("Architecture" dentro de "Event-Driven Architecture") | 0.9 |
+| Título | 0.8 |
+| Solo en el abstract | 0.5 |
+| Concepto vecino (grafo de temas) | × 0.7 |
+
+**Una mención de pasada en el abstract no alcanza para Deep Dive ni Growth**: si esa es la única evidencia, la sesión queda como Discovery.
+
+### 5.3 Categorías (la UX principal)
+
+Se descartan antes: *breaks*, keynotes (se planean aparte), sesiones restringidas a un programa (`experiences`) y sesiones donde el tema en *Ignore* tiene tanta o más evidencia que el resto. Después se evalúan en este orden y gana la primera que se cumple:
+
+| Categoría | Regla |
+|---|---|
+| 🔥 **Deep Dive** | tema en *Know* y `stretch ≥ 0`, con nivel ≥ 300 o `stretch ≥ +1` |
+| 📚 **Foundation** | tema en *Explore/Grow*, nivel 100/200 y `stretch ≥ 0` |
+| 🚀 **Growth** | tema en *Grow* y `stretch ≥ 0` (con advertencia si `stretch ≥ +2`) |
+| 🧭 **Discovery** | tema en *Explore*, tema **vecino** de lo que sabes o quieres crecer (`step functions → saga → distributed transactions`), o evidencia solo en el abstract |
+| ⏭️ **Skip** | nada de lo anterior; normalmente `stretch ≤ −1` (demasiado básica) |
+
+Las sesiones que no comparten nada con el perfil se marcan como `unrelated` y se ocultan.
+
+> Pendiente para la fase de agenda: que Foundation exija además ser prerrequisito de una sesión con match alto más adelante en la semana.
+
+### 5.4 Porcentaje de match (para ordenar dentro de cada categoría)
+
+```
+match = 0.30·alineación_objetivos     (Grow 1.0 · Explore 0.8 · Know 0.6, × fuerza, + bonos por objetivos)
+      + 0.25·nivel_adecuado           (stretch +1 → 1.0 · 0 → 0.7 en 300+ / 0.4 · +2 → 0.4 · ≤−1 → 0)
+      + 0.20·irreemplazabilidad       (builders/workshop 1.0 · chalk 0.95 · code talk 0.8 · breakout 0.3)
+      + 0.15·preferencia_formato      (del perfil; 0.5 si no se indica)
+      + 0.10·profundidad_arquitectura (archDepth / 3)
+× 0.85 si es sesión patrocinada (-S)
+```
+
+Los pesos se pueden cambiar por perfil (`weights`) y son un punto de partida para calibrar, no una verdad.
+
+### 5.5 Explicación
+
+Cada componente genera sus propias razones, así el porcentaje nunca aparece sin contexto:
+
+```
+🔥 Deep Dive · 92%
+✅ Usas Lambda y Step Functions a diario (dominio 3)
+✅ Nivel 300: un paso arriba de tu nivel en resiliency
+✅ Chalk talk: no se graba, se aprovecha en persona
+🎯 Coincide con tu objetivo "rol de arquitectura"
+⚠️ Supone conocer multi-region, que marcaste como dominio 1
+```
+
+### 5.6 Swipe y aprendizaje
+
+❤️ me interesa · ❌ no para mí · 🔖 guardar. Cada swipe ajusta poco a poco el peso de los temas de la sesión en el perfil (por ejemplo, 8 ❤️ en EKS suben EKS de *Explore* hacia *Grow*). El usuario ve el cambio y puede deshacerlo.
+
+## 6. De candidatas a agenda
+
+```
+2,000+ sesiones → filtro Skip/Ignore → ~80 candidatas (match + swipes ❤️)
+  → conflictos de horario y traslados → ~30
+  → costo de oportunidad + learning paths → ~15 sesiones en la agenda
+```
+
+- **Restricciones:** no hay dos sesiones al mismo tiempo; se deja tiempo de traslado cuando cambia el venue (configurable; más si la distancia es larga); no se pasa del máximo de sesiones por día; se respetan los bloques reservados (Expo, Ask the Experts, comida).
+- **Costo de oportunidad:** al elegir A se muestra la mejor alternativa perdida: *"Elegiste el workshop de 2h; eso deja fuera 2 chalk talks con 88% y 85%"*.
+- **Learning paths:** si una sesión de 72% es Foundation de otra de 95% más adelante en la semana, recibe un bono y se explica por qué.
+- **Algoritmo v1:** selección de intervalos ponderada y greedy, con penalización por traslado. Alcanza para ~80 candidatas; si hace falta, se cambia a un solver de restricciones.
+- **Distribución sugerida** (editable): 35% arquitectura · 25% profundizar lo conocido · 25% tecnologías nuevas · 15% exploración.
+
+## 7. Después del evento (Fase de validación)
+
+Por cada sesión a la que se asistió: ¿cumplió lo esperado? · ¿fue demasiado básica o avanzada? · ¿la repetirías? · ¿el formato ayudó? Con eso se calibran los pesos y las reglas de `stretch`. Esto es lo que convierte *"mi agenda"* en *un método reproducible*.
+
+## 8. Fuente de datos: AWS Events API
+
+API oficial (REST en `https://api.awsevents.com/v1` + servidor MCP en `https://api.awsevents.com/mcp`). La especificación OpenAPI está en `/v1/openapi.json`.
+
+**Qué ofrece**
+
+| Operación | Uso en Re:Match |
+|---|---|
+| `ListEvents`, `GetEvent` | Elegir el evento (sin credenciales) |
+| `ListSessions` (hasta 250 por página, con `nextToken`) | Descargar el catálogo completo: unas 2,200 sesiones son ~9 páginas |
+| `GetSchedule` | Leer lo que la persona ya reservó o marcó como favorito |
+| `AssociateFavorites` | ❤️ en el swipe → favorito en el portal oficial |
+| `CreatePersonalTime` | Bloques de Expo, comida y traslados, directo en la agenda oficial |
+| `ReserveSessions` | Reservar la agenda final (desde el 8 de octubre) |
+
+**Restricciones que definen la arquitectura**
+
+1. **Sin opción hosted.** El inicio de sesión es OAuth + PKCE con AWS Builder ID, y el callback **solo acepta loopback en los puertos 8484–8489** (`http://localhost:8484/callback`). La app tiene que correr en la máquina de cada asistente.
+2. **El catálogo de re:Invent 2026 no es público.** Para leerlo hay que iniciar sesión *y* estar registrado en el evento. Así que no podemos descargarlo en un servidor y redistribuirlo: cada persona lo lee con su propia sesión.
+3. **Los catálogos de eventos sin registro (Summits, Cloud Days) sí son públicos.** Sirven para desarrollar y probar sin credenciales. Ejemplo: `Summit-Dubai-2026`, con 95 sesiones y todos los campos de §4.
+4. **El API no busca ni filtra**: descarga todo y filtra del lado del cliente. Eso es justo lo que hace el motor de match.
+5. **Cuotas por asistente/minuto:** ListSessions 120 · GetSession 120 · AssociateFavorites y ReserveSessions **30 sesiones** (cada sesión cuenta, no cada request) · CreatePersonalTime 30.
+6. **Tokens:** access token de 60 min, refresh token de 30 días. Hay que guardarlos de forma segura y ofrecer cerrar sesión (revocar).
+7. **Resultados por sesión:** reservar o marcar favoritos puede fallar en algunas sesiones y funcionar en otras. Después de escribir, siempre hay que confirmar con `GetSchedule`.
+8. **Horarios:** `sessionTime` viene en hora local del evento; `PersonalTime` exige **UTC**, redondeado a bloques de 5 minutos.
+
+## 9. Arquitectura propuesta: app local
+
+```
+┌──────────────────── máquina del asistente ────────────────────┐
+│                                                               │
+│  rematch (CLI + UI web en localhost:8484)                     │
+│   ├─ auth      OAuth PKCE Builder ID → keychain del SO        │
+│   ├─ catalog   ListSessions → caché local (JSON) + ETag/fecha │
+│   ├─ profile   perfil.json (Know/Grow/Explore/Ignore)         │
+│   ├─ match     reglas + scoring + explicaciones               │
+│   ├─ agenda    conflictos, traslados, costo de oportunidad    │
+│   └─ sync      ❤️→AssociateFavorites · bloques→PersonalTime   │
+│                agenda final→ReserveSessions → GetSchedule     │
+│                                                               │
+└───────────────┬───────────────────────────────────────────────┘
+                │ HTTPS (token del propio asistente)
+                ▼
+      api.awsevents.com  ·  oauth.awsevents.com
+```
+
+- **Nada sale de la máquina**: el perfil, los swipes y el catálogo se quedan en local. Resuelve privacidad y cumple con que el catálogo no es público.
+- **Distribución:** paquete npm en TypeScript (`npx rematch`) que abre la UI de swipe en el navegador, en `localhost:8484`, el mismo puerto del callback.
+- **Complemento MCP (Fase 2b):** exponer `rematch` como servidor MCP local (`match_sessions`, `explain_match`, `build_agenda`) para que un asistente (Claude Code, Kiro) lo combine con el MCP oficial `awsevents`. El scoring de 2,200 sesiones se hace en código, no en el contexto del LLM.
+- **LLM opcional:** convertir un perfil escrito en texto libre en `perfil.json` y mejorar `archDepth`. Se hace con la cuenta o el asistente del propio usuario, nunca en un backend nuestro.
+- **Si más adelante hay backend** (por ejemplo, para calibrar pesos con la retroalimentación del evento), solo recibe datos anónimos y voluntarios de la Fase 3, nunca el catálogo.
+
+## 10. Plan por fases
+
+re:Invent 2026: **30 nov – 4 dic**, Las Vegas. La reserva de asientos abre el **6 de octubre** en el portal y el **8 de octubre** en el API (antes de esa fecha, reservar devuelve `409`; leer el catálogo y marcar favoritos ya funciona).
+
+| Fase | Fecha objetivo | Entregable | Por qué |
+|---|---|---|---|
+| **0 · Método** | ✅ 24 sep | Este documento | Sin un método sólido, el código no sirve |
+| **1 · Motor con datos públicos** | ✅ 24 sep | CLI: `rematch match Summit-Dubai-2026 --profile perfil.json` → candidatas con categoría y razones. Grafo de temas vecinos. Pruebas con catálogos de Summits | Calibrar reglas sin necesitar credenciales |
+| **1b · Tu re:Invent** | 3 oct | Sign-in con Builder ID + catálogo `reinvent2026` + tu perfil → candidatas; swipe en terminal; ❤️ → favoritos oficiales | Tener tu shortlist **antes** del 6 de octubre |
+| **2 · Agenda + reserva** | 6–8 oct | Conflictos, traslados, costo de oportunidad → agenda → `CreatePersonalTime` + `ReserveSessions` con confirmación | Reservar el día que abre |
+| **2b · UI de swipe + MCP** | oct–nov | UI local en `localhost:8484`, paquete instalable, servidor MCP | Que lo usen otros first-timers antes del evento |
+| **3 · Validación** | dic | Encuesta después de cada sesión + recalibración | Hace el método reproducible |
+| **4 · Contenido** | dic–ene | Post de Community Builder: *"2,000+ sessions: how I built my personal learning path"* | Difusión |
+
+## 11. Riesgos y preguntas abiertas
+
+1. **Ventana de tiempo muy corta.** Si la Fase 1b no está lista el 3 de octubre, el plan B es usar el motor para generar la shortlist y reservar a mano en el portal el 6 de octubre.
+2. **Sesiones sin nivel o con tags pobres** (`"No Level"`, `services` vacío): hacer fallback a `topics` y `areasOfInterest` y bajar la confianza del match (mostrarlo en la explicación).
+3. **Reserva automática.** Reservar tiene efectos reales (asientos limitados, choques de horario). Re:Match nunca reserva sin que la persona confirme la lista final, y después verifica con `GetSchedule`.
+4. **Tokens.** Guardar en el keychain del sistema operativo, nunca en texto plano; ofrecer `rematch logout`, que revoca el token.
+5. **Nombre y marca.** "Re:Match" juega con una marca de AWS: aclarar que es no oficial y revisar las guías de marca.
+6. **Alcance.** El API cubre re:Invent, Summits y otros eventos de AWS, así que el modelo es genérico desde el inicio sin costo extra.
