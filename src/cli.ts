@@ -261,8 +261,11 @@ function toJson(r: MatchResult) {
   };
 }
 
+// Set exitCode instead of calling process.exit() so piped stdout is fully flushed.
 main(process.argv.slice(2)).then(
-  (code) => process.exit(code),
+  (code) => {
+    process.exitCode = code;
+  },
   (error: unknown) => {
     if (error instanceof EventsApiError && error.status === 401) {
       console.error(`${error.message}\nThis event requires sign-in. Run \`rematch login\`.`);
@@ -271,6 +274,6 @@ main(process.argv.slice(2)).then(
     } else {
       console.error(error instanceof Error ? error.message : error);
     }
-    process.exit(1);
+    process.exitCode = 1;
   },
 );
