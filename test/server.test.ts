@@ -107,7 +107,7 @@ describe("onboarding and plan", () => {
   it("rejects invalid answers and builds a plan from saved ones", async () => {
     expect((await write("/api/answers/me", "PUT", { known: [], level: "basic", formats: ["chalk"] })).status).toBe(400);
     const saved = await write("/api/answers/me", "PUT", {
-      known: ["domain:ai", "tech:Amazon Bedrock"],
+      known: ["domain:ai"],
       level: "intermediate",
       formats: ["workshop", "chalk", "code", "breakout"],
     });
@@ -115,7 +115,7 @@ describe("onboarding and plan", () => {
     const plan = await (await fetch(`${base}/api/plan/Summit-Dubai-2026?answers=me`)).json();
     expect(plan.results.length).toBeGreaterThan(0);
     expect(plan.results.every((r: { session: { format: string } }) => ["workshop", "chalk-talk", "code-talk", "breakout", "bootcamp", "dev-chat", "panel", "other"].includes(r.session.format))).toBe(true);
-    expect(plan.context.known).toEqual(["domain:ai", "tech:Amazon Bedrock"]);
+    expect(plan.context.known).toEqual(expect.arrayContaining(["domain:ai", "tech:Amazon Bedrock"]));
   });
 
   it("serves the vocabulary and onboarding options", async () => {

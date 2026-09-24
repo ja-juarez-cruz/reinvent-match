@@ -1,7 +1,8 @@
 import type { NormalizedSession } from "../catalog/normalize.js";
 import type { Reason } from "../match/engine.js";
+import { aliasesOf } from "../match/labels.js";
 import { tagSession, type SessionTags } from "../taxonomy/tagger.js";
-import { CONCEPTS, DOMAINS, DOMAIN_NEIGHBORS } from "../taxonomy/taxonomy.js";
+import { CONCEPTS, DOMAINS, DOMAIN_NEIGHBORS, EXTRA_TECHNOLOGIES } from "../taxonomy/taxonomy.js";
 import { FORMAT_CHOICES, type Answers, type SelfLevel } from "./answers.js";
 
 export const INTENTS = ["reinforce", "broaden", "learn"] as const;
@@ -11,9 +12,14 @@ export interface VocabularyEntry {
   key: string;
   label: string;
   count: number;
-  /** Topic a technology or concept belongs to, for grouping in the picker. */
+  /** Topic a technology belongs to. */
   domain?: string;
+  /** For topics: the technology and concept keys that come with it when the attendee picks it. */
+  related?: string[];
 }
+
+/** Technologies and concepts that come with each topic. */
+export type TopicRelations = Record<string, string[]>;
 
 export interface Vocabulary {
   domains: VocabularyEntry[];
@@ -104,7 +110,18 @@ function tagAll(sessions: NormalizedSession[]): Tagged[] {
   return sessions.map((session) => ({ session, tags: tagSession(session) }));
 }
 
-/** The main topic each technology shows up under most often in this catalog. */
+/** Topic a technology is curated under in the taxonomy (service lists and extra technologies), if any. */
+function curatedDomain(tech: string): string | undefined {
+  const extra = EXTRA_TECHNOLOGIES.find((t) => t.label === tech);
+  if (extra) return extra.domain;
+  const aliases = aliasesOf(tech);
+  return DOMAINS.find((d) => (d.services ?? []).some((s) => aliasesOf(s).some((a) => aliases.includes(a))))?.id;
+}
+
+/**
+ * The topic each technology belongs to: the taxonomy's curated mapping first, otherwise the main topic it shows
+ * up under most often in this catalog.
+ */
 function technologyDomains(tagged: Tagged[]): Record<string, string> {
   const counts = new Map<string, Map<string, number>>();
   for (const { tags } of tagged) {
@@ -115,20 +132,73 @@ function technologyDomains(tagged: Tagged[]): Record<string, string> {
     }
   }
   return Object.fromEntries(
-    [...counts].map(([tech, byDomain]) => [tech, [...byDomain].sort((a, b) => b[1] - a[1])[0]![0]]),
+    [...counts].map(([tech, byDomain]) => [
+      tech,
+      curatedDomain(tech) ?? [...byDomain].sort((a, b) => b[1] - a[1])[0]![0],
+    ]),
   );
+}
+
+const MAX_RELATED_TECHNOLOGIES = 8;
+const MAX_RELATED_CONCEPTS = 4;
+/** A concept belongs to a topic when it shows up this many times more often there than across the catalog. */
+const CONCEPT_LIFT = 1.5;
+
+/**
+ * What picking a topic brings along: its most common technologies and the concepts that are characteristic of it.
+ * Concepts use lift rather than raw counts, otherwise AI (in most sessions) would claim every concept.
+ */
+function topicRelations(tagged: Tagged[], techDomain: Record<string, string>): TopicRelations {
+  const techCount = new Map<string, number>();
+  const conceptCount = new Map<string, number>();
+  for (const { tags } of tagged) {
+    for (const t of tags.technologies) techCount.set(t, (techCount.get(t) ?? 0) + 1);
+    for (const c of tags.concepts) conceptCount.set(c, (conceptCount.get(c) ?? 0) + 1);
+  }
+  const relations: TopicRelations = {};
+  for (const domain of DOMAINS.map((d) => d.id)) {
+    const technologies = Object.entries(techDomain)
+      .filter(([tech, d]) => d === domain && (techCount.get(tech) ?? 0) >= 2)
+      .sort((a, b) => (techCount.get(b[0]) ?? 0) - (techCount.get(a[0]) ?? 0))
+      .slice(0, MAX_RELATED_TECHNOLOGIES)
+      .map(([tech]) => `tech:${tech}`);
+
+    const inDomain = tagged.filter(({ tags }) => tags.domains.includes(domain));
+    const counts = new Map<string, number>();
+    for (const { tags } of inDomain) for (const c of tags.concepts) counts.set(c, (counts.get(c) ?? 0) + 1);
+    const concepts = [...counts]
+      .map(([c, n]) => ({ c, n, lift: n / inDomain.length / ((conceptCount.get(c) ?? 1) / tagged.length) }))
+      .filter(({ n, lift }) => n >= 3 && lift >= CONCEPT_LIFT)
+      .sort((a, b) => b.lift - a.lift)
+      .slice(0, MAX_RELATED_CONCEPTS)
+      .map(({ c }) => `concept:${c}`);
+
+    relations[domain] = [...technologies, ...concepts];
+  }
+  return relations;
+}
+
+/** Topic keys plus everything they bring along. */
+export function expandTopics(topicKeys: string[], relations: TopicRelations): string[] {
+  return [...new Set(topicKeys.flatMap((key) => [key, ...(relations[splitKey(key)[1]] ?? [])]))];
 }
 
 export function buildVocabulary(sessions: NormalizedSession[], maxTechnologies = 90): Vocabulary {
   const tagged = tagAll(sessions);
   const techDomain = technologyDomains(tagged);
+  const relations = topicRelations(tagged, techDomain);
   const tally = (keysOf: (t: SessionTags) => string[]) => {
     const counts = new Map<string, number>();
     for (const { tags } of tagged) for (const k of new Set(keysOf(tags))) counts.set(k, (counts.get(k) ?? 0) + 1);
     return [...counts].sort((a, b) => b[1] - a[1]);
   };
   return {
-    domains: tally((t) => t.domains).map(([id, count]) => ({ key: `domain:${id}`, label: labelOfKey(`domain:${id}`), count })),
+    domains: tally((t) => t.domains).map(([id, count]) => ({
+      key: `domain:${id}`,
+      label: labelOfKey(`domain:${id}`),
+      count,
+      related: relations[id] ?? [],
+    })),
     technologies: tally((t) => t.technologies)
       .slice(0, maxTechnologies)
       .map(([id, count]) => ({ key: `tech:${id}`, label: id, count, domain: techDomain[id] })),
@@ -156,8 +226,12 @@ function hitStrength(key: string, primaryDomain: string): number {
 export function buildPlan(sessions: NormalizedSession[], answers: Answers): Plan {
   const tagged = tagAll(sessions);
   const techDomain = technologyDomains(tagged);
-  const known = new Set(answers.known);
-  const learn = new Set(answers.learn);
+  const relations = topicRelations(tagged, techDomain);
+  // Attendees pick topics; each topic brings its technologies and characteristic concepts along.
+  const knownKeys = expandTopics(answers.known, relations);
+  const learnKeys = expandTopics(answers.learn, relations).filter((k) => !knownKeys.includes(k));
+  const known = new Set(knownKeys);
+  const learn = new Set(learnKeys);
   const knownDomains = domainsOfKeys(answers.known, techDomain);
   const learnDomains = domainsOfKeys(answers.learn, techDomain);
   const neighborDomains = new Set(
@@ -267,14 +341,14 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers): Plan
   }
 
   results.sort((a, b) => INTENTS.indexOf(a.intent) - INTENTS.indexOf(b.intent) || b.score - a.score);
-  for (const key of [...answers.known, ...answers.learn]) labels[key] ??= labelOfKey(key);
+  for (const key of [...knownKeys, ...learnKeys]) labels[key] ??= labelOfKey(key);
 
   return {
     results,
     hidden,
     context: {
-      known: answers.known,
-      learn: answers.learn,
+      known: knownKeys,
+      learn: learnKeys,
       knownDomains: [...knownDomains],
       neighborDomains: [...neighborDomains],
       techDomain,

@@ -3,12 +3,12 @@ import { describe, expect, it } from "vitest";
 import type { CachedCatalog } from "../src/catalog/cache.js";
 import { normalizeSession } from "../src/catalog/normalize.js";
 import { answersSchema } from "../src/plan/answers.js";
-import { buildPlan, buildVocabulary } from "../src/plan/plan.js";
+import { buildPlan, buildVocabulary, expandTopics } from "../src/plan/plan.js";
 import { session } from "./helpers.js";
 
 const answers = (over: Record<string, unknown> = {}) =>
   answersSchema.parse({
-    known: ["domain:serverless", "tech:AWS Lambda", "tech:Amazon DynamoDB"],
+    known: ["domain:serverless"],
     level: "intermediate",
     formats: ["workshop", "builders", "chalk", "code", "lab", "breakout", "lightning"],
     ...over,
@@ -26,12 +26,30 @@ const lambda300Raw = {
 const lambda300 = session(lambda300Raw);
 
 describe("answers", () => {
-  it("caps what you know and what you want to learn", () => {
-    const nine = Array.from({ length: 9 }, (_, i) => `tech:T${i}`);
+  it("caps the topics you know and want to learn", () => {
+    const nine = Array.from({ length: 9 }, (_, i) => `domain:topic-${"abcdefghi"[i]}`);
     expect(answersSchema.safeParse({ known: nine, level: "basic", formats: ["chalk"] }).success).toBe(false);
-    expect(answersSchema.safeParse({ known: ["tech:A"], learn: nine.slice(0, 6), level: "basic", formats: ["chalk"] }).success).toBe(false);
-    expect(answersSchema.safeParse({ known: ["lambda"], level: "basic", formats: ["chalk"] }).success).toBe(false);
-    expect(answersSchema.safeParse({ known: ["tech:A"], level: "basic", formats: [] }).success).toBe(false);
+    expect(answersSchema.safeParse({ known: ["domain:ai"], learn: nine.slice(0, 6), level: "basic", formats: ["chalk"] }).success).toBe(false);
+    expect(answersSchema.safeParse({ known: ["domain:ai"], level: "basic", formats: [] }).success).toBe(false);
+  });
+
+  it("only accepts topics; technologies and practices come with them", () => {
+    expect(answersSchema.safeParse({ known: ["tech:AWS Lambda"], level: "basic", formats: ["chalk"] }).success).toBe(false);
+    expect(answersSchema.safeParse({ known: ["concept:event-driven"], level: "basic", formats: ["chalk"] }).success).toBe(false);
+    expect(answersSchema.safeParse({ known: ["domain:serverless"], level: "basic", formats: ["chalk"] }).success).toBe(true);
+  });
+});
+
+describe("expandTopics", () => {
+  it("adds each topic's technologies and concepts once", () => {
+    const relations = { serverless: ["tech:AWS Lambda", "concept:event-driven"], integration: ["tech:Amazon SQS", "concept:event-driven"] };
+    expect(expandTopics(["domain:serverless", "domain:integration"], relations)).toEqual([
+      "domain:serverless",
+      "tech:AWS Lambda",
+      "concept:event-driven",
+      "domain:integration",
+      "tech:Amazon SQS",
+    ]);
   });
 });
 
@@ -72,7 +90,7 @@ describe("buildPlan", () => {
       level: "200 – Intermediate",
       topics: ["Analytics"],
     });
-    const plan = buildPlan([eventBridge, kafka], answers({ learn: ["tech:Apache Kafka"] }));
+    const plan = buildPlan([eventBridge, kafka], answers({ learn: ["domain:analytics"] }));
     const intentOf = (id: string) => plan.results.find((r) => r.session.id === id)?.intent;
     expect(intentOf("S3")).toBe("broaden");
     expect(intentOf("S4")).toBe("learn");
@@ -80,8 +98,15 @@ describe("buildPlan", () => {
 
   it("drops unrelated sessions once you name what you want to learn", () => {
     const quantum = session({ sessionId: "S5", abbreviation: "CMP301", title: "Quantum circuits", topics: ["Compute"] });
-    const plan = buildPlan([quantum], answers({ learn: ["tech:Apache Kafka"] }));
+    const plan = buildPlan([quantum], answers({ learn: ["domain:analytics"] }));
     expect(plan.results).toHaveLength(0);
+  });
+
+  it("treats the technologies of a known topic as known", () => {
+    // Two Lambda sessions tag AWS Lambda often enough to be part of the Serverless topic.
+    const other = session({ ...lambda300Raw, sessionId: "S6", abbreviation: "SVS302", title: "Lambda cold starts" });
+    const plan = buildPlan([lambda300, other], answers());
+    expect(plan.context.known).toEqual(expect.arrayContaining(["domain:serverless", "tech:AWS Lambda"]));
   });
 
   it("returns the context the UI needs to build the learning plan", () => {
@@ -101,5 +126,7 @@ describe("buildVocabulary", () => {
     expect(vocab.domains[0]?.key).toBe("domain:ai");
     expect(vocab.technologies.find((t) => t.key === "tech:Amazon Bedrock")?.count).toBeGreaterThan(10);
     expect(vocab.technologies.every((t) => t.domain)).toBe(true);
+    const ai = vocab.domains.find((d) => d.key === "domain:ai");
+    expect(ai?.related).toContain("tech:Amazon Bedrock");
   });
 });

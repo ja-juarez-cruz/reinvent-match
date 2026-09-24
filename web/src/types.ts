@@ -138,6 +138,8 @@ export interface VocabularyEntry {
   label: string;
   count: number;
   domain?: string;
+  /** For topics: technology and concept keys that come with it. */
+  related?: string[];
 }
 
 export interface Vocabulary {

@@ -1058,3 +1058,18 @@ main {
     position: static;
   }
 }
+
+.chip.readonly {
+  cursor: default;
+  border-style: dashed;
+  opacity: 0.6;
+}
+
+.chip.readonly.on {
+  opacity: 1;
+  border-style: solid;
+}
+
+.includes {
+  margin: 0;
+}

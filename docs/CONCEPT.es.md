@@ -65,10 +65,12 @@ Cada `name` puede ser una etiqueta del catálogo (`"AWS Lambda"`, `"Agentic AI"`
 
 La app hace cuatro preguntas en lugar de mostrar el editor Know/Grow/Explore/Ignore:
 
-1. **Lo que sabes:** hasta 8 etiquetas de la taxonomía (temas, tecnologías, prácticas). El límite obliga a elegir con precisión.
-2. **Lo que quieres aprender:** opcional, hasta 5. Sin esto, "Aprender" se infiere; la IA está en el 71% de las sesiones de re:Invent, así que nombrar un objetivo mantiene esa lista enfocada.
+1. **Lo que sabes:** hasta 8 **temas**. Solo los temas se pueden seleccionar; cada uno trae sus tecnologías y prácticas relacionadas, que se muestran como etiquetas de solo lectura. El límite obliga a elegir con precisión.
+2. **Lo que quieres aprender:** opcional, hasta 5 temas. Sin esto, "Aprender" se infiere; la IA está en el 71% de las sesiones de re:Invent, así que nombrar un objetivo mantiene esa lista enfocada.
 3. **Nivel:** básico, intermedio o alto; se aplica a lo que sabes (apunta a 200 / 300 / 400) y a temas nuevos (100–200 / 200–300 / 300).
 4. **Formatos:** uno, varios o todos; es un filtro estricto.
+
+**Tema → tecnologías y prácticas.** Una tecnología pertenece al tema en que la taxonomía la tiene curada (p. ej. SQS → Integración de aplicaciones) o, si no, al tema principal con el que más aparece en el catálogo; cada tema conserva sus 8 tecnologías más comunes. Una práctica pertenece a un tema cuando aparece al menos 1.5× más en las sesiones de ese tema que en todo el catálogo (lift), hasta 4 por tema; con conteos simples, la IA se quedaría con todas las prácticas. El servidor expande los temas elegidos al armar el plan, así que las respuestas solo guardan temas.
 
 Cada sesión de los formatos elegidos recibe una intención (ver [`src/plan/plan.ts`](../src/plan/plan.ts)):
 

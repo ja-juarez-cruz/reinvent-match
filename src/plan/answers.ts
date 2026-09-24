@@ -19,15 +19,15 @@ export const FORMAT_CHOICES: { id: string; label: string; formats: string[] }[] 
 ];
 
 /**
- * Tag keys are "<kind>:<id>": "domain:serverless", "tech:Amazon DynamoDB", "concept:event-driven". They point into
- * the taxonomy so matching is set-based instead of free-text.
+ * Attendees pick topics ("domain:serverless"); the plan expands each one to its technologies ("tech:AWS Lambda") and
+ * concepts ("concept:event-driven"), so the caps count topics, not tags.
  */
-const tagKey = z.string().regex(/^(domain|tech|concept):.+$/, "Tag keys look like domain:serverless or tech:Amazon SQS");
+const topicKey = z.string().regex(/^domain:[a-z-]+$/, "Pick topics, such as domain:serverless");
 
 export const answersSchema = z.object({
   name: z.string().max(80).optional(),
-  known: z.array(tagKey).min(1, "Pick at least one thing you know").max(MAX_KNOWN),
-  learn: z.array(tagKey).max(MAX_LEARN).default([]),
+  known: z.array(topicKey).min(1, "Pick at least one topic you know").max(MAX_KNOWN),
+  learn: z.array(topicKey).max(MAX_LEARN).default([]),
   level: z.enum(LEVELS),
   formats: z
     .array(z.string())

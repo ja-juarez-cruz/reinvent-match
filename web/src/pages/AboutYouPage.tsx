@@ -115,8 +115,8 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
           <>
             <h2>What do you already know?</h2>
             <p className="muted">
-              Pick up to <strong>{options.maxKnown}</strong>: the topics, services or practices you work with. Fewer, sharper
-              picks give better recommendations.
+              Pick up to <strong>{options.maxKnown}</strong> topics you work with. Each topic brings its technologies and
+              practices along, shown below. Fewer, sharper picks give better recommendations.
             </p>
             <TagPicker
               vocab={vocab}
@@ -134,7 +134,7 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
               What do you want to learn? <span className="muted small">(optional)</span>
             </h2>
             <p className="muted">
-              Up to <strong>{options.maxLearn}</strong>. Leave it empty and Re:Match suggests new ground on its own; AI is in 71% of
+              Up to <strong>{options.maxLearn}</strong> topics. Leave it empty and Re:Match suggests new ground on its own; AI is in 71% of
               sessions, so naming what you care about keeps the "Learn" list focused.
             </p>
             <TagPicker
@@ -241,45 +241,70 @@ function TagPicker({
   const [allTech, setAllTech] = useState(false);
   const full = selected.length >= max;
   const q = query.trim().toLowerCase();
-  const visible = (e: VocabularyEntry) => !exclude.includes(e.key) && (!q || e.label.toLowerCase().includes(q));
 
+  const relatedOf = useMemo(() => new Map(vocab.domains.map((d) => [d.key, d.related ?? []])), [vocab]);
+  // Which picked topic brings each technology or concept along; tags already claimed by excluded topics stay out.
+  const includedBy = useMemo(() => {
+    const taken = new Set(exclude.flatMap((k) => relatedOf.get(k) ?? []));
+    const map = new Map<string, string[]>();
+    for (const topic of selected) {
+      for (const key of relatedOf.get(topic) ?? []) {
+        if (!taken.has(key)) map.set(key, [...(map.get(key) ?? []), labels.get(topic) ?? topic]);
+      }
+    }
+    return map;
+  }, [selected, exclude, relatedOf, labels]);
+  const topicsOf = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const d of vocab.domains) {
+      for (const key of d.related ?? []) map.set(key, [...(map.get(key) ?? []), d.label]);
+    }
+    return map;
+  }, [vocab]);
+
+  const matches = (e: VocabularyEntry) => !q || e.label.toLowerCase().includes(q);
   const toggle = (key: string) =>
     onChange(selected.includes(key) ? selected.filter((k) => k !== key) : full ? selected : [...selected, key]);
 
-  const group = (title: string, entries: VocabularyEntry[]) => {
-    const shown = entries.filter(visible);
-    if (shown.length === 0) return null;
-    return (
+  const topics = vocab.domains.filter((e) => !exclude.includes(e.key) && matches(e));
+  const technologies = (q || allTech ? vocab.technologies : vocab.technologies.slice(0, 30)).filter(matches);
+  const concepts = vocab.concepts.filter(matches);
+  const included = [...includedBy.keys()];
+
+  const readOnly = (title: string, entries: VocabularyEntry[]) =>
+    entries.length === 0 ? null : (
       <div className="tag-group">
         <h3 className="small muted">{title}</h3>
         <div className="chips">
-          {shown.map((e) => {
-            const on = selected.includes(e.key);
+          {entries.map((e) => {
+            const by = includedBy.get(e.key);
+            const from = topicsOf.get(e.key);
             return (
-              <button
+              <span
                 key={e.key}
-                className={`chip small ${on ? "on" : ""}`}
-                disabled={!on && full}
-                onClick={() => toggle(e.key)}
-                title={`${e.count} sessions`}
+                className={`chip small readonly ${by ? "on" : ""}`}
+                title={
+                  by
+                    ? `Included by ${by.join(", ")}`
+                    : from
+                      ? `Comes with ${from.join(", ")}`
+                      : "Not tied to a single topic"
+                }
               >
-                {on ? "✓ " : ""}
+                {by ? "✓ " : ""}
                 {e.label} <span className="muted">{e.count}</span>
-              </button>
+              </span>
             );
           })}
         </div>
       </div>
     );
-  };
-
-  const technologies = q || allTech ? vocab.technologies : vocab.technologies.slice(0, 30);
 
   return (
     <div className="tag-picker">
       <div className="selected-bar">
         <span className={`counter ${full ? "full" : ""}`}>
-          {selected.length} / {max}
+          {selected.length} / {max} topics
         </span>
         {selected.map((key) => (
           <button key={key} className="chip on small" onClick={() => toggle(key)}>
@@ -287,15 +312,44 @@ function TagPicker({
           </button>
         ))}
       </div>
-      <input placeholder="Search: DynamoDB, event-driven, Kubernetes…" value={query} onChange={(e) => setQuery(e.target.value)} />
-      {group("Topics", vocab.domains)}
-      {group("Technologies", technologies)}
+      {included.length > 0 && (
+        <p className="small muted includes">
+          Includes {included.length} technologies and practices:{" "}
+          {included.map((k) => labels.get(k) ?? k).join(", ")}.
+        </p>
+      )}
+      <input placeholder="Search: Serverless, DynamoDB, event-driven…" value={query} onChange={(e) => setQuery(e.target.value)} />
+
+      {topics.length > 0 && (
+        <div className="tag-group">
+          <h3 className="small muted">Topics · pick here</h3>
+          <div className="chips">
+            {topics.map((e) => {
+              const on = selected.includes(e.key);
+              return (
+                <button
+                  key={e.key}
+                  className={`chip small ${on ? "on" : ""}`}
+                  disabled={!on && full}
+                  onClick={() => toggle(e.key)}
+                  title={`${e.count} sessions · includes ${(e.related ?? []).map((k) => labels.get(k) ?? k).join(", ") || "no specific tags"}`}
+                >
+                  {on ? "✓ " : ""}
+                  {e.label} <span className="muted">{e.count}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      <p className="small muted">Technologies and practices below are selected through their topic.</p>
+      {readOnly("Technologies", technologies)}
       {!q && !allTech && (
         <button className="link small" onClick={() => setAllTech(true)}>
           Show all {vocab.technologies.length} technologies
         </button>
       )}
-      {group("Practices & concepts", vocab.concepts)}
+      {readOnly("Practices & concepts", concepts)}
     </div>
   );
 }
