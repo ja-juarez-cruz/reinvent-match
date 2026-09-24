@@ -23,7 +23,7 @@ Four equally weighted criteria (25% each):
 | `GetEvent` | Event timezone and dates for the agenda | ⬜ |
 | `ListSessions` | Full catalog download and cache | ✅ |
 | `GetSession` | Refresh seat availability for shortlisted sessions before reserving | ⬜ |
-| `GetSchedule` | Import existing favorites/reservations as signals and fixed agenda slots; verify every write | ⬜ |
+| `GetSchedule` | `rematch schedule`; import existing favorites/reservations as signals and fixed agenda slots; verify every write | 🟡 read |
 | `AssociateFavorites` | ❤️ swipe → favorite | ⬜ |
 | `DisassociateFavorite` | ❌ on a previously favorited session → remove favorite | ⬜ |
 | `CreatePersonalTime` | Travel buffers between venues, Expo, meals, Ask the Experts | ⬜ |
@@ -36,15 +36,25 @@ Re:Match only touches personal time entries it created (tagged in the descriptio
 
 ## Timeline
 
+Goal: **the tool is complete before reserved seating opens on October 6**, so the author can use it for their own agenda on day one.
+
+Reserved seating opens on **October 6** in the portal, but write access through the API (reserve/cancel) only opens on **October 8**. The plan for opening day accounts for that gap:
+
+- **By October 5:** favorites are already synced to the official portal, and Re:Match produces a *reservation plan*: the conflict-free agenda ordered by value × scarcity, with a backup for every slot. On October 6 the attendee reserves in the portal following that order, starting with the sessions most likely to fill up.
+- **From October 8:** `rematch reserve` reserves whatever is still missing through the API, falls back to the pre-approved backup when a session is full (`sessionFull`), reports clashes (`scheduleConflict` + `conflictsWith`), and a watcher polls seat availability for full sessions within the quotas.
+
 | Dates | Milestone |
 |---|---|
-| Sep 24 | ✅ Match engine against public catalogs, concept docs |
-| Sep 25 – Oct 3 | `rematch login` (Builder ID), `reinvent2026` catalog, `GetSchedule` import, terminal swipe with favorites sync |
-| Oct 4 – 8 | Agenda builder (conflicts, travel, opportunity cost), personal time, reservations. **Use it for the author's own agenda on Oct 6–8** |
-| Oct 9 – 20 | Local swipe web UI, learning paths, swap suggestions (`CancelReservation` + `ReserveSessions`) |
-| Oct 21 – 30 | MCP server, `npx` packaging, hardening (quotas, partial failures, token handling) |
-| Oct 31 – Nov 4 | Builder Center write-up, demo video, screenshots, README polish |
-| **Nov 5** | Submit (one day of buffer before the deadline) |
+| Sep 24 | ✅ Match engine against public catalogs, concept docs, Builder ID sign-in |
+| Sep 25 – 27 | `reinvent2026` catalog with the author's own profile; calibrate rules and weights on real data |
+| Sep 28 – Oct 1 | Swipe (terminal) with ❤️/❌ synced to favorites; `GetSchedule` import |
+| Oct 2 – 4 | Agenda builder (conflicts, travel between venues, opportunity cost, backups), personal time, reservation plan |
+| **Oct 5** | Tool complete for opening day; dry run end to end |
+| Oct 6 | Reserve in the portal following the plan |
+| Oct 8 | `rematch reserve` live against the API (first real test of write access) |
+| Oct 9 – 20 | Seat watcher, swap suggestions, local swipe UI, MCP server |
+| Oct 21 – 31 | Builder Center write-up, demo video with real results from Oct 6–8 |
+| Before Nov 6 | Submit |
 
 ## Submission checklist
 

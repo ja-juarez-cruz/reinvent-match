@@ -211,7 +211,7 @@ API oficial (REST en `https://api.awsevents.com/v1` + servidor MCP en `https://a
 ┌──────────────────── máquina del asistente ────────────────────┐
 │                                                               │
 │  rematch (CLI + UI web en localhost:8484)                     │
-│   ├─ auth      OAuth PKCE Builder ID → keychain del SO        │
+│   ├─ auth      OAuth PKCE Builder ID → ~/.rematch (0600)      │
 │   ├─ catalog   ListSessions → caché local (JSON) + ETag/fecha │
 │   ├─ profile   perfil.json (Know/Grow/Explore/Ignore)         │
 │   ├─ match     reglas + scoring + explicaciones               │
@@ -250,6 +250,6 @@ re:Invent 2026: **30 nov – 4 dic**, Las Vegas. La reserva de asientos abre el 
 1. **Ventana de tiempo muy corta.** Si la Fase 1b no está lista el 3 de octubre, el plan B es usar el motor para generar la shortlist y reservar a mano en el portal el 6 de octubre.
 2. **Sesiones sin nivel o con tags pobres** (`"No Level"`, `services` vacío): hacer fallback a `topics` y `areasOfInterest` y bajar la confianza del match (mostrarlo en la explicación).
 3. **Reserva automática.** Reservar tiene efectos reales (asientos limitados, choques de horario). Re:Match nunca reserva sin que la persona confirme la lista final, y después verifica con `GetSchedule`.
-4. **Tokens.** Guardar en el keychain del sistema operativo, nunca en texto plano; ofrecer `rematch logout`, que revoca el token.
+4. **Tokens.** Se guardan en `~/.rematch/credentials.json`, que solo puede leer el dueño (0600); pasarlos al keychain del sistema operativo es una mejora posterior. `rematch logout` revoca el refresh token y `--browser` también cierra la sesión de Builder ID.
 5. **Nombre y marca.** "Re:Match" juega con una marca de AWS: aclarar que es no oficial y revisar las guías de marca.
 6. **Alcance.** El API cubre re:Invent, Summits y otros eventos de AWS, así que el modelo es genérico desde el inicio sin costo extra.

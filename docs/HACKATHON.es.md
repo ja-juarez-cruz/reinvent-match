@@ -23,7 +23,7 @@ Cuatro criterios con el mismo peso (25% cada uno):
 | `GetEvent` | Zona horaria y fechas del evento para la agenda | ⬜ |
 | `ListSessions` | Descarga y caché del catálogo completo | ✅ |
 | `GetSession` | Actualizar la disponibilidad de asientos de las sesiones preseleccionadas antes de reservar | ⬜ |
-| `GetSchedule` | Importar favoritos y reservas existentes como señales y horarios fijos; verificar cada escritura | ⬜ |
+| `GetSchedule` | `rematch schedule`; importar favoritos y reservas existentes como señales y horarios fijos; verificar cada escritura | 🟡 lectura |
 | `AssociateFavorites` | ❤️ en el swipe → favorito | ⬜ |
 | `DisassociateFavorite` | ❌ sobre una sesión que ya era favorita → se quita | ⬜ |
 | `CreatePersonalTime` | Tiempo de traslado entre venues, Expo, comidas, Ask the Experts | ⬜ |
@@ -36,15 +36,25 @@ Re:Match solo modifica los bloques de tiempo personal que él mismo creó (marca
 
 ## Calendario
 
+Meta: **la herramienta está completa antes de que abra la reserva de asientos el 6 de octubre**, para que el autor la use para su propia agenda desde el primer día.
+
+La reserva abre el **6 de octubre** en el portal, pero la escritura por API (reservar y cancelar) abre hasta el **8 de octubre**. El plan para el día de apertura toma en cuenta esa diferencia:
+
+- **Para el 5 de octubre:** los favoritos ya están sincronizados con el portal oficial, y Re:Match genera un *plan de reserva*: la agenda sin choques, ordenada por valor × escasez y con un respaldo para cada horario. El 6 de octubre el asistente reserva en el portal siguiendo ese orden, empezando por las sesiones que más probablemente se llenen.
+- **Desde el 8 de octubre:** `rematch reserve` reserva por API lo que falte; si una sesión está llena (`sessionFull`), usa el respaldo que el asistente aprobó antes; reporta choques de horario (`scheduleConflict` + `conflictsWith`); y un vigilante revisa la disponibilidad de asientos de las sesiones llenas sin pasarse de las cuotas.
+
 | Fechas | Hito |
 |---|---|
-| 24 sep | ✅ Motor de match con catálogos públicos, documentación del concepto |
-| 25 sep – 3 oct | `rematch login` (Builder ID), catálogo `reinvent2026`, importar `GetSchedule`, swipe en terminal sincronizado con favoritos |
-| 4 – 8 oct | Armado de agenda (conflictos, traslados, costo de oportunidad), tiempo personal, reservas. **Usarlo para la agenda propia el 6–8 de octubre** |
-| 9 – 20 oct | UI web de swipe local, learning paths, sugerencias de cambio (`CancelReservation` + `ReserveSessions`) |
-| 21 – 30 oct | Servidor MCP, paquete `npx`, robustez (cuotas, fallas parciales, manejo de tokens) |
-| 31 oct – 4 nov | Publicación en Builder Center, video demo, capturas, pulir README |
-| **5 nov** | Entregar (un día de margen antes de la fecha límite) |
+| 24 sep | ✅ Motor de match con catálogos públicos, documentación, inicio de sesión con Builder ID |
+| 25 – 27 sep | Catálogo `reinvent2026` con el perfil del autor; calibrar reglas y pesos con datos reales |
+| 28 sep – 1 oct | Swipe (terminal) con ❤️/❌ sincronizado con favoritos; importar `GetSchedule` |
+| 2 – 4 oct | Armado de agenda (choques, traslados entre venues, costo de oportunidad, respaldos), tiempo personal, plan de reserva |
+| **5 oct** | Herramienta completa para el día de apertura; prueba completa de punta a punta |
+| 6 oct | Reservar en el portal siguiendo el plan |
+| 8 oct | `rematch reserve` en vivo contra el API (primera prueba real de escritura) |
+| 9 – 20 oct | Vigilante de asientos, sugerencias de cambio, UI de swipe local, servidor MCP |
+| 21 – 31 oct | Publicación en Builder Center, video demo con resultados reales del 6–8 de octubre |
+| Antes del 6 nov | Entregar |
 
 ## Checklist de entrega
 

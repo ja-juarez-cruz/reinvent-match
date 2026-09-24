@@ -49,7 +49,17 @@ Match options:
 
 ### re:Invent 2026
 
-The re:Invent catalog is only readable by registered attendees. Built-in Builder ID sign-in (`rematch login`) is in progress. Until then, `fetch` uses a token from the `REMATCH_ACCESS_TOKEN` environment variable if one is set.
+The re:Invent catalog is only readable by registered attendees. Sign in with your AWS Builder ID first:
+
+```bash
+npm run dev -- login                    # opens the browser; callback on 127.0.0.1:8484
+npm run dev -- schedule reinvent2026    # check access: your reservations and favorites
+npm run dev -- fetch reinvent2026
+npm run dev -- match reinvent2026 -p my-profile.json --explain
+npm run dev -- logout --browser         # revoke tokens and end the Builder ID session
+```
+
+Tokens are stored in `~/.rematch/credentials.json` (readable only by you) and refreshed automatically. The downloaded catalog stays in `.rematch/cache/`, which is git-ignored: the re:Invent catalog is not public and must never be committed.
 
 ## Development
 
@@ -71,7 +81,8 @@ src/
 ## Roadmap
 
 - [x] Match engine against public catalogs
-- [ ] Builder ID sign-in (OAuth PKCE on `localhost:8484`) and `reinvent2026` catalog
+- [x] Builder ID sign-in (OAuth PKCE on `127.0.0.1:8484`)
+- [ ] `reinvent2026` catalog calibrated with a real profile
 - [ ] Swipe ❤️ → official favorites
 - [ ] Agenda: conflicts, travel between venues, opportunity cost, personal time
 - [ ] Reservations with explicit confirmation (from October 8, 2026)
