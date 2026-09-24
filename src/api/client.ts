@@ -1,4 +1,4 @@
-import type { AwsEvent, ListEventsResponse, ListSessionsResponse, Schedule, Session } from "./types.js";
+import type { AwsEvent, BulkResult, ListEventsResponse, ListSessionsResponse, Schedule, Session } from "./types.js";
 
 export const DEFAULT_BASE_URL = "https://api.awsevents.com";
 
@@ -56,6 +56,23 @@ export class EventsClient {
     return res.schedule;
   }
 
+  /** Marks 1-10 distinct sessions as favorites. Check `failed`: results are per session. */
+  async associateFavorites(eventId: string, sessionIds: string[]): Promise<BulkResult> {
+    const res = await this.request<{ result: BulkResult }>(
+      "POST",
+      `/v1/events/${encodeURIComponent(eventId)}/favorites`,
+      { sessionIds },
+    );
+    return res.result;
+  }
+
+  async disassociateFavorite(eventId: string, sessionId: string): Promise<void> {
+    await this.request<unknown>(
+      "DELETE",
+      `/v1/events/${encodeURIComponent(eventId)}/favorites/${encodeURIComponent(sessionId)}`,
+    );
+  }
+
   /** Walks every page of an event's catalog. The API returns at most 250 sessions per page. */
   async listAllSessions(
     eventId: string,
@@ -78,15 +95,27 @@ export class EventsClient {
     return sessions;
   }
 
-  private async get<T>(path: string): Promise<T> {
+  private get<T>(path: string): Promise<T> {
+    return this.request<T>("GET", path);
+  }
+
+  private async request<T>(method: "GET" | "POST" | "DELETE", path: string, body?: unknown): Promise<T> {
     let token = await this.options.getAccessToken?.();
     let refreshed = false;
 
     for (let attempt = 0; ; attempt++) {
       const headers: Record<string, string> = { Accept: "application/json" };
       if (token) headers.Authorization = `Bearer ${token}`;
-      const res = await this.fetchImpl(`${this.baseUrl}${path}`, { headers });
-      if (res.ok) return (await res.json()) as T;
+      if (body !== undefined) headers["Content-Type"] = "application/json";
+      const res = await this.fetchImpl(`${this.baseUrl}${path}`, {
+        method,
+        headers,
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
+      if (res.ok) {
+        const text = await res.text();
+        return (text ? JSON.parse(text) : undefined) as T;
+      }
 
       if (res.status === 401 && token && !refreshed) {
         refreshed = true;
@@ -94,16 +123,17 @@ export class EventsClient {
         continue;
       }
 
-      const body = await res.json().catch(() => undefined);
-      const retryable = res.status === 429 || res.status >= 500;
+      const errorBody: unknown = await res.json().catch(() => undefined);
+      // A 429 was not processed, so it is always safe to retry. A 5xx on a write may have been applied.
+      const retryable = res.status === 429 || (res.status >= 500 && method === "GET");
       if (retryable && attempt < this.maxRetries) {
         const retryAfter = Number(res.headers.get("retry-after"));
         const delayMs = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 500 * 2 ** attempt;
         await this.sleep(delayMs);
         continue;
       }
-      const message = (body as { message?: string } | undefined)?.message ?? res.statusText;
-      throw new EventsApiError(`GET ${path} failed with ${res.status}: ${message}`, res.status, body);
+      const message = (errorBody as { message?: string } | undefined)?.message ?? res.statusText;
+      throw new EventsApiError(`${method} ${path} failed with ${res.status}: ${message}`, res.status, errorBody);
     }
   }
 }

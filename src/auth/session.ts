@@ -1,6 +1,6 @@
 import { chmod, mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import { rematchHome } from "../paths.js";
 import { OAuthError, refreshTokens, type TokenSet } from "./oauth.js";
 
 /** Refresh this long before expiry so a request never starts with a token about to lapse. */
@@ -14,7 +14,7 @@ export class NotSignedInError extends Error {
 }
 
 export function credentialsPath(): string {
-  return join(process.env.REMATCH_HOME ?? join(homedir(), ".rematch"), "credentials.json");
+  return join(rematchHome(), "credentials.json");
 }
 
 /** Tokens live in a file only the current user can read (0600 in a 0700 directory). */

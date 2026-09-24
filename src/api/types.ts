@@ -87,3 +87,28 @@ export interface Schedule {
   favorites: string[];
   personalTime: PersonalTime[];
 }
+
+/** Why one session in a bulk request was refused. Unknown values must be treated as a generic refusal. */
+export type BulkFailureCode =
+  | "sessionNotReservable"
+  | "scheduleConflict"
+  | "alreadyScheduled"
+  | "sessionFull"
+  | "insufficientAccess"
+  | "timePassed"
+  | "alreadyFavorited"
+  | "notFavorited"
+  | "other"
+  | (string & {});
+
+export interface BulkFailure {
+  sessionId: string;
+  code: BulkFailureCode;
+  /** Already-scheduled sessions that overlap this one, on a time clash. */
+  conflictsWith?: string[];
+}
+
+export interface BulkResult {
+  successful: string[];
+  failed: BulkFailure[];
+}

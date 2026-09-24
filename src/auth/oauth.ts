@@ -149,11 +149,6 @@ export function emailFromIdToken(idToken: string | undefined): string | undefine
   }
 }
 
-const PAGE = (title: string, body: string) =>
-  `<!doctype html><meta charset="utf-8"><title>${title}</title>` +
-  `<body style="font-family:system-ui;max-width:32rem;margin:4rem auto;padding:0 1rem">` +
-  `<h1>${title}</h1><p>${body}</p></body>`;
-
 /** Listens on the first free reserved port and resolves with the request to `path`. */
 export async function listenOnReservedPort(
   handler: (url: URL, respond: (status: number, html: string) => void) => void,
@@ -175,6 +170,43 @@ export async function listenOnReservedPort(
   throw new OAuthError(`Ports ${OAUTH.ports[0]}-${OAUTH.ports.at(-1)} are all in use; free one and retry.`);
 }
 
+export interface PendingSignIn {
+  state: string;
+  verifier: string;
+  redirectUri: string;
+  /** Where to send the attendee's browser. */
+  authorizeUrl: string;
+}
+
+/** First half of the flow: a fresh PKCE pair and state for one sign-in attempt. */
+export function beginSignIn(redirectUri: string): PendingSignIn {
+  const { verifier, challenge } = createPkcePair();
+  const state = base64url(randomBytes(24));
+  return { state, verifier, redirectUri, authorizeUrl: buildAuthorizeUrl(redirectUri, challenge, state) };
+}
+
+/** Second half: validates the callback against the pending attempt and exchanges the code. */
+export async function completeSignIn(
+  pending: PendingSignIn,
+  callback: URL,
+  fetchImpl: typeof fetch = fetch,
+): Promise<TokenSet> {
+  const error = callback.searchParams.get("error");
+  if (error) {
+    throw new OAuthError(`Sign-in failed: ${error} ${callback.searchParams.get("error_description") ?? ""}`.trim());
+  }
+  const code = callback.searchParams.get("code");
+  if (callback.searchParams.get("state") !== pending.state || !code) {
+    throw new OAuthError("Sign-in response had an unexpected state; aborting.");
+  }
+  return exchangeCode(code, pending.verifier, pending.redirectUri, fetchImpl);
+}
+
+export const signInPage = (title: string, body: string) =>
+  `<!doctype html><meta charset="utf-8"><title>${title}</title>` +
+  `<body style="font-family:system-ui;max-width:32rem;margin:4rem auto;padding:0 1rem">` +
+  `<h1>${title}</h1><p>${body}</p></body>`;
+
 export interface SignInOptions {
   openBrowser: (url: string) => void;
   timeoutMs?: number;
@@ -183,33 +215,29 @@ export interface SignInOptions {
 
 /** OAuth 2.0 authorization code flow with PKCE against a loopback callback. */
 export async function signIn({ openBrowser, timeoutMs = 5 * 60_000, fetchImpl = fetch }: SignInOptions): Promise<TokenSet> {
-  const { verifier, challenge } = createPkcePair();
-  const state = base64url(randomBytes(24));
-  let settle!: { resolve: (code: string) => void; reject: (error: Error) => void };
-  const codePromise = new Promise<string>((resolve, reject) => (settle = { resolve, reject }));
+  let pending: PendingSignIn | undefined;
+  let settle!: { resolve: (tokens: TokenSet) => void; reject: (error: Error) => void };
+  const done = new Promise<TokenSet>((resolve, reject) => (settle = { resolve, reject }));
 
   const { server, port } = await listenOnReservedPort((url, respond) => {
-    if (url.pathname !== "/callback") return respond(404, PAGE("Not found", ""));
-    const error = url.searchParams.get("error");
-    const code = url.searchParams.get("code");
-    if (error) {
-      respond(400, PAGE("Sign-in failed", `${error}. You can close this tab.`));
-      return settle.reject(new OAuthError(`Sign-in failed: ${error} ${url.searchParams.get("error_description") ?? ""}`));
-    }
-    if (url.searchParams.get("state") !== state || !code) {
-      respond(400, PAGE("Sign-in failed", "The response did not match this sign-in attempt."));
-      return settle.reject(new OAuthError("Sign-in response had an unexpected state; aborting."));
-    }
-    respond(200, PAGE("Signed in to Re:Match", "You can close this tab and return to the terminal."));
-    settle.resolve(code);
+    if (url.pathname !== "/callback" || !pending) return respond(404, signInPage("Not found", ""));
+    completeSignIn(pending, url, fetchImpl).then(
+      (tokens) => {
+        respond(200, signInPage("Signed in to Re:Match", "You can close this tab and return to the terminal."));
+        settle.resolve(tokens);
+      },
+      (error: Error) => {
+        respond(400, signInPage("Sign-in failed", "You can close this tab and try again."));
+        settle.reject(error);
+      },
+    );
   });
 
-  const redirectUri = `http://${OAUTH.host}:${port}/callback`;
+  pending = beginSignIn(`http://${OAUTH.host}:${port}/callback`);
   const timer = setTimeout(() => settle.reject(new OAuthError("Timed out waiting for sign-in.")), timeoutMs);
   try {
-    openBrowser(buildAuthorizeUrl(redirectUri, challenge, state));
-    const code = await codePromise;
-    return await exchangeCode(code, verifier, redirectUri, fetchImpl);
+    openBrowser(pending.authorizeUrl);
+    return await done;
   } finally {
     clearTimeout(timer);
     server.close();

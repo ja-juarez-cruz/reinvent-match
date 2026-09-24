@@ -14,10 +14,12 @@ import { loadCatalog, saveCatalog } from "./catalog/cache.js";
 import { normalizeSession, type NormalizedSession } from "./catalog/normalize.js";
 import { CATEGORIES, matchSessions, type Category, type MatchResult } from "./match/engine.js";
 import { loadProfile } from "./profile/profile.js";
+import { startServer } from "./server/index.js";
 
 const HELP = `rematch - person-to-session matching for AWS events (unofficial)
 
 Usage:
+  rematch ui [--no-open]                  Start the Re:Match app on 127.0.0.1:8484 and open the browser
   rematch login                           Sign in with your AWS Builder ID (opens the browser)
   rematch logout [--browser]              Revoke and delete tokens; --browser also ends the Builder ID session
   rematch whoami                          Show who is signed in
@@ -58,6 +60,7 @@ async function main(argv: string[]): Promise<number> {
       locale: { type: "string" },
       field: { type: "string" },
       browser: { type: "boolean" },
+      "no-open": { type: "boolean" },
       help: { type: "boolean", short: "h" },
     },
   });
@@ -74,6 +77,13 @@ async function main(argv: string[]): Promise<number> {
   });
 
   switch (command) {
+    case "ui": {
+      const { url, webRoot } = await startServer({ client, auth, store });
+      if (!webRoot) console.warn("Web UI not built yet; run `npm run build:web`. Serving the API only.");
+      console.log(`Re:Match is running at ${url}  (Ctrl+C to stop)`);
+      if (!values["no-open"]) openInBrowser(url);
+      return new Promise<number>(() => {});
+    }
     case "login": {
       console.log("Opening your browser to sign in with AWS Builder ID...");
       const tokens = await signIn({

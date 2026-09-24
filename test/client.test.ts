@@ -54,3 +54,33 @@ describe("EventsClient", () => {
     expect((await client.getEvent("reinvent2026")).eventId).toBe("reinvent2026");
   });
 });
+
+describe("EventsClient writes", () => {
+  it("posts favorites and returns the per-session result", async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(jsonResponse({ result: { successful: ["A"], failed: [{ sessionId: "B", code: "alreadyFavorited" }] } }));
+    const result = await new EventsClient({ fetchImpl, getAccessToken: async () => "t" }).associateFavorites(
+      "reinvent2026",
+      ["A", "B"],
+    );
+    expect(result.failed[0]?.code).toBe("alreadyFavorited");
+    const init = fetchImpl.mock.calls[0]?.[1];
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(String(init?.body))).toEqual({ sessionIds: ["A", "B"] });
+  });
+
+  it("never retries a write that failed with 5xx", async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({ message: "boom" }, 500));
+    await expect(
+      new EventsClient({ fetchImpl, sleep: async () => {} }).associateFavorites("e", ["A"]),
+    ).rejects.toMatchObject({ status: 500 });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("accepts an empty body on DELETE", async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 204 }));
+    await new EventsClient({ fetchImpl }).disassociateFavorite("e", "A");
+    expect(fetchImpl.mock.calls[0]?.[1]?.method).toBe("DELETE");
+  });
+});

@@ -210,7 +210,7 @@ API oficial (REST en `https://api.awsevents.com/v1` + servidor MCP en `https://a
 ```
 ┌──────────────────── máquina del asistente ────────────────────┐
 │                                                               │
-│  rematch (CLI + UI web en localhost:8484)                     │
+│  rematch (CLI + UI web en 127.0.0.1:8484)                     │
 │   ├─ auth      OAuth PKCE Builder ID → ~/.rematch (0600)      │
 │   ├─ catalog   ListSessions → caché local (JSON) + ETag/fecha │
 │   ├─ profile   perfil.json (Know/Grow/Explore/Ignore)         │
@@ -225,6 +225,8 @@ API oficial (REST en `https://api.awsevents.com/v1` + servidor MCP en `https://a
       api.awsevents.com  ·  oauth.awsevents.com
 ```
 
+- **Por qué un servidor local y no una página web que llame al API:** las lecturas del catálogo sin sesión aceptan cualquier origen (`Access-Control-Allow-Origin: *`), pero la petición previa de CORS para llamadas con `Authorization` devuelve `404`, y el endpoint de tokens solo acepta el origen `127.0.0.1:8484`. Las llamadas con sesión tienen que salir de un proceso local. La interfaz le habla al servidor local (`/api/...`), que guarda el token y llama al AWS Events API; el token nunca llega al navegador.
+- **Protección del servidor local:** solo escucha en `127.0.0.1`, rechaza cualquier `Host` distinto de `127.0.0.1:<puerto>`/`localhost:<puerto>` (DNS rebinding) y exige el header `X-Rematch` en toda escritura (otros sitios web no pueden mandarlo sin una petición previa de CORS que el servidor nunca aprueba).
 - **Nada sale de la máquina**: el perfil, los swipes y el catálogo se quedan en local. Resuelve privacidad y cumple con que el catálogo no es público.
 - **Distribución:** paquete npm en TypeScript (`npx rematch`) que abre la UI de swipe en el navegador, en `localhost:8484`, el mismo puerto del callback.
 - **Complemento MCP (Fase 2b):** exponer `rematch` como servidor MCP local (`match_sessions`, `explain_match`, `build_agenda`) para que un asistente (Claude Code, Kiro) lo combine con el MCP oficial `awsevents`. El scoring de 2,200 sesiones se hace en código, no en el contexto del LLM.

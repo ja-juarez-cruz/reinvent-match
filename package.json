@@ -14,18 +14,26 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && vite build",
+    "build:web": "vite build",
     "dev": "tsx src/cli.ts",
+    "ui": "vite build && tsx src/cli.ts ui",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p web"
   },
   "dependencies": {
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/node": "^22.20.4",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^5.2.0",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
+    "vite": "^7.3.6",
     "vitest": "^3.2.7"
   }
 }

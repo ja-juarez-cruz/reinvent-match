@@ -23,9 +23,9 @@ Cuatro criterios con el mismo peso (25% cada uno):
 | `GetEvent` | Zona horaria y fechas del evento para la agenda | ⬜ |
 | `ListSessions` | Descarga y caché del catálogo completo | ✅ |
 | `GetSession` | Actualizar la disponibilidad de asientos de las sesiones preseleccionadas antes de reservar | ⬜ |
-| `GetSchedule` | `rematch schedule`; importar favoritos y reservas existentes como señales y horarios fijos; verificar cada escritura | 🟡 lectura |
-| `AssociateFavorites` | ❤️ en el swipe → favorito | ⬜ |
-| `DisassociateFavorite` | ❌ sobre una sesión que ya era favorita → se quita | ⬜ |
+| `GetSchedule` | `rematch schedule`; la shortlist muestra los favoritos actuales; cada sincronización lo vuelve a leer; falta importarlo a la agenda | ✅ |
+| `AssociateFavorites` | ❤️ en el swipe → favorito (lotes de 10; `alreadyFavorited` cuenta como hecho) | ✅ |
+| `DisassociateFavorite` | ❌ sobre una sesión que ya era favorita → se quita | ✅ |
 | `CreatePersonalTime` | Tiempo de traslado entre venues, Expo, comidas, Ask the Experts | ⬜ |
 | `UpdatePersonalTime` | Mover esos bloques cuando cambia la agenda | ⬜ |
 | `DeletePersonalTime` | Quitar bloques creados por Re:Match que ya no hacen falta | ⬜ |

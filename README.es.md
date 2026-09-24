@@ -33,6 +33,21 @@ Requiere Node.js 20+.
 
 ```bash
 npm install
+npm run ui
+```
+
+Esto compila la interfaz y abre Re:Match en tu navegador en `http://127.0.0.1:8484`. Todo corre en tu máquina:
+
+1. **Evento:** eliges re:Invent (inicias sesión con tu AWS Builder ID) o el catálogo público de un Summit, y lo descargas.
+2. **Perfil:** partes de una plantilla o de un perfil guardado; acomodas los temas del catálogo en Know / Grow / Explore / Ignore con tu dominio en cada uno.
+3. **Swipe:** una sesión a la vez con su categoría, match y razones. ← no es para mí · ↓ quizá · → me interesa · U deshacer.
+4. **Shortlist:** tus elegidas por día, con los choques de horario marcados, y un clic para mandar tus ❤️ a tus favoritos oficiales de re:Invent.
+
+Tus datos se quedan en `~/.rematch/` (tokens que solo tú puedes leer, catálogos, perfiles y swipes).
+
+### Línea de comandos
+
+```bash
 npm run dev -- events                                   # lista los eventos de AWS
 npm run dev -- fetch Summit-Dubai-2026                  # catálogo público, sin iniciar sesión
 npm run dev -- vocab Summit-Dubai-2026                  # etiquetas que puedes usar en tu perfil
@@ -61,7 +76,7 @@ npm run dev -- match reinvent2026 -p mi-perfil.json --explain
 npm run dev -- logout --browser         # revoca los tokens y cierra la sesión de Builder ID
 ```
 
-Los tokens se guardan en `~/.rematch/credentials.json` (solo tú puedes leerlo) y se renuevan solos. El catálogo descargado queda en `.rematch/cache/`, que git ignora: el catálogo de re:Invent no es público y nunca debe subirse al repo.
+Los tokens se guardan en `~/.rematch/credentials.json` (solo tú puedes leerlo) y se renuevan solos. El catálogo descargado queda en `~/.rematch/cache/`, fuera del repositorio: el catálogo de re:Invent no es público y nunca debe subirse al repo.
 
 ## Desarrollo
 
@@ -76,7 +91,8 @@ npm run build     # genera dist/ con el binario `rematch`
 - [x] Motor de match con catálogos públicos
 - [x] Inicio de sesión con Builder ID (OAuth PKCE en `127.0.0.1:8484`)
 - [ ] Catálogo `reinvent2026` calibrado con un perfil real
-- [ ] Swipe ❤️ → favoritos oficiales
+- [x] App web local: editor de perfil, swipe, shortlist
+- [x] Swipe ❤️ → favoritos oficiales
 - [ ] Agenda: conflictos, traslados entre venues, costo de oportunidad, tiempo personal
 - [ ] Reservas con confirmación explícita (desde el 8 de octubre de 2026)
 - [ ] UI de swipe local y servidor MCP

@@ -31,6 +31,21 @@ Requires Node.js 20+.
 
 ```bash
 npm install
+npm run ui
+```
+
+This builds the web UI and opens Re:Match in your browser at `http://127.0.0.1:8484`. It runs entirely on your machine:
+
+1. **Event:** pick re:Invent (sign in with your AWS Builder ID) or a public Summit catalog, and download it.
+2. **Profile:** start from a template or a saved profile; sort catalog topics into Know / Grow / Explore / Ignore with a proficiency for each.
+3. **Swipe:** one session at a time with its category, match and reasons. ← not for me · ↓ maybe · → interested · U undo.
+4. **Shortlist:** your picks by day with overlaps flagged, and one click to send ❤️ to your official re:Invent favorites.
+
+Your data stays in `~/.rematch/` (tokens readable only by you, catalogs, profiles, swipes).
+
+### Command line
+
+```bash
 npm run dev -- events                                   # list AWS events
 npm run dev -- fetch Summit-Dubai-2026                  # public catalog, no sign-in needed
 npm run dev -- vocab Summit-Dubai-2026                  # labels you can use in your profile
@@ -59,7 +74,7 @@ npm run dev -- match reinvent2026 -p my-profile.json --explain
 npm run dev -- logout --browser         # revoke tokens and end the Builder ID session
 ```
 
-Tokens are stored in `~/.rematch/credentials.json` (readable only by you) and refreshed automatically. The downloaded catalog stays in `.rematch/cache/`, which is git-ignored: the re:Invent catalog is not public and must never be committed.
+Tokens are stored in `~/.rematch/credentials.json` (readable only by you) and refreshed automatically. The downloaded catalog stays in `~/.rematch/cache/`, outside the repository: the re:Invent catalog is not public and must never be committed.
 
 ## Development
 
@@ -70,7 +85,12 @@ npm run build     # emits dist/ with the `rematch` binary
 ```
 
 ```
+web/            React UI served by the local server
 src/
+├── server/     local HTTP server: UI, /api for the UI, sign-in callback
+├── store/      profiles and swipes in ~/.rematch
+├── sync/       favorites sync (AssociateFavorites / DisassociateFavorite)
+├── auth/       Builder ID sign-in (OAuth PKCE), token storage and refresh
 ├── api/        AWS Events API client and types
 ├── catalog/    session normalization and local cache
 ├── profile/    profile schema and loading
@@ -83,7 +103,8 @@ src/
 - [x] Match engine against public catalogs
 - [x] Builder ID sign-in (OAuth PKCE on `127.0.0.1:8484`)
 - [ ] `reinvent2026` catalog calibrated with a real profile
-- [ ] Swipe ❤️ → official favorites
+- [x] Local web app: profile editor, swipe, shortlist
+- [x] Swipe ❤️ → official favorites
 - [ ] Agenda: conflicts, travel between venues, opportunity cost, personal time
 - [ ] Reservations with explicit confirmation (from October 8, 2026)
 - [ ] Local swipe UI and MCP server

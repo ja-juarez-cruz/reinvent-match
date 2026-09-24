@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Session } from "../api/types.js";
+import { rematchHome } from "../paths.js";
 
 export interface CachedCatalog {
   eventId: string;
@@ -9,8 +10,8 @@ export interface CachedCatalog {
   sessions: Session[];
 }
 
-export function cacheDir(root = process.cwd()): string {
-  return join(root, ".rematch", "cache");
+export function cacheDir(root = rematchHome()): string {
+  return join(root, "cache");
 }
 
 function cachePath(eventId: string, root?: string): string {

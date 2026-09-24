@@ -23,9 +23,9 @@ Four equally weighted criteria (25% each):
 | `GetEvent` | Event timezone and dates for the agenda | ⬜ |
 | `ListSessions` | Full catalog download and cache | ✅ |
 | `GetSession` | Refresh seat availability for shortlisted sessions before reserving | ⬜ |
-| `GetSchedule` | `rematch schedule`; import existing favorites/reservations as signals and fixed agenda slots; verify every write | 🟡 read |
-| `AssociateFavorites` | ❤️ swipe → favorite | ⬜ |
-| `DisassociateFavorite` | ❌ on a previously favorited session → remove favorite | ⬜ |
+| `GetSchedule` | `rematch schedule`; shortlist shows current favorites; every favorites sync re-reads it; agenda import pending | ✅ |
+| `AssociateFavorites` | ❤️ swipe → favorite (batches of 10, `alreadyFavorited` treated as done) | ✅ |
+| `DisassociateFavorite` | ❌ on a previously favorited session → remove favorite | ✅ |
 | `CreatePersonalTime` | Travel buffers between venues, Expo, meals, Ask the Experts | ⬜ |
 | `UpdatePersonalTime` | Move buffers when the agenda changes | ⬜ |
 | `DeletePersonalTime` | Remove buffers Re:Match created that are no longer needed | ⬜ |

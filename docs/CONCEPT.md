@@ -210,7 +210,7 @@ Official API (REST at `https://api.awsevents.com/v1` + MCP server at `https://ap
 ```
 ┌──────────────────── attendee's machine ───────────────────────┐
 │                                                               │
-│  rematch (CLI + web UI on localhost:8484)                     │
+│  rematch (CLI + web UI on 127.0.0.1:8484)                     │
 │   ├─ auth      OAuth PKCE Builder ID → ~/.rematch (0600)      │
 │   ├─ catalog   ListSessions → local cache (JSON)              │
 │   ├─ profile   profile.json (Know/Grow/Explore/Ignore)        │
@@ -225,6 +225,8 @@ Official API (REST at `https://api.awsevents.com/v1` + MCP server at `https://ap
       api.awsevents.com  ·  oauth.awsevents.com
 ```
 
+- **Why a local server and not a web page calling the API:** unauthenticated catalog reads allow any origin (`Access-Control-Allow-Origin: *`), but the CORS preflight for requests carrying `Authorization` returns `404`, and the token endpoint only allows the `127.0.0.1:8484` origin. Signed-in calls must come from a local process. The UI talks to the local server (`/api/...`), which holds the token and calls the AWS Events API; the token never reaches the browser.
+- **Local server hardening:** binds to `127.0.0.1` only, rejects any `Host` other than `127.0.0.1:<port>`/`localhost:<port>` (DNS rebinding), and requires an `X-Rematch` header on every write (other websites cannot send it without a CORS preflight the server never approves).
 - **Nothing leaves the machine**: profile, swipes and catalog stay local. That solves privacy and respects the catalog not being public.
 - **Distribution:** a TypeScript npm package (`npx rematch`) that opens the swipe UI in the browser at `localhost:8484`, the same port as the sign-in callback.
 - **MCP companion (Phase 2b):** expose `rematch` as a local MCP server (`match_sessions`, `explain_match`, `build_agenda`) so an assistant (Claude Code, Kiro) can combine it with the official `awsevents` MCP server. Scoring 2,200 sessions happens in code, not in the LLM's context.
