@@ -107,6 +107,12 @@ export interface WeekDay {
   overlapping: PlanItem[];
   /** False when your picks leave no lunch break in the lunch window. */
   lunchFits: boolean;
+  /** Earliest lunch slot that fits around your picks; null when none fits or the day ends before lunch. */
+  lunchSlot: { start: number; end: number } | null;
+  /** First start and last end of your picks, in minutes after midnight. */
+  span: { start: number; end: number } | null;
+  /** Free minutes between consecutive picks (negative when they overlap). */
+  gaps: number[];
 }
 
 /**
@@ -135,6 +141,8 @@ export function buildWeek(items: PlanItem[], swipes: SwipeLog): WeekDay[] {
     const overlapping = liked
       .filter((a) => liked.some((b) => a !== b && !compatible(a.block, b.block)))
       .map((e) => e.item);
+    const pickedBlocks = liked.map((e) => e.block).sort((a, b) => a.start - b.start);
+    const lunch = lunchOptions(dayEnd).find((l) => pickedBlocks.every((b) => compatible(b, l)));
 
     return {
       date,
@@ -143,6 +151,11 @@ export function buildWeek(items: PlanItem[], swipes: SwipeLog): WeekDay[] {
       remaining,
       overlapping,
       lunchFits,
+      lunchSlot: lunch ? { start: lunch.start, end: lunch.end } : null,
+      span: pickedBlocks.length
+        ? { start: pickedBlocks[0]!.start, end: Math.max(...pickedBlocks.map((b) => b.end)) }
+        : null,
+      gaps: pickedBlocks.slice(1).map((b, i) => b.start - pickedBlocks[i]!.end),
     };
   });
 }

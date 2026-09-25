@@ -106,3 +106,19 @@ describe("nextDay", () => {
     expect(nextDay(week, "2026-12-02")).toBeUndefined();
   });
 });
+
+describe("day explanation data", () => {
+  it("reports the picks' span, the gaps between them and where lunch fits", () => {
+    const items = [
+      item("A", "08:30", "Caesars Forum"),
+      item("B", "10:00", "Caesars Forum"),
+      item("C", "12:00", "Caesars Forum"),
+      item("D", "13:30", "Caesars Forum"),
+    ];
+    const [day] = buildWeek(items, Object.fromEntries(items.map((i) => [i.session.id, { decision: "like" as const, at: "x" }])));
+    expect(day?.span).toEqual({ start: 510, end: 870 });
+    expect(day?.gaps).toEqual([30, 60, 30]);
+    expect(day?.lunchSlot).toEqual({ start: 660, end: 720 });
+    expect(day?.remaining).toBe(0);
+  });
+});

@@ -4,7 +4,7 @@ import { navigate } from "../App";
 import { LearningPlanPanel } from "../components/LearningPlanPanel";
 import { SessionCode } from "../components/SessionCode";
 import { SessionModal } from "../components/SessionModal";
-import { WeekStrip } from "../components/WeekStrip";
+import { WeekStrip, explainDay } from "../components/WeekStrip";
 import { formatDay, formatTimeRange, venueOf } from "../format";
 import { buildLearningPlan } from "../learningPlan";
 import { CARD_REASONS, type AwsEvent, type Decision, type Intent, type PlanItem } from "../types";
@@ -156,6 +156,7 @@ export function SwipePage({ event, eventId, answersId }: Props) {
               📅 <strong>{formatDay(fullDay.date)} is full.</strong> With your {fullDay.liked.length} picks, lunch and travel
               between venues, no more sessions fit in your calendar that day.
             </p>
+            <p className="muted small">{explainDay(fullDay).slice(1, -1).join(" ")}</p>
             <div className="row">
               <button className="ghost" onClick={() => chooseDay(fullDay.date)}>
                 Keep reviewing {formatDay(fullDay.date)}
@@ -257,8 +258,7 @@ export function SwipePage({ event, eventId, answersId }: Props) {
                 ))}
                 {impact.full && impact.day && (
                   <div>
-                    ⛔ {formatDay(impact.day.date)} is full: with your {impact.day.liked.length} picks, lunch and travel, nothing
-                    else fits.
+                    ⛔ {formatDay(impact.day.date)} is full: {explainDay(impact.day).slice(1, -1).join(" ")}
                   </div>
                 )}
               </div>

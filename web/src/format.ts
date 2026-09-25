@@ -11,7 +11,7 @@ export function minutesOf(time: string | null): number | null {
   return m ? Number(m[1]) * 60 + Number(m[2]) : null;
 }
 
-function clock(minutes: number): string {
+export function clock(minutes: number): string {
   return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
 }
 
