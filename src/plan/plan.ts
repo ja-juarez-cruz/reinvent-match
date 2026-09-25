@@ -22,6 +22,8 @@ export interface VocabularyEntry {
 export type TopicRelations = Record<string, string[]>;
 
 export interface Vocabulary {
+  /** Sessions in the catalog, to express counts as shares. */
+  total: number;
   domains: VocabularyEntry[];
   technologies: VocabularyEntry[];
   concepts: VocabularyEntry[];
@@ -254,6 +256,7 @@ export function buildVocabulary(sessions: NormalizedSession[], maxTechnologies =
     return [...counts].sort((a, b) => b[1] - a[1]);
   };
   return {
+    total: tagged.length,
     domains: tally((t) => t.domains).map(([id, count]) => ({
       key: `domain:${id}`,
       label: labelOfKey(`domain:${id}`),
@@ -294,6 +297,9 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers): Plan
   const learnKeys = expandTopics(answers.learn, relations).filter((k) => !knownKeys.includes(k));
   const known = new Set(knownKeys);
   const learn = new Set(learnKeys);
+  // A topic both known and wanted is one to go deeper on: its sessions are reinforced and count toward coverage.
+  const deepenTopics = answers.learn.filter((k) => answers.known.includes(k));
+  const deepen = new Set(expandTopics(deepenTopics, relations));
   const knownDomains = domainsOfKeys(answers.known, techDomain);
   const learnDomains = domainsOfKeys(answers.learn, techDomain);
   const neighborDomains = new Set(
@@ -382,7 +388,8 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers): Plan
     const depth = session.archDepth / 3;
     // How many of the attendee's tags (known and to learn) the session touches; separates sessions that max out
     // every other component.
-    const goalHits = new Set([...knownHits, ...learnHits]).size;
+    const deepenHits = keys.filter((k) => deepen.has(k));
+    const goalHits = new Set([...knownHits, ...learnHits]).size + deepenHits.length;
     const coverage = Math.min(1, goalHits / COVERAGE_TARGET);
     let score = 0.3 * relevance + 0.2 * levelFit + 0.2 * irreplaceability + 0.15 * depth + 0.15 * coverage;
     if (session.isCustomerStory) score = Math.min(1, score + 0.02);
@@ -408,6 +415,16 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers): Plan
       score: Math.round(score * 100),
       reasons: [
         ...explain({ intent, deciding, knownHits, learnHits, tags, level, proficiency, newTopicLevel, session, mainIsKnown }),
+        ...(deepenHits.length > 0
+          ? [
+              {
+                kind: "pro" as const,
+                text: `One of the topics you want to go deeper on: ${[
+                  ...new Set(deepenTopics.filter((t) => deepenHits.includes(t)).map(labelOfKey)),
+                ].join(", ") || labelOfKey(deepenHits[0]!)}.`,
+              },
+            ]
+          : []),
         ...aiReasons(readiness),
         ...ignoredMentions.map((p) => ({
           kind: "con" as const,

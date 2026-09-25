@@ -63,7 +63,7 @@ Cada `name` puede ser una etiqueta del catálogo (`"AWS Lambda"`, `"Agentic AI"`
 
 ## 3b. Onboarding v2: preguntas en lugar del editor de perfil (implementado)
 
-La app hace cuatro preguntas en lugar de mostrar el editor Know/Grow/Explore/Ignore:
+La app tiene cinco pasos, en este orden: **qué quieres aprender o profundizar** (1–5 temas, obligatorio); **con qué estás familiarizado** más **tu nivel** en la misma página (un tema en ambas listas es uno a profundizar: sus sesiones se refuerzan y cuentan para la cobertura); plataformas que no son para ti; base de IA; formatos. El detalle de cada respuesta:
 
 1. **Lo que sabes:** hasta 8 **temas**. Solo los temas se pueden seleccionar; cada uno trae sus tecnologías y prácticas relacionadas, que se muestran como etiquetas de solo lectura. El límite obliga a elegir con precisión.
 2. **Lo que quieres aprender:** opcional, hasta 5 temas. Sin esto, "Aprender" se infiere; la IA está en el 71% de las sesiones de re:Invent, así que nombrar un objetivo mantiene esa lista enfocada.

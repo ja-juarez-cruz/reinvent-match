@@ -150,6 +150,7 @@ export interface VocabularyEntry {
 }
 
 export interface Vocabulary {
+  total: number;
   domains: VocabularyEntry[];
   technologies: VocabularyEntry[];
   concepts: VocabularyEntry[];

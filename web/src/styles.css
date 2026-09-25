@@ -1256,3 +1256,15 @@ main {
 .badge-walkin {
   --cat: var(--muted);
 }
+
+.level-title {
+  margin: 0.5rem 0 0.75rem;
+}
+
+.callout {
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  margin-bottom: 0.5rem;
+}

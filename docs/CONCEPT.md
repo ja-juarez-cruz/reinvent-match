@@ -63,7 +63,7 @@ Each `name` can be a catalog label (`"AWS Lambda"`, `"Agentic AI"`) or a free co
 
 ## 3b. Onboarding v2: answers instead of a profile editor (implemented)
 
-The web app asks four questions instead of exposing the Know/Grow/Explore/Ignore editor:
+The web app asks five steps, in this order: **what you want to learn or go deeper on** (1–5 topics, required); **what you are familiar with** plus **your level** on the same page (a topic in both lists is one to go deeper on: its sessions are reinforced and count toward coverage); platforms that are not for you; AI background; formats. The details of each answer:
 
 1. **What you know:** up to 8 **topics**. Only topics are clickable; each one brings its related technologies and practices, which are shown as read-only tags. The cap forces sharp picks.
 2. **What you want to learn:** optional, up to 5 topics. Without it, "Learn" is inferred; AI is in 71% of re:Invent sessions, so naming a goal keeps that list focused.

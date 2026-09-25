@@ -259,3 +259,13 @@ describe("scores do not saturate", () => {
     expect(Math.max(...plan.results.map((r) => r.score))).toBeLessThan(100);
   });
 });
+
+describe("going deeper", () => {
+  it("rewards sessions on a topic you know and also want to go deeper on", () => {
+    const plain = buildPlan([lambda300], answers({ learn: ["domain:ai"] })).results[0]!;
+    const deeper = buildPlan([lambda300], answers({ learn: ["domain:serverless"] })).results[0]!;
+    expect(deeper.intent).toBe("reinforce");
+    expect(deeper.score).toBeGreaterThan(plain.score);
+    expect(deeper.reasons.some((r) => r.kind === "pro" && /go deeper on: Serverless/.test(r.text))).toBe(true);
+  });
+});

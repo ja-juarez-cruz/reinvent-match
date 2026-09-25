@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { api } from "../api";
 import { navigate } from "../App";
 import type { Answers, OnboardingOptions, SelfLevel, Vocabulary, VocabularyEntry } from "../types";
@@ -9,7 +9,7 @@ interface Props {
   onSaved: (id: string) => void;
 }
 
-const STEPS = ["What you know", "What you want to learn", "Not for you", "AI background", "Your level", "Formats"] as const;
+const STEPS = ["What you want to learn", "What you know & your level", "Not for you", "AI background", "Formats"] as const;
 
 const LEVEL_CARDS: { id: SelfLevel; title: string; body: string }[] = [
   {
@@ -80,7 +80,8 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
   }
   if (!options || !vocab) return <section className="page muted">{error ?? "Loading the catalog's topics…"}</section>;
 
-  const canContinue = [answers.known.length > 0, true, true, true, true, answers.formats.length > 0][step];
+  const canContinue = [answers.learn.length > 0, answers.known.length > 0, true, true, answers.formats.length > 0][step];
+  const aiShare = Math.round((100 * (vocab.domains.find((d) => d.key === "domain:ai")?.count ?? 0)) / Math.max(vocab.total, 1));
 
   async function finish() {
     setSaving(true);
@@ -101,7 +102,7 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
     <section className="page">
       <div>
         <h1>Tell us about you</h1>
-        <p className="lead">A few quick questions. Re:Match uses them to build a pre-list of sessions, split by what each one does for you.</p>
+        <p className="lead">Five quick questions. Re:Match uses them to build a pre-list of sessions, split by what each one does for you.</p>
       </div>
 
       <ol className="wizard-steps">
@@ -117,37 +118,54 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
       <div className="panel wizard-body">
         {step === 0 && (
           <>
-            <h2>What do you already know?</h2>
+            <h2>What do you want to learn or go deeper on?</h2>
             <p className="muted">
-              Pick up to <strong>{options.maxKnown}</strong> topics you work with. Each topic brings its technologies and
-              practices along, shown below. Fewer, sharper picks give better recommendations.
+              Pick 1 to <strong>{options.maxLearn}</strong> topics. They can be new to you or ones you already know and
+              want to master; Re:Match builds your pre-list around them.
             </p>
             <TagPicker
               vocab={vocab}
-              selected={answers.known}
-              exclude={answers.learn}
-              max={options.maxKnown}
+              selected={answers.learn}
+              exclude={[]}
+              max={options.maxLearn}
               labels={labels}
-              onChange={(known) => setAnswers({ ...answers, known })}
+              onChange={(learn) => setAnswers({ ...answers, learn })}
             />
           </>
         )}
         {step === 1 && (
           <>
-            <h2>
-              What do you want to learn? <span className="muted small">(optional)</span>
-            </h2>
+            <h2>What are you already familiar with?</h2>
             <p className="muted">
-              Up to <strong>{options.maxLearn}</strong> topics. Leave it empty and Re:Match suggests new ground on its own; AI is in 71% of
-              sessions, so naming what you care about keeps the "Learn" list focused.
+              Pick up to <strong>{options.maxKnown}</strong> topics you work with. Each topic brings its technologies and
+              practices along. Topics marked 📈 are ones you want to go deeper on: pick them here too if you already work
+              with them, and Re:Match will look for sessions that take you further.
             </p>
             <TagPicker
               vocab={vocab}
-              selected={answers.learn}
-              exclude={answers.known}
-              max={options.maxLearn}
+              selected={answers.known}
+              exclude={[]}
+              wanted={answers.learn}
+              max={options.maxKnown}
               labels={labels}
-              onChange={(learn) => setAnswers({ ...answers, learn })}
+              onChange={(known) => setAnswers({ ...answers, known })}
+              afterTopics={
+                <div>
+                  <h3 className="level-title">Which level do you identify with in these topics?</h3>
+                  <div className="level-grid">
+                    {LEVEL_CARDS.map((l) => (
+                      <button
+                        key={l.id}
+                        className={`level-card ${answers.level === l.id ? "selected" : ""}`}
+                        onClick={() => setAnswers({ ...answers, level: l.id })}
+                      >
+                        <strong>{l.title}</strong>
+                        <span className="muted small">{l.body}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              }
             />
           </>
         )}
@@ -185,13 +203,15 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
         {step === 3 && (
           <>
             <h2>
-              Bonus: how familiar are you with AI? <span className="muted small">(optional)</span>
+              AI background <span className="muted small">(optional, but it makes a big difference)</span>
             </h2>
-            <p className="muted">
-              Most re:Invent sessions touch AI, and each one assumes some background. Tell Re:Match what you already
-              understand: AI sessions you can get the most out of move up in your swipes, and the ones that assume too
-              much are left out. Skip any you are unsure about.
-            </p>
+            <div className="callout">
+              <strong>{aiShare}% of the sessions in this catalog involve AI.</strong> Telling Re:Match what you already
+              understand helps it find the best AI sessions for you: the goal is that every AI session you pick is one
+              you can really get the most out of. Sessions that match your background move up in your swipes; the ones
+              that assume more than you have yet are left out.
+            </div>
+            <p className="muted small">Skip any you are unsure about; unanswered ones do not affect your results.</p>
             <div className="ai-grid">
               {options.aiPrerequisites.map((p) => (
                 <div key={p.id} className="ai-row">
@@ -221,24 +241,6 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
           </>
         )}
         {step === 4 && (
-          <>
-            <h2>Which level do you identify with?</h2>
-            <p className="muted">About the things you picked as known.</p>
-            <div className="level-grid">
-              {LEVEL_CARDS.map((l) => (
-                <button
-                  key={l.id}
-                  className={`level-card ${answers.level === l.id ? "selected" : ""}`}
-                  onClick={() => setAnswers({ ...answers, level: l.id })}
-                >
-                  <strong>{l.title}</strong>
-                  <span className="muted small">{l.body}</span>
-                </button>
-              ))}
-            </div>
-          </>
-        )}
-        {step === 5 && (
           <>
             <h2>Which formats do you want?</h2>
             <p className="muted">Pick one, several or all. Only these formats go into your pre-list.</p>
@@ -286,7 +288,11 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
             Next →
           </button>
         ) : (
-          <button className="primary" disabled={!canContinue || saving || answers.known.length === 0} onClick={finish}>
+          <button
+            className="primary"
+            disabled={!canContinue || saving || answers.known.length === 0 || answers.learn.length === 0}
+            onClick={finish}
+          >
             {saving ? "Building…" : "Build my pre-list →"}
           </button>
         )}
@@ -299,13 +305,19 @@ function TagPicker({
   vocab,
   selected,
   exclude,
+  wanted = [],
   max,
   labels,
   onChange,
+  afterTopics,
 }: {
   vocab: Vocabulary;
   selected: string[];
   exclude: string[];
+  /** Topics the attendee wants to go deeper on, flagged so they can also mark them as known. */
+  wanted?: string[];
+  /** Rendered between the clickable topics and the read-only technologies and practices. */
+  afterTopics?: ReactNode;
   max: number;
   labels: Map<string, string>;
   onChange: (keys: string[]) => void;
@@ -407,7 +419,7 @@ function TagPicker({
                   onClick={() => toggle(e.key)}
                   title={`${e.count} sessions · includes ${(e.related ?? []).map((k) => labels.get(k) ?? k).join(", ") || "no specific tags"}`}
                 >
-                  {on ? "✓ " : ""}
+                  {on ? "✓ " : wanted.includes(e.key) ? "📈 " : ""}
                   {e.label} <span className="muted">{e.count}</span>
                 </button>
               );
@@ -415,6 +427,7 @@ function TagPicker({
           </div>
         </div>
       )}
+      {afterTopics}
       <p className="small muted">Technologies and practices below are selected through their topic.</p>
       {readOnly("Technologies", technologies)}
       {!q && !allTech && (
