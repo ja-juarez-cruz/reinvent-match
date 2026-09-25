@@ -8,6 +8,7 @@ import {
   DOMAINS,
   EXTRA_TECHNOLOGIES,
   LEARNING_STYLES,
+  PLATFORMS,
   TRACKS,
   type Rule,
 } from "./taxonomy.js";
@@ -23,6 +24,10 @@ export interface SessionTags {
   learningStyle: string;
   contentTypes: string[];
   concepts: string[];
+  /** Vendor platforms the session is built around (title, areas, services). */
+  platforms: string[];
+  /** Platforms only mentioned in the abstract. */
+  platformMentions: string[];
   level: "100" | "200" | "300" | "400+" | "none";
 }
 
@@ -126,6 +131,11 @@ export function tagSession(s: NormalizedSession): SessionTags {
 
   const concepts = CONCEPTS.filter((c) => matches(c, p)).map((c) => c.id);
 
+  const platforms = PLATFORMS.filter((pl) => matches(pl, p)).map((pl) => pl.id);
+  const platformMentions = PLATFORMS.filter(
+    (pl) => !platforms.includes(pl.id) && pl.mentionKeywords.some((k) => textContains(p.text, k)),
+  ).map((pl) => pl.id);
+
   const level = s.level === null ? "none" : s.level === 3 ? "400+" : (["100", "200", "300"] as const)[s.level];
 
   return {
@@ -138,6 +148,8 @@ export function tagSession(s: NormalizedSession): SessionTags {
     learningStyle,
     contentTypes,
     concepts,
+    platforms,
+    platformMentions,
     level,
   };
 }

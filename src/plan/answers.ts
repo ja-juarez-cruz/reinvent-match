@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PLATFORMS } from "../taxonomy/taxonomy.js";
 
 export const MAX_KNOWN = 8;
 export const MAX_LEARN = 5;
@@ -48,6 +49,8 @@ export const answersSchema = z.object({
   known: z.array(topicKey).min(1, "Pick at least one topic you know").max(MAX_KNOWN),
   learn: z.array(topicKey).max(MAX_LEARN).default([]),
   level: z.enum(LEVELS),
+  /** Vendor platforms that are not relevant to the attendee: sessions built around them are hidden. */
+  ignore: z.array(z.enum(PLATFORMS.map((p) => p.id) as [string, ...string[]])).default([]),
   /** Optional AI background; only answered prerequisites affect scoring. */
   ai: z
     .record(

@@ -6,6 +6,7 @@ function item(id: string, startTime: string, venue: string, durationMin = 60, da
   return {
     intent: "reinforce",
     reservable: true,
+    goalHits: 1,
     score: 80,
     reasons: [],
     keys: [],

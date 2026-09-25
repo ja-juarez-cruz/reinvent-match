@@ -15,6 +15,7 @@ function item(id: string, keys: string[], date = "2026-12-01", time = "10:00"): 
   return {
     intent: "reinforce",
     reservable: true,
+    goalHits: 1,
     score: 80,
     reasons: [],
     keys,

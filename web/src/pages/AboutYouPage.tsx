@@ -9,7 +9,7 @@ interface Props {
   onSaved: (id: string) => void;
 }
 
-const STEPS = ["What you know", "What you want to learn", "AI background", "Your level", "Formats"] as const;
+const STEPS = ["What you know", "What you want to learn", "Not for you", "AI background", "Your level", "Formats"] as const;
 
 const LEVEL_CARDS: { id: SelfLevel; title: string; body: string }[] = [
   {
@@ -29,7 +29,7 @@ const LEVEL_CARDS: { id: SelfLevel; title: string; body: string }[] = [
   },
 ];
 
-const EMPTY: Answers = { known: [], learn: [], level: "intermediate", ai: {}, formats: [] };
+const EMPTY: Answers = { known: [], learn: [], level: "intermediate", ignore: [], ai: {}, formats: [] };
 
 export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
   const [options, setOptions] = useState<OnboardingOptions | null>(null);
@@ -46,7 +46,7 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
     });
     api.answers().then((list) => {
       const saved = list.find((a) => a.id === answersId) ?? list[0];
-      if (saved) setAnswers({ ...EMPTY, ...saved.answers, ai: saved.answers.ai ?? {} });
+      if (saved) setAnswers({ ...EMPTY, ...saved.answers, ai: saved.answers.ai ?? {}, ignore: saved.answers.ignore ?? [] });
     });
   }, [answersId]);
 
@@ -80,7 +80,7 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
   }
   if (!options || !vocab) return <section className="page muted">{error ?? "Loading the catalog's topics…"}</section>;
 
-  const canContinue = [answers.known.length > 0, true, true, true, answers.formats.length > 0][step];
+  const canContinue = [answers.known.length > 0, true, true, true, true, answers.formats.length > 0][step];
 
   async function finish() {
     setSaving(true);
@@ -154,6 +154,37 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
         {step === 2 && (
           <>
             <h2>
+              Which platforms are not for you? <span className="muted small">(optional)</span>
+            </h2>
+            <p className="muted">
+              Many sessions are built around one vendor platform. Sessions centered on the ones you pick are left out;
+              sessions that only mention them move down.
+            </p>
+            <div className="chips">
+              {options.platforms.map((p) => {
+                const on = answers.ignore.includes(p.id);
+                return (
+                  <button
+                    key={p.id}
+                    className={`chip ${on ? "on" : ""}`}
+                    onClick={() =>
+                      setAnswers({
+                        ...answers,
+                        ignore: on ? answers.ignore.filter((x) => x !== p.id) : [...answers.ignore, p.id],
+                      })
+                    }
+                  >
+                    {on ? "⊘ " : ""}
+                    {p.label}
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
+        {step === 3 && (
+          <>
+            <h2>
               Bonus: how familiar are you with AI? <span className="muted small">(optional)</span>
             </h2>
             <p className="muted">
@@ -189,7 +220,7 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
             </div>
           </>
         )}
-        {step === 3 && (
+        {step === 4 && (
           <>
             <h2>Which level do you identify with?</h2>
             <p className="muted">About the things you picked as known.</p>
@@ -207,7 +238,7 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
             </div>
           </>
         )}
-        {step === 4 && (
+        {step === 5 && (
           <>
             <h2>Which formats do you want?</h2>
             <p className="muted">Pick one, several or all. Only these formats go into your pre-list.</p>

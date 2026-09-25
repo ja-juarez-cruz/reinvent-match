@@ -204,3 +204,58 @@ describe("reserved seating", () => {
     ]);
   });
 });
+
+describe("platforms you ignore", () => {
+  const windows = session({
+    sessionId: "W1",
+    abbreviation: "SVS311",
+    title: "Serverless for Windows workloads",
+    type: "Chalk talk",
+    level: "300 – Advanced",
+    topics: ["Serverless"],
+    areasOfInterest: ["Microsoft & .NET"],
+  });
+  const mentions = session({
+    sessionId: "W2",
+    abbreviation: "SVS312",
+    title: "Serverless data access",
+    abstract: "Patterns that also apply to SQL Server.",
+    type: "Chalk talk",
+    level: "300 – Advanced",
+    topics: ["Serverless"],
+  });
+
+  it("hides sessions built around an ignored platform and lowers ones that mention it", () => {
+    const without = buildPlan([windows, mentions], answers());
+    const withIgnore = buildPlan([windows, mentions], answers({ ignore: ["microsoft"] }));
+    expect(withIgnore.hidden.ignored).toBe(1);
+    expect(withIgnore.results.map((r) => r.session.id)).toEqual(["W2"]);
+    const before = without.results.find((r) => r.session.id === "W2")!.score;
+    const after = withIgnore.results.find((r) => r.session.id === "W2")!;
+    expect(after.score).toBeLessThan(before);
+    expect(after.reasons.some((r) => r.kind === "con" && /Microsoft/.test(r.text))).toBe(true);
+  });
+
+  it("rejects unknown platforms", () => {
+    expect(answersSchema.safeParse({ known: ["domain:ai"], level: "basic", formats: ["chalk"], ignore: ["cobol"] }).success).toBe(false);
+  });
+});
+
+describe("scores do not saturate", () => {
+  it("separates two sessions that max every component except goal coverage", () => {
+    const base = { type: "Workshop", level: "300 – Advanced", topics: ["Serverless"], abstract: "Trade-offs, failure modes, multi-Region resilience at scale." };
+    const narrow = session({ ...base, sessionId: "N1", abbreviation: "SVS320", title: "Serverless patterns", services: ["AWS Lambda"] });
+    const broad = session({
+      ...base,
+      sessionId: "N2",
+      abbreviation: "SVS321",
+      title: "Serverless patterns with Step Functions and API Gateway",
+      services: ["AWS Lambda", "AWS Step Functions", "Amazon API Gateway"],
+    });
+    const fixture = [narrow, broad, ...Array.from({ length: 3 }, (_, i) => session({ ...base, sessionId: `F${i}`, abbreviation: `SVS33${i}`, services: ["AWS Lambda", "AWS Step Functions", "Amazon API Gateway"] }))];
+    const plan = buildPlan(fixture, answers());
+    const score = (id: string) => plan.results.find((r) => r.session.id === id)!.score;
+    expect(score("N2")).toBeGreaterThan(score("N1"));
+    expect(Math.max(...plan.results.map((r) => r.score))).toBeLessThan(100);
+  });
+});

@@ -123,6 +123,8 @@ export interface Answers {
   known: string[];
   learn: string[];
   level: SelfLevel;
+  /** Vendor platforms that are not relevant: sessions built around them are hidden. */
+  ignore: string[];
   /** AI prerequisite id → 0 not yet, 1 some, 2 comfortable. */
   ai: Record<string, number>;
   formats: string[];
@@ -135,6 +137,7 @@ export interface OnboardingOptions {
   formats: { id: string; label: string }[];
   aiPrerequisites: { id: string; label: string; hint: string }[];
   aiFamiliarity: string[];
+  platforms: { id: string; label: string }[];
 }
 
 export interface VocabularyEntry {
@@ -154,6 +157,7 @@ export interface Vocabulary {
 
 export interface PlanItem {
   intent: Intent;
+  goalHits: number;
   /** Needs a reserved seat; listed first within its intent. */
   reservable: boolean;
   score: number;
@@ -176,7 +180,7 @@ export interface PlanResponse {
   fetchedAt: string;
   answers: Answers;
   results: PlanItem[];
-  hidden: { format: number; tooBasic: number; aiNotReady: number; other: number };
+  hidden: { format: number; tooBasic: number; aiNotReady: number; ignored: number; other: number };
   context: PlanContext;
   swipes: SwipeLog;
 }

@@ -20,6 +20,7 @@ import { buildPlan, buildVocabulary } from "../plan/plan.js";
 import { TEMPLATES } from "../profile/templates.js";
 import { getAnswers, listAnswers, saveAnswers } from "../store/answers.js";
 import { buildReport } from "../taxonomy/report.js";
+import { PLATFORMS } from "../taxonomy/taxonomy.js";
 import { getProfile, listProfiles, saveProfile } from "../store/profiles.js";
 import { DECISIONS, loadSwipes, recordSwipe, type Decision } from "../store/swipes.js";
 import { syncFavorites } from "../sync/favorites.js";
@@ -173,6 +174,7 @@ export function createApp(ctx: AppContext) {
         formats: FORMAT_CHOICES.map(({ id, label }) => ({ id, label })),
         aiPrerequisites: AI_PREREQUISITES.map(({ id, label, hint }) => ({ id, label, hint })),
         aiFamiliarity: AI_FAMILIARITY,
+        platforms: PLATFORMS.map(({ id, label }) => ({ id, label })),
       }),
     ],
     [

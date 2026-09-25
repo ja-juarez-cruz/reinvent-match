@@ -92,3 +92,21 @@ describe("buildReport", () => {
     expect(ids).toEqual([...ids].sort((a, b) => ["100", "200", "300", "400+", "none"].indexOf(a) - ["100", "200", "300", "400+", "none"].indexOf(b)));
   });
 });
+
+describe("platforms", () => {
+  it("tells a session built around a platform from one that only mentions it", () => {
+    const built = tagSession(
+      session({ title: "Build and test HA/DR architectures for Microsoft workloads", areasOfInterest: ["Microsoft & .NET"] }),
+    );
+    expect(built.platforms).toEqual(["microsoft"]);
+    const mention = tagSession(session({ title: "Resilient databases", abstract: "Covers Aurora, and SQL Server too." }));
+    expect(mention.platforms).toEqual([]);
+    expect(mention.platformMentions).toEqual(["microsoft"]);
+  });
+
+  it("does not file Microsoft, SAP or VMware sessions under Migration by themselves", () => {
+    const tags = tagSession(session({ abbreviation: "NET201", areasOfInterest: ["VMware", "SAP"], title: "Networking for VMware" }));
+    expect(tags.domains).not.toContain("migration");
+    expect(tags.platforms).toEqual(expect.arrayContaining(["vmware", "sap"]));
+  });
+});

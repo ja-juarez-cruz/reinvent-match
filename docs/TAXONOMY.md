@@ -14,6 +14,7 @@ Re:Match tags every session on nine dimensions so the catalog can be explored, f
 | **Learning style** | Hands-on build, Interactive discussion, Live coding, Presentation, Certification prep | Session format |
 | **Content type** | Customer story, Partner/sponsored, Community-led, Launches, Deep technical, Patterns & trade-offs, Getting started, Leadership & strategy, Research & innovation | Features, code suffix/prefix, level, architecture depth, title keywords |
 | **Concept** | Resilience & DR, Multi-Region, Event-driven, Microservices & decoupling, Multi-tenant & SaaS, Cell-based, Distributed data & transactions, Scale & performance, Cost optimization, Observability, Zero trust, Multi-account, Platform engineering, IaC, Data governance, Modernization, Sovereignty | Areas of interest and keywords in title/abstract |
+| **Platform** | Microsoft & .NET, SAP, VMware, Oracle, Mainframe (central or mentioned) | Areas, services and title keywords (central); abstract (mention) |
 | **Level** | 100, 200, 300, 400–500 | Catalog `level` |
 
 Plus logistics: day, venue and AWS track.

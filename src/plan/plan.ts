@@ -2,7 +2,7 @@ import type { NormalizedSession } from "../catalog/normalize.js";
 import type { Reason } from "../match/engine.js";
 import { aliasesOf } from "../match/labels.js";
 import { tagSession, type SessionTags } from "../taxonomy/tagger.js";
-import { CONCEPTS, DOMAINS, DOMAIN_NEIGHBORS, EXTRA_TECHNOLOGIES } from "../taxonomy/taxonomy.js";
+import { CONCEPTS, DOMAINS, DOMAIN_NEIGHBORS, EXTRA_TECHNOLOGIES, PLATFORMS } from "../taxonomy/taxonomy.js";
 import { AI_PREREQUISITES, FORMAT_CHOICES, type Answers, type SelfLevel } from "./answers.js";
 
 export const INTENTS = ["reinforce", "broaden", "learn"] as const;
@@ -43,6 +43,8 @@ export interface PlanSession {
 
 export interface PlanItem {
   intent: Intent;
+  /** Distinct tags the attendee knows or wants to learn that the session touches. */
+  goalHits: number;
   /** Seats must be reserved in advance; these sessions go first because seats run out. */
   reservable: boolean;
   score: number;
@@ -55,7 +57,7 @@ export interface PlanItem {
 
 export interface Plan {
   results: PlanItem[];
-  hidden: { format: number; tooBasic: number; aiNotReady: number; other: number };
+  hidden: { format: number; tooBasic: number; aiNotReady: number; ignored: number; other: number };
   /** Everything the UI needs to turn liked sessions into a learning-plan report. */
   context: {
     known: string[];
@@ -86,6 +88,10 @@ export const RESERVED_SEATING_FORMATS = new Set([
 export function requiresReservation(session: NormalizedSession, catalogFlagsReservations: boolean): boolean {
   return catalogFlagsReservations ? session.isReservable : RESERVED_SEATING_FORMATS.has(session.format);
 }
+
+/** Touching this many of the attendee's tags counts as full coverage. */
+const COVERAGE_TARGET = 6;
+const IGNORED_MENTION_FACTOR = 0.8;
 
 const LEVEL_INDEX: Record<string, number | null> = { "100": 0, "200": 1, "300": 2, "400+": 3, none: null };
 /** Proficiency on what the attendee knows. */
@@ -140,11 +146,20 @@ function curatedDomain(tech: string): string | undefined {
   return DOMAINS.find((d) => (d.services ?? []).some((s) => aliasesOf(s).some((a) => aliases.includes(a))))?.id;
 }
 
+interface TechnologyDomain {
+  domain: string;
+  /** Mapped in the taxonomy rather than inferred from the catalog. */
+  curated: boolean;
+  /** Sessions tagged with the technology, and the share of them whose main topic is `domain`. */
+  count: number;
+  share: number;
+}
+
 /**
  * The topic each technology belongs to: the taxonomy's curated mapping first, otherwise the main topic it shows
  * up under most often in this catalog.
  */
-function technologyDomains(tagged: Tagged[]): Record<string, string> {
+function technologyDomainInfo(tagged: Tagged[]): Record<string, TechnologyDomain> {
   const counts = new Map<string, Map<string, number>>();
   for (const { tags } of tagged) {
     for (const tech of tags.technologies) {
@@ -154,12 +169,29 @@ function technologyDomains(tagged: Tagged[]): Record<string, string> {
     }
   }
   return Object.fromEntries(
-    [...counts].map(([tech, byDomain]) => [
-      tech,
-      curatedDomain(tech) ?? [...byDomain].sort((a, b) => b[1] - a[1])[0]![0],
-    ]),
+    [...counts].map(([tech, byDomain]) => {
+      const count = [...byDomain.values()].reduce((a, b) => a + b, 0);
+      const curated = curatedDomain(tech);
+      const top = [...byDomain].sort((a, b) => b[1] - a[1])[0]![0];
+      const domain = curated ?? top;
+      return [tech, { domain, curated: curated !== undefined, count, share: (byDomain.get(domain) ?? 0) / count }];
+    }),
   );
 }
+
+function technologyDomains(tagged: Tagged[]): Record<string, string> {
+  return Object.fromEntries(Object.entries(technologyDomainInfo(tagged)).map(([tech, info]) => [tech, info.domain]));
+}
+
+/** Technologies specific to a vendor platform (EVS, Mainframe Modernization…) never come with a topic. */
+function isPlatformTechnology(tech: string): boolean {
+  const aliases = aliasesOf(tech);
+  return PLATFORMS.some((p) => (p.services ?? []).some((s) => aliasesOf(s).some((a) => aliases.includes(a))));
+}
+
+/** An inferred technology-to-topic link counts only when the technology clearly lives in that topic. */
+const MIN_INFERRED_SHARE = 0.6;
+const MIN_INFERRED_COUNT = 3;
 
 const MAX_RELATED_TECHNOLOGIES = 8;
 const MAX_RELATED_CONCEPTS = 4;
@@ -170,7 +202,7 @@ const CONCEPT_LIFT = 1.5;
  * What picking a topic brings along: its most common technologies and the concepts that are characteristic of it.
  * Concepts use lift rather than raw counts, otherwise AI (in most sessions) would claim every concept.
  */
-function topicRelations(tagged: Tagged[], techDomain: Record<string, string>): TopicRelations {
+function topicRelations(tagged: Tagged[], techInfo: Record<string, TechnologyDomain>): TopicRelations {
   const techCount = new Map<string, number>();
   const conceptCount = new Map<string, number>();
   for (const { tags } of tagged) {
@@ -179,8 +211,14 @@ function topicRelations(tagged: Tagged[], techDomain: Record<string, string>): T
   }
   const relations: TopicRelations = {};
   for (const domain of DOMAINS.map((d) => d.id)) {
-    const technologies = Object.entries(techDomain)
-      .filter(([tech, d]) => d === domain && (techCount.get(tech) ?? 0) >= 2)
+    const technologies = Object.entries(techInfo)
+      .filter(
+        ([tech, info]) =>
+          info.domain === domain &&
+          (techCount.get(tech) ?? 0) >= 2 &&
+          !isPlatformTechnology(tech) &&
+          (info.curated || (info.share >= MIN_INFERRED_SHARE && info.count >= MIN_INFERRED_COUNT)),
+      )
       .sort((a, b) => (techCount.get(b[0]) ?? 0) - (techCount.get(a[0]) ?? 0))
       .slice(0, MAX_RELATED_TECHNOLOGIES)
       .map(([tech]) => `tech:${tech}`);
@@ -207,8 +245,9 @@ export function expandTopics(topicKeys: string[], relations: TopicRelations): st
 
 export function buildVocabulary(sessions: NormalizedSession[], maxTechnologies = 90): Vocabulary {
   const tagged = tagAll(sessions);
+  const techInfo = technologyDomainInfo(tagged);
   const techDomain = technologyDomains(tagged);
-  const relations = topicRelations(tagged, techDomain);
+  const relations = topicRelations(tagged, techInfo);
   const tally = (keysOf: (t: SessionTags) => string[]) => {
     const counts = new Map<string, number>();
     for (const { tags } of tagged) for (const k of new Set(keysOf(tags))) counts.set(k, (counts.get(k) ?? 0) + 1);
@@ -248,7 +287,8 @@ function hitStrength(key: string, primaryDomain: string): number {
 export function buildPlan(sessions: NormalizedSession[], answers: Answers): Plan {
   const tagged = tagAll(sessions);
   const techDomain = technologyDomains(tagged);
-  const relations = topicRelations(tagged, techDomain);
+  const relations = topicRelations(tagged, technologyDomainInfo(tagged));
+  const ignored = new Set(answers.ignore);
   // Attendees pick topics; each topic brings its technologies and characteristic concepts along.
   const knownKeys = expandTopics(answers.known, relations);
   const learnKeys = expandTopics(answers.learn, relations).filter((k) => !knownKeys.includes(k));
@@ -265,7 +305,7 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers): Plan
   const proficiency = KNOWN_PROFICIENCY[answers.level];
   const newTopicLevel = NEW_TOPIC_LEVEL[answers.level];
 
-  const hidden = { format: 0, tooBasic: 0, aiNotReady: 0, other: 0 };
+  const hidden = { format: 0, tooBasic: 0, aiNotReady: 0, ignored: 0, other: 0 };
   // Before reserved seating opens every session reads isReservable=false; the format rule applies until then.
   const catalogFlagsReservations = sessions.some((s) => s.isReservable);
   const labels: Record<string, string> = {};
@@ -280,6 +320,11 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers): Plan
       hidden.format += 1;
       continue;
     }
+    if (tags.platforms.some((p) => ignored.has(p))) {
+      hidden.ignored += 1;
+      continue;
+    }
+    const ignoredMentions = tags.platformMentions.filter((p) => ignored.has(p));
 
     const keys = [
       ...tags.domains.map((d) => `domain:${d}`),
@@ -335,11 +380,16 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers): Plan
     const levelFit = fitLevel(intent, level, proficiency, newTopicLevel);
     const irreplaceability = IRREPLACEABILITY[tags.learningStyle] ?? 0.5;
     const depth = session.archDepth / 3;
-    let score = 0.35 * relevance + 0.25 * levelFit + 0.25 * irreplaceability + 0.15 * depth;
-    if (session.isCustomerStory) score = Math.min(1, score + 0.03);
+    // How many of the attendee's tags (known and to learn) the session touches; separates sessions that max out
+    // every other component.
+    const goalHits = new Set([...knownHits, ...learnHits]).size;
+    const coverage = Math.min(1, goalHits / COVERAGE_TARGET);
+    let score = 0.3 * relevance + 0.2 * levelFit + 0.2 * irreplaceability + 0.15 * depth + 0.15 * coverage;
+    if (session.isCustomerStory) score = Math.min(1, score + 0.02);
     if (session.isSponsored) score *= 0.85;
-    // AI background moves AI sessions up or down (×0.55–1.1), so the ones the attendee can use come first.
-    if (readiness) score = Math.min(1, score * (0.55 + 0.55 * readiness.fit));
+    if (ignoredMentions.length > 0) score *= IGNORED_MENTION_FACTOR;
+    // AI background lowers AI sessions that assume more than the attendee has (×0.55–1), so the usable ones lead.
+    if (readiness) score *= 0.55 + 0.45 * readiness.fit;
 
     // Secondary topics are noisy (AI is everywhere), so only those the attendee picked count toward the plan.
     const planKeys = [
@@ -354,10 +404,15 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers): Plan
     results.push({
       intent,
       reservable,
+      goalHits,
       score: Math.round(score * 100),
       reasons: [
         ...explain({ intent, deciding, knownHits, learnHits, tags, level, proficiency, newTopicLevel, session, mainIsKnown }),
         ...aiReasons(readiness),
+        ...ignoredMentions.map((p) => ({
+          kind: "con" as const,
+          text: `Mentions ${PLATFORMS.find((pl) => pl.id === p)?.label ?? p}, which you marked as not relevant.`,
+        })),
         reservable
           ? {
               kind: "pro" as const,
@@ -391,7 +446,8 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers): Plan
     (a, b) =>
       INTENTS.indexOf(a.intent) - INTENTS.indexOf(b.intent) ||
       Number(b.reservable) - Number(a.reservable) ||
-      b.score - a.score,
+      b.score - a.score ||
+      b.goalHits - a.goalHits,
   );
   for (const key of [...knownKeys, ...learnKeys]) labels[key] ??= labelOfKey(key);
 

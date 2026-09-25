@@ -14,6 +14,7 @@ Re:Match etiqueta cada sesión en nueve dimensiones para explorar, filtrar y hac
 | **Estilo de aprendizaje** | Construir (hands-on), Discusión interactiva, Código en vivo, Presentación, Preparación de certificación | Formato de la sesión |
 | **Tipo de contenido** | Caso de cliente, Partner/patrocinada, Comunidad, Lanzamientos, Técnica profunda, Patrones y trade-offs, Para empezar, Liderazgo y estrategia, Investigación e innovación | Features, sufijo/prefijo del código, nivel, profundidad de arquitectura, palabras del título |
 | **Concepto** | Resiliencia y DR, Multi-Region, Event-driven, Microservicios y desacoplamiento, Multi-tenant y SaaS, Cell-based, Datos distribuidos y transacciones, Escala y rendimiento, Optimización de costos, Observabilidad, Zero trust, Multi-cuenta, Platform engineering, IaC, Gobierno de datos, Modernización, Soberanía | Áreas de interés y palabras en título/abstract |
+| **Plataforma** | Microsoft & .NET, SAP, VMware, Oracle, Mainframe (central o mencionada) | Áreas, servicios y palabras del título (central); abstract (mención) |
 | **Nivel** | 100, 200, 300, 400–500 | `level` del catálogo |
 
 Además, logística: día, venue y track de AWS.

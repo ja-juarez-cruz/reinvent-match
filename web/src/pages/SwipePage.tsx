@@ -182,7 +182,8 @@ export function SwipePage({ event, eventId, answersId }: Props) {
         <p className="muted small">
           {meta.hint} Sessions that need a reserved seat come first. {data.hidden.format > 0 && `${data.hidden.format} sessions hidden by your format choices.`}{" "}
           {data.hidden.tooBasic > 0 && `${data.hidden.tooBasic} too basic for your level.`}{" "}
-          {data.hidden.aiNotReady > 0 && `${data.hidden.aiNotReady} AI sessions assume more AI background than you have yet.`}
+          {data.hidden.aiNotReady > 0 && `${data.hidden.aiNotReady} AI sessions assume more AI background than you have yet.`}{" "}
+          {data.hidden.ignored > 0 && `${data.hidden.ignored} built around platforms you marked as not for you.`}
         </p>
 
         {!current || !s ? (

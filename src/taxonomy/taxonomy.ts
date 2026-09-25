@@ -162,9 +162,8 @@ export const DOMAINS: TagDefinition[] = [
     id: "migration",
     label: "Migration & Modernization",
     topics: ["Migration & Modernization"],
-    areas: ["VMware", "Microsoft & .NET", "SAP"],
     services: ["Transform", "Application Migration Service", "Database Migration Service"],
-    titleKeywords: ["migration", "migrate", "migrating", "modernization", "modernize", "modernizing", "mainframe", "legacy", "VMware", ".NET"],
+    titleKeywords: ["migration", "migrate", "migrating", "modernization", "modernize", "modernizing", "legacy"],
   },
   {
     id: "cost",
@@ -356,3 +355,48 @@ export const DOMAIN_NEIGHBORS: Record<string, string[]> = {
   learning: ["devtools", "ai"],
   ai: ["analytics", "devtools", "integration", "business"],
 };
+
+/**
+ * Vendor platforms a session can be built around. They are not topics: someone who knows migration does not
+ * necessarily run Windows or SAP. Titles, areas and services make a platform central to a session; the abstract
+ * alone only mentions it.
+ */
+export const PLATFORMS: (TagDefinition & { mentionKeywords: string[] })[] = [
+  {
+    id: "microsoft",
+    label: "Microsoft & .NET (Windows, SQL Server)",
+    areas: ["Microsoft & .NET"],
+    services: ["FSx for Windows File Server", "Managed Microsoft AD", "Directory Service"],
+    titleKeywords: ["Microsoft", "Windows", ".NET", "SQL Server", "Active Directory"],
+    mentionKeywords: ["Microsoft", "Windows", ".NET", "SQL Server", "Active Directory"],
+  },
+  {
+    id: "sap",
+    label: "SAP",
+    areas: ["SAP"],
+    titleKeywords: ["SAP"],
+    mentionKeywords: ["SAP"],
+  },
+  {
+    id: "vmware",
+    label: "VMware",
+    areas: ["VMware"],
+    services: ["EVS", "Elastic VMware Service"],
+    titleKeywords: ["VMware", "vSphere"],
+    mentionKeywords: ["VMware", "vSphere"],
+  },
+  {
+    id: "oracle",
+    label: "Oracle",
+    areas: ["Oracle"],
+    titleKeywords: ["Oracle"],
+    mentionKeywords: ["Oracle"],
+  },
+  {
+    id: "mainframe",
+    label: "Mainframe (COBOL)",
+    services: ["Mainframe Modernization"],
+    titleKeywords: ["mainframe", "mainframes", "COBOL"],
+    mentionKeywords: ["mainframe", "mainframes", "COBOL"],
+  },
+];
