@@ -128,6 +128,8 @@ describe("buildVocabulary", () => {
     expect(vocab.technologies.every((t) => t.domain)).toBe(true);
     const ai = vocab.domains.find((d) => d.key === "domain:ai");
     expect(ai?.related).toContain("tech:Amazon Bedrock");
+    expect(vocab.platforms.map((p) => p.id)).toEqual(["microsoft", "sap", "vmware", "oracle", "mainframe"]);
+    expect(vocab.platforms.every((p) => Array.isArray(p.sessionIds))).toBe(true);
   });
 });
 

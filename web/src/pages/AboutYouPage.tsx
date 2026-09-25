@@ -9,7 +9,7 @@ interface Props {
   onSaved: (id: string) => void;
 }
 
-const STEPS = ["What you want to learn", "What you know & your level", "Not for you", "AI background", "Formats"] as const;
+const STEPS = ["What you want to learn", "What you know & your level", "Your platforms", "AI background", "Formats"] as const;
 
 const LEVEL_CARDS: { id: SelfLevel; title: string; body: string }[] = [
   {
@@ -37,6 +37,8 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
   const [answers, setAnswers] = useState<Answers>(EMPTY);
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
+  /** The platforms step needs an explicit answer: new attendees start with nothing marked as used. */
+  const [platformsAnswered, setPlatformsAnswered] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -46,7 +48,10 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
     });
     api.answers().then((list) => {
       const saved = list.find((a) => a.id === answersId) ?? list[0];
-      if (saved) setAnswers({ ...EMPTY, ...saved.answers, ai: saved.answers.ai ?? {}, ignore: saved.answers.ignore ?? [] });
+      if (saved) {
+        setAnswers({ ...EMPTY, ...saved.answers, ai: saved.answers.ai ?? {}, ignore: saved.answers.ignore ?? [] });
+        setPlatformsAnswered(true);
+      }
     });
   }, [answersId]);
 
@@ -80,7 +85,17 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
   }
   if (!options || !vocab) return <section className="page muted">{error ?? "Loading the catalog's topics…"}</section>;
 
-  const canContinue = [answers.learn.length > 0, answers.known.length > 0, true, true, answers.formats.length > 0][step];
+  const canContinue = [answers.learn.length > 0, answers.known.length > 0, platformsAnswered, true, answers.formats.length > 0][step];
+  const platformIds = vocab.platforms.map((p) => p.id);
+  // Stored as the platforms to leave out; asked as the ones the attendee works with.
+  const usedPlatforms = platformsAnswered ? platformIds.filter((id) => !answers.ignore.includes(id)) : [];
+  const setUsedPlatforms = (used: string[]) => {
+    setPlatformsAnswered(true);
+    setAnswers({ ...answers, ignore: platformIds.filter((id) => !used.includes(id)) });
+  };
+  const leftOut = new Set(
+    vocab.platforms.filter((p) => !usedPlatforms.includes(p.id)).flatMap((p) => p.sessionIds),
+  ).size;
   const aiShare = Math.round((100 * (vocab.domains.find((d) => d.key === "domain:ai")?.count ?? 0)) / Math.max(vocab.total, 1));
 
   async function finish() {
@@ -171,33 +186,41 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
         )}
         {step === 2 && (
           <>
-            <h2>
-              Which platforms are not for you? <span className="muted small">(optional)</span>
-            </h2>
+            <h2>Which of these platforms do you work with?</h2>
             <p className="muted">
-              Many sessions are built around one vendor platform. Sessions centered on the ones you pick are left out;
-              sessions that only mention them move down.
+              Many sessions are built around one vendor platform. Mark the ones you use (or want to learn); sessions built
+              around the others are left out, and sessions that only mention them move down.
             </p>
             <div className="chips">
-              {options.platforms.map((p) => {
-                const on = answers.ignore.includes(p.id);
+              {vocab.platforms.map((p) => {
+                const on = usedPlatforms.includes(p.id);
                 return (
                   <button
                     key={p.id}
                     className={`chip ${on ? "on" : ""}`}
                     onClick={() =>
-                      setAnswers({
-                        ...answers,
-                        ignore: on ? answers.ignore.filter((x) => x !== p.id) : [...answers.ignore, p.id],
-                      })
+                      setUsedPlatforms(on ? usedPlatforms.filter((x) => x !== p.id) : [...usedPlatforms, p.id])
                     }
                   >
-                    {on ? "⊘ " : ""}
-                    {p.label}
+                    {on ? "✓ " : ""}
+                    {p.label} <span className="muted small">{p.sessionIds.length} sessions</span>
                   </button>
                 );
               })}
+              <button
+                className={`chip ${platformsAnswered && usedPlatforms.length === 0 ? "on" : ""}`}
+                onClick={() => setUsedPlatforms([])}
+              >
+                {platformsAnswered && usedPlatforms.length === 0 ? "✓ " : ""}None of these
+              </button>
             </div>
+            <p className="small muted platform-impact">
+              {!platformsAnswered
+                ? "Mark the platforms you use, or choose None of these."
+                : leftOut === 0
+                  ? "No sessions will be left out."
+                  : `ℹ️ We'll leave out ${leftOut} sessions built around platforms you don't use.`}
+            </p>
           </>
         )}
         {step === 3 && (

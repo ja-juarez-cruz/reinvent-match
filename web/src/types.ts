@@ -151,6 +151,8 @@ export interface VocabularyEntry {
 
 export interface Vocabulary {
   total: number;
+  /** Sessions built around each vendor platform. */
+  platforms: { id: string; label: string; sessionIds: string[] }[];
   domains: VocabularyEntry[];
   technologies: VocabularyEntry[];
   concepts: VocabularyEntry[];

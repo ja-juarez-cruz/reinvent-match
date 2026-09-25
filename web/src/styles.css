@@ -1268,3 +1268,7 @@ main {
   border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
   margin-bottom: 0.5rem;
 }
+
+.platform-impact {
+  margin: 0.75rem 0 0;
+}

@@ -21,9 +21,17 @@ export interface VocabularyEntry {
 /** Technologies and concepts that come with each topic. */
 export type TopicRelations = Record<string, string[]>;
 
+export interface PlatformEntry {
+  id: string;
+  label: string;
+  /** Sessions built around the platform (central, not just mentioned). */
+  sessionIds: string[];
+}
+
 export interface Vocabulary {
   /** Sessions in the catalog, to express counts as shares. */
   total: number;
+  platforms: PlatformEntry[];
   domains: VocabularyEntry[];
   technologies: VocabularyEntry[];
   concepts: VocabularyEntry[];
@@ -257,6 +265,11 @@ export function buildVocabulary(sessions: NormalizedSession[], maxTechnologies =
   };
   return {
     total: tagged.length,
+    platforms: PLATFORMS.map((p) => ({
+      id: p.id,
+      label: p.label,
+      sessionIds: tagged.filter(({ tags }) => tags.platforms.includes(p.id)).map(({ session }) => session.id),
+    })),
     domains: tally((t) => t.domains).map(([id, count]) => ({
       key: `domain:${id}`,
       label: labelOfKey(`domain:${id}`),
