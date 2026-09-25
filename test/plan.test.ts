@@ -130,3 +130,44 @@ describe("buildVocabulary", () => {
     expect(ai?.related).toContain("tech:Amazon Bedrock");
   });
 });
+
+describe("AI background", () => {
+  const agentSession = (level: string, id = "A1") =>
+    session({
+      sessionId: id,
+      abbreviation: "AIM3" + id,
+      title: "Build multi-agent systems with tool use",
+      type: "Chalk talk",
+      level,
+      topics: ["Artificial Intelligence"],
+      areasOfInterest: ["Agentic AI"],
+    });
+  const aiAnswers = (ai: Record<string, number>) => answers({ known: ["domain:serverless"], learn: ["domain:ai"], ai });
+
+  it("rejects unknown prerequisites and out-of-range familiarity", () => {
+    expect(answersSchema.safeParse({ known: ["domain:ai"], level: "basic", formats: ["chalk"], ai: { quantum: 1 } }).success).toBe(false);
+    expect(answersSchema.safeParse({ known: ["domain:ai"], level: "basic", formats: ["chalk"], ai: { llm: 3 } }).success).toBe(false);
+  });
+
+  it("leaves AI sessions untouched when the attendee skips the step", () => {
+    const skipped = buildPlan([agentSession("300 – Advanced")], aiAnswers({}));
+    expect(skipped.results[0]?.reasons.some((r) => /AI background/.test(r.text))).toBe(false);
+  });
+
+  it("ranks AI sessions higher when the attendee has the background they assume", () => {
+    const ready = buildPlan([agentSession("300 – Advanced")], aiAnswers({ llm: 2, agents: 2 })).results[0];
+    const partial = buildPlan([agentSession("300 – Advanced")], aiAnswers({ llm: 2, agents: 1 })).results[0];
+    expect(ready!.score).toBeGreaterThan(partial!.score);
+    expect(ready!.reasons.some((r) => r.kind === "pro" && /AI background covers/.test(r.text))).toBe(true);
+    expect(partial!.reasons.some((r) => r.kind === "con" && /AI agents & tool use/.test(r.text))).toBe(true);
+  });
+
+  it("hides advanced AI sessions the attendee is not ready for, but keeps introductory ones", () => {
+    const plan = buildPlan(
+      [agentSession("400 – Expert", "A1"), agentSession("100 – Foundational", "A2")],
+      aiAnswers({ llm: 0, agents: 0 }),
+    );
+    expect(plan.hidden.aiNotReady).toBe(1);
+    expect(plan.results.map((r) => r.session.id)).toEqual(["A2"]);
+  });
+});

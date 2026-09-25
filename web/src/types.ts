@@ -123,6 +123,8 @@ export interface Answers {
   known: string[];
   learn: string[];
   level: SelfLevel;
+  /** AI prerequisite id → 0 not yet, 1 some, 2 comfortable. */
+  ai: Record<string, number>;
   formats: string[];
 }
 
@@ -131,6 +133,8 @@ export interface OnboardingOptions {
   maxLearn: number;
   levels: SelfLevel[];
   formats: { id: string; label: string }[];
+  aiPrerequisites: { id: string; label: string; hint: string }[];
+  aiFamiliarity: string[];
 }
 
 export interface VocabularyEntry {
@@ -170,7 +174,7 @@ export interface PlanResponse {
   fetchedAt: string;
   answers: Answers;
   results: PlanItem[];
-  hidden: { format: number; tooBasic: number; other: number };
+  hidden: { format: number; tooBasic: number; aiNotReady: number; other: number };
   context: PlanContext;
   swipes: SwipeLog;
 }

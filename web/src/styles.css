@@ -1084,6 +1084,10 @@ main {
 
 .week-day {
   position: relative;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
@@ -1129,11 +1133,10 @@ main {
 }
 
 .week-marks {
-  position: absolute;
-  bottom: 0.4rem;
-  right: 0.45rem;
   display: flex;
+  flex-wrap: wrap;
   gap: 0.35rem;
+  min-height: 1rem;
   font-size: 0.68rem;
   font-weight: 700;
 }
@@ -1179,4 +1182,63 @@ main {
   font-size: 0.88rem;
   color: var(--warn);
   background: color-mix(in srgb, var(--warn) 10%, transparent);
+}
+
+/* AI background */
+
+.ai-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.ai-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.segmented button {
+  border: none;
+  border-radius: 0;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.82rem;
+}
+
+.segmented button + button {
+  border-left: 1px solid var(--border);
+}
+
+.segmented button.on {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+@media (max-width: 640px) {
+  .ai-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.week-day.selected {
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  border-color: var(--accent);
+}
+
+.notice {
+  border-color: var(--accent);
+}
+
+.notice p {
+  margin-top: 0;
 }

@@ -18,7 +18,18 @@ function describe(day: WeekDay): string {
   return lines.join("\n");
 }
 
-export function WeekStrip({ week, currentDate }: { week: WeekDay[]; currentDate: string | null }) {
+export function WeekStrip({
+  week,
+  currentDate,
+  selectedDate,
+  onSelect,
+}: {
+  week: WeekDay[];
+  currentDate: string | null;
+  /** Day the swipe queue is limited to, if any. */
+  selectedDate: string | null;
+  onSelect: (date: string | null) => void;
+}) {
   return (
     <div className="week" aria-label="Your week">
       {week.map((day) => {
@@ -27,12 +38,13 @@ export function WeekStrip({ week, currentDate }: { week: WeekDay[]; currentDate:
         const clashes = day.overlapping.length;
         const slots = day.liked.length + Math.max(day.remaining, 0);
         return (
-          <div key={day.date} className={`week-day ${day.date === currentDate ? "current" : ""}`} title={describe(day)}>
+          <button
+            key={day.date}
+            className={`week-day ${day.date === currentDate ? "current" : ""} ${day.date === selectedDate ? "selected" : ""}`}
+            title={`${describe(day)}\n\nClick to review only this day.`}
+            onClick={() => onSelect(day.date === selectedDate ? null : day.date)}
+          >
             <span className={`capacity capacity-${capacity.tone}`}>{capacity.text}</span>
-            <span className="week-marks">
-              {!day.lunchFits && <span className="lunch-mark">🍽 no lunch</span>}
-              {clashes > 0 && <span className="clash-mark">⚠ {clashes}</span>}
-            </span>
             <span className="week-name">{WEEKDAY.format(date)}</span>
             <span className="muted small">{DAY_NUMBER.format(date)}</span>
             <span className="week-slots" aria-hidden="true">
@@ -45,7 +57,11 @@ export function WeekStrip({ week, currentDate }: { week: WeekDay[]; currentDate:
             <span className="small">
               {day.liked.length} ❤️ <span className="muted">of {day.capacity} max</span>
             </span>
-          </div>
+            <span className="week-marks">
+              {clashes > 0 && <span className="clash-mark">⚠ {clashes} overlap</span>}
+              {!day.lunchFits && <span className="lunch-mark">🍽 no lunch</span>}
+            </span>
+          </button>
         );
       })}
     </div>

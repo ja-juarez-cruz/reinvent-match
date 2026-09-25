@@ -70,6 +70,8 @@ The web app asks four questions instead of exposing the Know/Grow/Explore/Ignore
 3. **Level:** basic, intermediate or advanced, applied to what you know (targets 200 / 300 / 400) and to new topics (100–200 / 200–300 / 300).
 4. **Formats:** one, several or all; a hard filter.
 
+**AI background (bonus step).** AI shows up in 71% of sessions, so a fifth question asks how familiar the attendee is with what AI sessions assume: LLMs & prompting, ML fundamentals, embeddings/RAG, agents & tool use, MCP, training & MLOps, evaluation & guardrails, GPUs & inference, Amazon Bedrock (not yet / some / comfortable; any can be skipped). Each AI subtopic maps to the prerequisites it relies on, and the session level sets how much is expected (100: none, 200: some, 300: most, 400: comfortable). The fit moves the session's score ×0.55–1.1 so AI sessions the attendee can use come first; below a fit of 0.35 the session is hidden as "assumes more AI background than you have yet". Unanswered prerequisites are ignored.
+
 **Topic → technologies and practices.** A technology belongs to the topic the taxonomy curates it under (e.g. SQS → Application Integration), or else to the main topic it appears under most often in the catalog; each topic keeps its 8 most common technologies. A practice belongs to a topic when it appears at least 1.5× more often in that topic's sessions than across the catalog (lift), up to 4 per topic; raw counts would hand every practice to AI. The server expands the picked topics when it builds the plan, so answers only store topics.
 
 Every session in the chosen formats gets one intent (see [`src/plan/plan.ts`](../src/plan/plan.ts)):

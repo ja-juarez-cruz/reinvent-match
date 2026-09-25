@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PlanItem, SwipeLog } from "../web/src/types.js";
-import { buildWeek, impactOf, travelMinutes } from "../web/src/week.js";
+import { buildWeek, impactOf, nextDay, travelMinutes } from "../web/src/week.js";
 
 function item(id: string, startTime: string, venue: string, durationMin = 60, date = "2026-12-01"): PlanItem {
   return {
@@ -94,5 +94,13 @@ describe("impactOf", () => {
     const week = buildWeek(items, swipes(["A"]));
     expect(impactOf(items[1]!, week).clashes.map((c) => c.reason)).toEqual(["overlap"]);
     expect(impactOf(items[2]!, week).clashes.map((c) => c.reason)).toEqual(["travel"]);
+  });
+});
+
+describe("nextDay", () => {
+  it("finds the following scheduled day", () => {
+    const week = buildWeek([item("A", "09:00", "Venetian", 60, "2026-11-30"), item("B", "09:00", "Venetian", 60, "2026-12-02")], {});
+    expect(nextDay(week, "2026-11-30")?.date).toBe("2026-12-02");
+    expect(nextDay(week, "2026-12-02")).toBeUndefined();
   });
 });

@@ -9,7 +9,7 @@ interface Props {
   onSaved: (id: string) => void;
 }
 
-const STEPS = ["What you know", "What you want to learn", "Your level", "Formats"] as const;
+const STEPS = ["What you know", "What you want to learn", "AI background", "Your level", "Formats"] as const;
 
 const LEVEL_CARDS: { id: SelfLevel; title: string; body: string }[] = [
   {
@@ -29,7 +29,7 @@ const LEVEL_CARDS: { id: SelfLevel; title: string; body: string }[] = [
   },
 ];
 
-const EMPTY: Answers = { known: [], learn: [], level: "intermediate", formats: [] };
+const EMPTY: Answers = { known: [], learn: [], level: "intermediate", ai: {}, formats: [] };
 
 export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
   const [options, setOptions] = useState<OnboardingOptions | null>(null);
@@ -46,7 +46,7 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
     });
     api.answers().then((list) => {
       const saved = list.find((a) => a.id === answersId) ?? list[0];
-      if (saved) setAnswers(saved.answers);
+      if (saved) setAnswers({ ...EMPTY, ...saved.answers, ai: saved.answers.ai ?? {} });
     });
   }, [answersId]);
 
@@ -55,7 +55,11 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
   }, [eventId]);
 
   const labels = useMemo(() => {
+    // Tags outside the listed vocabulary still read well: "tech:AWS AppSync" → "AWS AppSync".
     const map = new Map<string, string>();
+    for (const d of vocab?.domains ?? []) {
+      for (const key of d.related ?? []) map.set(key, key.slice(key.indexOf(":") + 1));
+    }
     for (const e of [...(vocab?.domains ?? []), ...(vocab?.technologies ?? []), ...(vocab?.concepts ?? [])]) {
       map.set(e.key, e.label);
     }
@@ -76,7 +80,7 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
   }
   if (!options || !vocab) return <section className="page muted">{error ?? "Loading the catalog's topics…"}</section>;
 
-  const canContinue = [answers.known.length > 0, true, true, answers.formats.length > 0][step];
+  const canContinue = [answers.known.length > 0, true, true, true, answers.formats.length > 0][step];
 
   async function finish() {
     setSaving(true);
@@ -97,7 +101,7 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
     <section className="page">
       <div>
         <h1>Tell us about you</h1>
-        <p className="lead">Four quick questions. Re:Match uses them to build a pre-list of sessions, split by what each one does for you.</p>
+        <p className="lead">A few quick questions. Re:Match uses them to build a pre-list of sessions, split by what each one does for you.</p>
       </div>
 
       <ol className="wizard-steps">
@@ -149,6 +153,44 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
         )}
         {step === 2 && (
           <>
+            <h2>
+              Bonus: how familiar are you with AI? <span className="muted small">(optional)</span>
+            </h2>
+            <p className="muted">
+              Most re:Invent sessions touch AI, and each one assumes some background. Tell Re:Match what you already
+              understand: AI sessions you can get the most out of move up in your swipes, and the ones that assume too
+              much are left out. Skip any you are unsure about.
+            </p>
+            <div className="ai-grid">
+              {options.aiPrerequisites.map((p) => (
+                <div key={p.id} className="ai-row">
+                  <div>
+                    <strong className="small">{p.label}</strong>
+                    <div className="muted small">{p.hint}</div>
+                  </div>
+                  <div className="segmented">
+                    {options.aiFamiliarity.map((label, value) => (
+                      <button
+                        key={label}
+                        className={answers.ai[p.id] === value ? "on" : ""}
+                        onClick={() => {
+                          const ai = { ...answers.ai };
+                          if (ai[p.id] === value) delete ai[p.id];
+                          else ai[p.id] = value;
+                          setAnswers({ ...answers, ai });
+                        }}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+        {step === 3 && (
+          <>
             <h2>Which level do you identify with?</h2>
             <p className="muted">About the things you picked as known.</p>
             <div className="level-grid">
@@ -165,7 +207,7 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
             </div>
           </>
         )}
-        {step === 3 && (
+        {step === 4 && (
           <>
             <h2>Which formats do you want?</h2>
             <p className="muted">Pick one, several or all. Only these formats go into your pre-list.</p>

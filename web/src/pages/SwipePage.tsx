@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ApiError } from "../api";
 import { navigate } from "../App";
 import { LearningPlanPanel } from "../components/LearningPlanPanel";
@@ -7,7 +7,7 @@ import { formatDay, formatTimeRange, venueOf } from "../format";
 import { buildLearningPlan } from "../learningPlan";
 import type { AwsEvent, Decision, Intent, PlanItem } from "../types";
 import { usePlan } from "../usePlan";
-import { buildWeek, impactOf } from "../week";
+import { buildWeek, impactOf, nextDay } from "../week";
 
 interface Props {
   event: AwsEvent | null;
@@ -29,6 +29,10 @@ export function SwipePage({ event, eventId, answersId }: Props) {
   const [tab, setTab] = useState<Intent>("reinforce");
   const [history, setHistory] = useState<string[]>([]);
   const [expanded, setExpanded] = useState(false);
+  const [dayFilter, setDayFilter] = useState<string | null>(null);
+  const [fullNotice, setFullNotice] = useState<string | null>(null);
+  /** Day of the last ❤️ and whether it was already full, to notice the moment it fills up. */
+  const pendingFullCheck = useRef<{ date: string; wasFull: boolean } | null>(null);
 
   const byIntent = useMemo(() => {
     const groups = new Map<Intent, PlanItem[]>();
@@ -36,16 +40,29 @@ export function SwipePage({ event, eventId, answersId }: Props) {
     return groups;
   }, [data]);
 
+  const onDay = (r: PlanItem) => !dayFilter || r.session.schedule.date === dayFilter;
   const queue = useMemo(
-    () => (byIntent.get(tab) ?? []).filter((r) => !data?.swipes[r.session.id]),
-    [byIntent, tab, data],
+    () => (byIntent.get(tab) ?? []).filter((r) => !data?.swipes[r.session.id] && (!dayFilter || r.session.schedule.date === dayFilter)),
+    [byIntent, tab, data, dayFilter],
   );
   const current = queue[0];
   const plan = useMemo(() => (data ? buildLearningPlan(data.results, data.swipes, data.context) : null), [data]);
   const week = useMemo(() => (data ? buildWeek(data.results, data.swipes) : []), [data]);
 
+  useEffect(() => {
+    const pending = pendingFullCheck.current;
+    if (!pending) return;
+    const day = week.find((d) => d.date === pending.date);
+    if (day && day.remaining <= 0 && !pending.wasFull) setFullNotice(day.date);
+    pendingFullCheck.current = null;
+  }, [week]);
+
   async function act(decision: Decision) {
     if (!current) return;
+    if (decision === "like" && current.session.schedule.date) {
+      const day = week.find((d) => d.date === current.session.schedule.date);
+      pendingFullCheck.current = { date: current.session.schedule.date, wasFull: (day?.remaining ?? 1) <= 0 };
+    }
     setHistory((h) => [...h, current.session.id]);
     setExpanded(false);
     await decide(current.session.id, decision);
@@ -103,15 +120,45 @@ export function SwipePage({ event, eventId, answersId }: Props) {
   const s = current?.session;
   const meta = INTENT_META[tab];
   const impact = current ? impactOf(current, week) : null;
+  const fullDay = fullNotice ? week.find((d) => d.date === fullNotice) : undefined;
+  const following = fullDay ? nextDay(week, fullDay.date) : undefined;
+
+  function chooseDay(date: string | null) {
+    setDayFilter(date);
+    setFullNotice(null);
+    setExpanded(false);
+  }
 
   return (
     <section className="page swipe-layout">
       <div className="swipe-main">
-        <WeekStrip week={week} currentDate={s?.schedule.date ?? null} />
+        <WeekStrip week={week} currentDate={s?.schedule.date ?? null} selectedDate={dayFilter} onSelect={chooseDay} />
+        {fullDay && (
+          <div className="panel notice" role="status">
+            <p>
+              📅 <strong>{formatDay(fullDay.date)} is full.</strong> With your {fullDay.liked.length} picks, lunch and travel
+              between venues, no more sessions fit in your calendar that day.
+            </p>
+            <div className="row">
+              <button className="ghost" onClick={() => chooseDay(fullDay.date)}>
+                Keep reviewing {formatDay(fullDay.date)}
+              </button>
+              {following ? (
+                <button className="primary" onClick={() => chooseDay(following.date)}>
+                  Go to {formatDay(following.date)} →
+                </button>
+              ) : (
+                <button className="primary" onClick={() => chooseDay(null)}>
+                  Review all days
+                </button>
+              )}
+            </div>
+          </div>
+        )}
         <div className="swipe-head">
           <div className="tabs">
             {TABS.map((i) => {
-              const left = (byIntent.get(i) ?? []).filter((r) => !data.swipes[r.session.id]).length;
+              const left = (byIntent.get(i) ?? []).filter((r) => !data.swipes[r.session.id] && onDay(r)).length;
               return (
                 <button key={i} className={`tab ${tab === i ? "active" : ""}`} onClick={() => setTab(i)}>
                   {INTENT_META[i].icon} {INTENT_META[i].label}
@@ -124,14 +171,27 @@ export function SwipePage({ event, eventId, answersId }: Props) {
             Shortlist →
           </button>
         </div>
+        {dayFilter && (
+          <div className="row small">
+            <span className="chip on small">Only {formatDay(dayFilter)}</span>
+            <button className="link small" onClick={() => chooseDay(null)}>
+              Show all days
+            </button>
+          </div>
+        )}
         <p className="muted small">
           {meta.hint} {data.hidden.format > 0 && `${data.hidden.format} sessions hidden by your format choices.`}{" "}
-          {data.hidden.tooBasic > 0 && `${data.hidden.tooBasic} too basic for your level.`}
+          {data.hidden.tooBasic > 0 && `${data.hidden.tooBasic} too basic for your level.`}{" "}
+          {data.hidden.aiNotReady > 0 && `${data.hidden.aiNotReady} AI sessions assume more AI background than you have yet.`}
         </p>
 
         {!current || !s ? (
           <div className="panel empty">
-            <p>You've reviewed every session in {meta.label}. Pick another tab or check your shortlist.</p>
+            <p>
+              You've reviewed every session in {meta.label}
+              {dayFilter ? ` on ${formatDay(dayFilter)}` : ""}. Pick another tab{dayFilter ? " or day" : ""}, or check your
+              shortlist.
+            </p>
           </div>
         ) : (
           <article className={`card intent-${current.intent}`} key={s.id}>

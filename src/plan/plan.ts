@@ -3,7 +3,7 @@ import type { Reason } from "../match/engine.js";
 import { aliasesOf } from "../match/labels.js";
 import { tagSession, type SessionTags } from "../taxonomy/tagger.js";
 import { CONCEPTS, DOMAINS, DOMAIN_NEIGHBORS, EXTRA_TECHNOLOGIES } from "../taxonomy/taxonomy.js";
-import { FORMAT_CHOICES, type Answers, type SelfLevel } from "./answers.js";
+import { AI_PREREQUISITES, FORMAT_CHOICES, type Answers, type SelfLevel } from "./answers.js";
 
 export const INTENTS = ["reinforce", "broaden", "learn"] as const;
 export type Intent = (typeof INTENTS)[number];
@@ -53,7 +53,7 @@ export interface PlanItem {
 
 export interface Plan {
   results: PlanItem[];
-  hidden: { format: number; tooBasic: number; other: number };
+  hidden: { format: number; tooBasic: number; aiNotReady: number; other: number };
   /** Everything the UI needs to turn liked sessions into a learning-plan report. */
   context: {
     known: string[];
@@ -243,7 +243,7 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers): Plan
   const proficiency = KNOWN_PROFICIENCY[answers.level];
   const newTopicLevel = NEW_TOPIC_LEVEL[answers.level];
 
-  const hidden = { format: 0, tooBasic: 0, other: 0 };
+  const hidden = { format: 0, tooBasic: 0, aiNotReady: 0, other: 0 };
   const labels: Record<string, string> = {};
   const results: PlanItem[] = [];
 
@@ -293,6 +293,12 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers): Plan
       continue;
     }
 
+    const readiness = aiReadiness(tags, answers.ai);
+    if (readiness && readiness.fit < AI_HIDE_BELOW) {
+      hidden.aiNotReady += 1;
+      continue;
+    }
+
     // Broadening into a neighboring topic is closer to the attendee than applying one tool in a far-away area.
     const distance = intent === "broaden" && !mainIsKnown && !mainIsNeighbor ? 0.75 : 1;
     const relevance =
@@ -308,6 +314,8 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers): Plan
     let score = 0.35 * relevance + 0.25 * levelFit + 0.25 * irreplaceability + 0.15 * depth;
     if (session.isCustomerStory) score = Math.min(1, score + 0.03);
     if (session.isSponsored) score *= 0.85;
+    // AI background moves AI sessions up or down (×0.55–1.1), so the ones the attendee can use come first.
+    if (readiness) score = Math.min(1, score * (0.55 + 0.55 * readiness.fit));
 
     // Secondary topics are noisy (AI is everywhere), so only those the attendee picked count toward the plan.
     const planKeys = [
@@ -321,7 +329,10 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers): Plan
     results.push({
       intent,
       score: Math.round(score * 100),
-      reasons: explain({ intent, deciding, knownHits, learnHits, tags, level, proficiency, newTopicLevel, session, mainIsKnown }),
+      reasons: [
+        ...explain({ intent, deciding, knownHits, learnHits, tags, level, proficiency, newTopicLevel, session, mainIsKnown }),
+        ...aiReasons(readiness),
+      ],
       session: {
         id: session.id,
         code: session.code,
@@ -355,6 +366,56 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers): Plan
       labels,
     },
   };
+}
+
+/** Familiarity an AI session expects of its prerequisites, by level (100 → none … 400 → comfortable). */
+const AI_NEED_BY_LEVEL = [0, 0.5, 0.75, 1];
+/** Below this fit an AI session is hidden: it assumes background the attendee does not have yet. */
+const AI_HIDE_BELOW = 0.35;
+
+export interface AiReadiness {
+  /** 0-1: how well the attendee's AI background covers what the session assumes. */
+  fit: number;
+  covered: string[];
+  missing: string[];
+}
+
+/**
+ * How ready the attendee is for an AI session, from the prerequisites its AI subtopics rely on. Null when the
+ * session is not about AI or the attendee answered none of its prerequisites.
+ */
+export function aiReadiness(tags: SessionTags, ai: Answers["ai"]): AiReadiness | null {
+  if (!tags.domains.includes("ai")) return null;
+  const required = AI_PREREQUISITES.filter((p) => p.subtopics.some((s) => tags.aiSubtopics.includes(s)));
+  const relevant = (required.length > 0 ? required : AI_PREREQUISITES.filter((p) => p.id === "llm")).filter(
+    (p) => ai[p.id] !== undefined,
+  );
+  if (relevant.length === 0) return null;
+  const need = AI_NEED_BY_LEVEL[LEVEL_INDEX[tags.level] ?? 1] ?? 0.5;
+  const covered: string[] = [];
+  const missing: string[] = [];
+  let total = 0;
+  for (const p of relevant) {
+    const familiarity = (ai[p.id] ?? 0) / 2;
+    if (familiarity >= need) covered.push(p.label);
+    else missing.push(p.label);
+    total += familiarity >= need ? 1 : Math.max(0, 1 - (need - familiarity) * 1.5);
+  }
+  return { fit: total / relevant.length, covered, missing };
+}
+
+function aiReasons(readiness: AiReadiness | null): Reason[] {
+  if (!readiness) return [];
+  const reasons: Reason[] = [];
+  if (readiness.covered.length > 0 && readiness.missing.length === 0) {
+    reasons.push({ kind: "pro", text: `Your AI background covers what it assumes: ${readiness.covered.join(", ")}.` });
+  } else if (readiness.covered.length > 0) {
+    reasons.push({ kind: "info", text: `Builds on AI you know: ${readiness.covered.join(", ")}.` });
+  }
+  if (readiness.missing.length > 0) {
+    reasons.push({ kind: "con", text: `Assumes more AI background than you marked: ${readiness.missing.join(", ")}.` });
+  }
+  return reasons;
 }
 
 function fitLevel(intent: Intent, level: number | null, proficiency: number, newTopicLevel: number): number {
