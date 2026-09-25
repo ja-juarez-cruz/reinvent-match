@@ -71,7 +71,7 @@ export function ShortlistPage({ event, eventId, answersId, session, onSignIn }: 
 
   const plan = useMemo(() => (data ? buildLearningPlan(data.results, data.swipes, data.context) : null), [data]);
 
-  if (!answersId) {
+  if (!answersId || (error instanceof ApiError && error.code === "answers-missing")) {
     return (
       <section className="page">
         <div className="panel">

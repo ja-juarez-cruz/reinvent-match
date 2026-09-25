@@ -1073,3 +1073,108 @@ main {
 .includes {
   margin: 0;
 }
+
+/* Week strip */
+
+.week {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 0.5rem;
+}
+
+.week-day {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.55rem 0.6rem 0.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.week-day.current {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+.week-name {
+  font-weight: 700;
+}
+
+.capacity {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.45rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+}
+
+.capacity-ok {
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+.capacity-low {
+  background: color-mix(in srgb, var(--warn) 18%, transparent);
+  color: var(--warn);
+}
+
+.capacity-full {
+  background: color-mix(in srgb, var(--danger) 18%, transparent);
+  color: var(--danger);
+}
+
+.clash-mark {
+  position: absolute;
+  bottom: 0.4rem;
+  right: 0.45rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--warn);
+}
+
+.week-slots {
+  display: flex;
+  gap: 3px;
+  margin: 0.2rem 0;
+}
+
+.week-slot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.slot-empty {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.slot-taken {
+  background: var(--viz-primary);
+}
+
+.slot-clash {
+  background: var(--warn);
+}
+
+.slot-over {
+  outline: 2px solid var(--danger);
+  outline-offset: -1px;
+}
+
+.impact {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.7rem;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+}

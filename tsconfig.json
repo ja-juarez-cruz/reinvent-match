@@ -16,6 +16,7 @@
     "test"
   ],
   "exclude": [
-    "test/learningPlan.test.ts"
+    "test/learningPlan.test.ts",
+    "test/week.test.ts"
   ]
 }

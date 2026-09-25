@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
+import { ApiError } from "../api";
 import { navigate } from "../App";
 import { LearningPlanPanel } from "../components/LearningPlanPanel";
+import { WeekStrip } from "../components/WeekStrip";
 import { formatDay, formatTimeRange, venueOf } from "../format";
 import { buildLearningPlan } from "../learningPlan";
 import type { AwsEvent, Decision, Intent, PlanItem } from "../types";
 import { usePlan } from "../usePlan";
+import { buildWeek, impactOf } from "../week";
 
 interface Props {
   event: AwsEvent | null;
@@ -39,6 +42,7 @@ export function SwipePage({ event, eventId, answersId }: Props) {
   );
   const current = queue[0];
   const plan = useMemo(() => (data ? buildLearningPlan(data.results, data.swipes, data.context) : null), [data]);
+  const week = useMemo(() => (data ? buildWeek(data.results, data.swipes) : []), [data]);
 
   async function act(decision: Decision) {
     if (!current) return;
@@ -70,7 +74,7 @@ export function SwipePage({ event, eventId, answersId }: Props) {
     return () => window.removeEventListener("keydown", onKey);
   });
 
-  if (!answersId) {
+  if (!answersId || (error instanceof ApiError && error.code === "answers-missing")) {
     return (
       <section className="page">
         <div className="panel">
@@ -98,10 +102,12 @@ export function SwipePage({ event, eventId, answersId }: Props) {
 
   const s = current?.session;
   const meta = INTENT_META[tab];
+  const impact = current ? impactOf(current, week) : null;
 
   return (
     <section className="page swipe-layout">
       <div className="swipe-main">
+        <WeekStrip week={week} currentDate={s?.schedule.date ?? null} />
         <div className="swipe-head">
           <div className="tabs">
             {TABS.map((i) => {
@@ -150,6 +156,25 @@ export function SwipePage({ event, eventId, answersId }: Props) {
               </span>
               <span>{venueOf(s)}</span>
             </div>
+            {impact && (impact.clashes.length > 0 || impact.full) && (
+              <div className="impact">
+                {impact.clashes.length > 0 && (
+                  <div>
+                    ⚠️ Overlaps with{" "}
+                    {impact.clashes
+                      .map((c) => `${c.session.code} (${c.session.schedule.startTime ?? "TBA"})`)
+                      .join(", ")}
+                    , already in your picks.
+                  </div>
+                )}
+                {impact.full && impact.day && (
+                  <div>
+                    ⛔ {formatDay(impact.day.date)} is already at {impact.day.liked.length} sessions; adding this one goes over
+                    the daily limit.
+                  </div>
+                )}
+              </div>
+            )}
             <ul className="reasons">
               {current.reasons.map((r, i) => (
                 <li key={i} className={`reason reason-${r.kind}`}>
