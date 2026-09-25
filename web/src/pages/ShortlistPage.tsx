@@ -71,6 +71,14 @@ export function ShortlistPage({ event, eventId, answersId, session, onSignIn }: 
   }
 
   const plan = useMemo(() => (data ? buildLearningPlan(data.results, data.swipes, data.context) : null), [data]);
+  const [highlighted, setHighlighted] = useState<string | null>(null);
+
+  /** Scroll to a session in the list and flash it, so its ❤️ / 🔖 / ❌ controls are at hand. */
+  function focusSession(id: string) {
+    document.getElementById(`slot-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    setHighlighted(id);
+    window.setTimeout(() => setHighlighted((h) => (h === id ? null : h)), 2000);
+  }
 
   if (!answersId || (error instanceof ApiError && error.code === "answers-missing")) {
     return (
@@ -103,7 +111,8 @@ export function ShortlistPage({ event, eventId, answersId, session, onSignIn }: 
             <h3>Send ❤️ to your official re:Invent favorites</h3>
             <p className="muted small">
               Favorites show up in the re:Invent portal and app, ready for when reserved seating opens. Sessions you
-              marked ❌ are removed from favorites only if they were there. Maybe (🔖) is never sent.
+              downgrade here to 🔖 maybe or ❌ are removed from favorites if they were there; favorites you made only in
+              the portal are left alone.
             </p>
           </div>
           {canSync ? (
@@ -151,7 +160,11 @@ export function ShortlistPage({ event, eventId, answersId, session, onSignIn }: 
               const decision = data.swipes[s.id]?.decision as Decision;
               const clashes = items.filter((o) => o !== r && overlaps(o.session, s));
               return (
-                <div key={s.id} className={`slot ${clashes.length ? "clash" : ""}`}>
+                <div
+                  key={s.id}
+                  id={`slot-${s.id}`}
+                  className={`slot ${clashes.length ? "clash" : ""} ${highlighted === s.id ? "highlight" : ""}`}
+                >
                   <div className="slot-time">{formatTimeRange(s)}</div>
                   <div className="slot-body">
                     <div>
@@ -175,7 +188,7 @@ export function ShortlistPage({ event, eventId, answersId, session, onSignIn }: 
                         {clashes.map((c, i) => (
                           <span key={c.session.id}>
                             {i > 0 && ", "}
-                            <SessionCode session={c.session} />
+                            <SessionCode session={c.session} onOpen={() => focusSession(c.session.id)} />
                           </span>
                         ))}
                       </div>

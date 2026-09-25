@@ -3,6 +3,7 @@ import { ApiError } from "../api";
 import { navigate } from "../App";
 import { LearningPlanPanel } from "../components/LearningPlanPanel";
 import { SessionCode } from "../components/SessionCode";
+import { SessionModal } from "../components/SessionModal";
 import { WeekStrip } from "../components/WeekStrip";
 import { formatDay, formatTimeRange, venueOf } from "../format";
 import { buildLearningPlan } from "../learningPlan";
@@ -32,6 +33,8 @@ export function SwipePage({ event, eventId, answersId }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [dayFilter, setDayFilter] = useState<string | null>(null);
   const [fullNotice, setFullNotice] = useState<string | null>(null);
+  /** A picked session that clashes with the current card, opened to review or swap. */
+  const [openClash, setOpenClash] = useState<PlanItem | null>(null);
   /** Day of the last ❤️ and whether it was already full, to notice the moment it fills up. */
   const pendingFullCheck = useRef<{ date: string; wasFull: boolean } | null>(null);
 
@@ -80,6 +83,7 @@ export function SwipePage({ event, eventId, answersId }: Props) {
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      if (openClash) return;
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (e.key === "ArrowRight") void act("like");
       else if (e.key === "ArrowLeft") void act("pass");
@@ -123,6 +127,18 @@ export function SwipePage({ event, eventId, answersId }: Props) {
   const impact = current ? impactOf(current, week) : null;
   const fullDay = fullNotice ? week.find((d) => d.date === fullNotice) : undefined;
   const following = fullDay ? nextDay(week, fullDay.date) : undefined;
+
+  /** Keep the current card instead of a clashing pick; the pick stays as a 🔖 backup. */
+  async function swapFor(clash: PlanItem) {
+    setOpenClash(null);
+    await decide(clash.session.id, "save");
+    await act("like");
+  }
+
+  async function unlike(clash: PlanItem) {
+    setOpenClash(null);
+    await decide(clash.session.id, "save");
+  }
 
   function chooseDay(date: string | null) {
     setDayFilter(date);
@@ -234,7 +250,8 @@ export function SwipePage({ event, eventId, answersId }: Props) {
                 {impact.clashes.map(({ item, reason }) => (
                   <div key={item.session.id}>
                     ⚠️ {reason === "overlap" ? "Overlaps with" : "Not enough time to get to or from"}{" "}
-                    <SessionCode session={item.session} /> ({item.session.schedule.startTime ?? "TBA"}, {venueOf(item.session)}),
+                    <SessionCode session={item.session} onOpen={() => setOpenClash(item)} /> (
+                    {item.session.schedule.startTime ?? "TBA"}, {venueOf(item.session)}),
                     already in your picks.
                   </div>
                 ))}
@@ -286,6 +303,27 @@ export function SwipePage({ event, eventId, answersId }: Props) {
         </p>
       </div>
       <LearningPlanPanel plan={plan} compact />
+      {openClash && current && (
+        <SessionModal
+          item={openClash}
+          heading={`Already in your picks · clashes with ${current.session.code}`}
+          onClose={() => setOpenClash(null)}
+        >
+          <button className="primary" onClick={() => swapFor(openClash)}>
+            Swap: ❤️ {current.session.code} instead
+          </button>
+          <button className="ghost" onClick={() => unlike(openClash)}>
+            Remove ❤️ from {openClash.session.code}
+          </button>
+          <button className="link" onClick={() => setOpenClash(null)}>
+            Keep both
+          </button>
+          <p className="muted small">
+            A session you swap out or remove stays in your shortlist as 🔖 maybe, as a backup, and is removed from your
+            official favorites the next time you sync.
+          </p>
+        </SessionModal>
+      )}
     </section>
   );
 }

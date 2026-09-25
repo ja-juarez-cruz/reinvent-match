@@ -11,8 +11,9 @@ export interface FavoritesPlan {
 }
 
 /**
- * ❤️ becomes a favorite. ❌ removes a favorite only if the attendee had favorited it, so favorites made in the
- * portal are never touched unless the attendee explicitly passed on that session here. 🔖 changes nothing.
+ * Official favorites mirror the attendee's ❤️ picks: ❤️ adds a favorite, and a favorite downgraded here to 🔖 (for
+ * example, swapped out for a clashing session and kept as a backup) or ❌ is removed. Favorites made in the portal
+ * for sessions never decided on here are left alone.
  */
 export function planFavorites(swipes: SwipeLog, currentFavorites: string[]): FavoritesPlan {
   const current = new Set(currentFavorites);
@@ -20,7 +21,7 @@ export function planFavorites(swipes: SwipeLog, currentFavorites: string[]): Fav
   const toRemove: string[] = [];
   for (const [sessionId, { decision }] of Object.entries(swipes)) {
     if (decision === "like" && !current.has(sessionId)) toAdd.push(sessionId);
-    if (decision === "pass" && current.has(sessionId)) toRemove.push(sessionId);
+    if ((decision === "pass" || decision === "save") && current.has(sessionId)) toRemove.push(sessionId);
   }
   return { toAdd: toAdd.sort(), toRemove: toRemove.sort() };
 }

@@ -1303,3 +1303,51 @@ main {
 .session-code:focus .session-code-tip {
   display: flex;
 }
+
+.session-code.clickable {
+  cursor: pointer;
+}
+
+.muted-tip {
+  opacity: 0.75;
+  font-size: 0.75rem;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgb(0 0 0 / 45%);
+}
+
+.modal {
+  width: min(560px, 100%);
+  max-height: 90vh;
+  overflow: auto;
+}
+
+.modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.modal-actions p {
+  flex-basis: 100%;
+  margin: 0.25rem 0 0;
+}
+
+.score-small {
+  font-weight: 800;
+  color: var(--accent);
+}
+
+.slot.highlight {
+  outline: 3px solid var(--accent);
+  transition: outline-color 0.3s;
+}

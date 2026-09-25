@@ -16,6 +16,10 @@ describe("planFavorites", () => {
   it("adds liked sessions and removes passed ones only if they are favorites", () => {
     expect(planFavorites(swipes, ["B", "C", "Z"])).toEqual({ toAdd: ["A"], toRemove: ["C"] });
   });
+
+  it("removes a favorite downgraded to maybe, and leaves portal-only favorites alone", () => {
+    expect(planFavorites(swipes, ["E", "Z"])).toEqual({ toAdd: ["A", "B"], toRemove: ["E"] });
+  });
 });
 
 describe("syncFavorites", () => {
