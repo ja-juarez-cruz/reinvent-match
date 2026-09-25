@@ -284,12 +284,39 @@ describe("level per topic", () => {
   const topics = (level: string) => answers({ topics: [{ key: "domain:serverless", level }] });
 
   it("judges each session against your level in its topic", () => {
-    // A 300 session is one step up for Basic (the sweet spot) and at level for Intermediate.
+    // Basic aims at 200 and Intermediate at 300, so a 300 session fits Intermediate and stretches Basic.
     const basic = buildPlan([lambda300], topics("basic")).results[0]!;
     const intermediate = buildPlan([lambda300], topics("intermediate")).results[0]!;
     expect(basic.intent).toBe("reinforce");
-    expect(basic.score).toBeGreaterThan(intermediate.score);
+    expect(intermediate.score).toBeGreaterThan(basic.score);
     expect(basic.reasons[0]?.text).toMatch(/one of your topics \(you are Basic\)/);
+    expect(basic.reasons.find((r) => r.about === "level")?.kind).toBe("con");
+  });
+
+  it("judges by the technology in the title when you know it less than the track's topic", () => {
+    const gitops = session({
+      sessionId: "G1",
+      abbreviation: "OPN315",
+      title: "Bootstrapping GitOps on Amazon EKS with Argo CD",
+      type: "Code talk",
+      level: "300 – Advanced",
+      services: ["Amazon Elastic Kubernetes Service (Amazon EKS)"],
+    });
+    const plan = (containers: string) =>
+      buildPlan(
+        [gitops],
+        answers({
+          formats: ["code"],
+          topics: [
+            { key: "domain:devtools", level: "intermediate" },
+            { key: "domain:containers", level: containers },
+          ],
+        }),
+      ).results[0]!;
+    expect(plan("basic").reasons[0]?.text).toMatch(/Goes deeper on Amazon EKS, one of your topics \(you are Basic\)/);
+    expect(plan("basic").score).toBeLessThan(plan("advanced").score);
+    // Known better than the track's topic, the track still decides.
+    expect(plan("advanced").reasons[0]?.text).toMatch(/Developer Tools/);
   });
 
   it("treats a topic marked new as one to learn", () => {

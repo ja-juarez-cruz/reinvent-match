@@ -153,7 +153,7 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
             <h2>What is your level in each topic?</h2>
             <p className="muted">
               "New to me" means you want to learn it; any other level means you want to go deeper, and Reinvent:Match looks for
-              sessions a step above where you are.
+              sessions at that level, the step above what you already know.
             </p>
             <div className="topic-levels">
               {answers.topics.map((t) => {

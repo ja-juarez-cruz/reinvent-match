@@ -1,6 +1,6 @@
 import type { NormalizedSession } from "../catalog/normalize.js";
 import type { Reason } from "../match/engine.js";
-import { aliasesOf } from "../match/labels.js";
+import { aliasesOf, normalizeText, textContains } from "../match/labels.js";
 import { tagSession, type SessionTags } from "../taxonomy/tagger.js";
 import { CONCEPTS, DOMAINS, DOMAIN_NEIGHBORS, EXTRA_TECHNOLOGIES, PLATFORMS } from "../taxonomy/taxonomy.js";
 import { AI_PREREQUISITES, FORMAT_CHOICES, type Answers, type TopicLevel } from "./answers.js";
@@ -328,6 +328,13 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers): Plan
       keyProficiency.set(key, Math.max(keyProficiency.get(key) ?? 0, TOPIC_PROFICIENCY[topic.level]));
     }
   }
+  const topicProficiency = new Map(knownTopics.map((t) => [splitKey(t.key)[1], TOPIC_PROFICIENCY[t.level]] as const));
+  // A technology counts at the level of the topic it belongs to, not the highest topic that happens to mention it.
+  const proficiencyOf = (key: string): number => {
+    const [kind, id] = splitKey(key);
+    const owner = kind === "tech" ? techDomain[id] : undefined;
+    return (owner !== undefined ? topicProficiency.get(owner) : undefined) ?? keyProficiency.get(key) ?? strongest;
+  };
   const knownKeys = [...keyProficiency.keys()];
   const learnKeys = expandTopics(newTopics, relations).filter((k) => !keyProficiency.has(k));
   const known = new Set(knownKeys);
@@ -372,11 +379,30 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers): Plan
     const knownHits = keys.filter((k) => known.has(k)).sort((a, b) => hitStrength(b, tags.primaryDomain) - hitStrength(a, tags.primaryDomain));
     const learnHits = keys.filter((k) => learn.has(k)).sort((a, b) => hitStrength(b, tags.primaryDomain) - hitStrength(a, tags.primaryDomain));
     const level = LEVEL_INDEX[tags.level] ?? null;
-    const coreKnownHit = knownHits.find((k) => hitStrength(k, tags.primaryDomain) >= 0.7);
+    // A technology named in the title is what the session is about, even when its track files it under another topic:
+    // "GitOps on Amazon EKS" in the open-source track is a containers session. Among the track's topic and those
+    // technologies, the one the attendee knows least decides the level.
+    const title = normalizeText(session.title);
+    const trackProficiency = topicProficiency.get(tags.primaryDomain) ?? -1;
+    const titleHit = keys
+      .filter((k) => {
+        const [kind, id] = splitKey(k);
+        const owner = techDomain[id];
+        return (
+          kind === "tech" &&
+          owner !== undefined &&
+          owner !== tags.primaryDomain &&
+          topicProficiency.has(owner) &&
+          aliasesOf(id).some((a) => textContains(title, a))
+        );
+      })
+      .sort((a, b) => proficiencyOf(a) - proficiencyOf(b))
+      .find((k) => proficiencyOf(k) < trackProficiency);
+    const coreKnownHit = titleHit ?? knownHits.find((k) => hitStrength(k, tags.primaryDomain) >= 0.7);
     const mainIsKnown = knownDomains.has(tags.primaryDomain);
     const mainIsNeighbor = neighborDomains.has(tags.primaryDomain);
     // Level is judged against the attendee's level in the topic the session is about.
-    const proficiency = keyProficiency.get(coreKnownHit ?? "") ?? strongest;
+    const proficiency = coreKnownHit ? proficiencyOf(coreKnownHit) : strongest;
 
     // Reinforce wins when the session is squarely about what the attendee knows; anything they want to learn in it
     // shows up as a reason. Otherwise an explicit learning goal beats broadening.
@@ -561,7 +587,9 @@ function fitLevel(intent: Intent, level: number | null, proficiency: number, new
   if (level === null) return 0.5;
   if (intent === "reinforce") {
     const stretch = level - proficiency;
-    return stretch === 1 ? 1 : stretch === 0 ? 0.8 : stretch === -1 ? 0.4 : 0.6;
+    // Proficiency and session level share a scale (Basic ↔ 200, Intermediate ↔ 300, Advanced ↔ 400): a session at
+    // the attendee's level is the step above what they already know; one level higher is a stretch.
+    return stretch === 0 ? 1 : stretch === 1 ? 0.6 : stretch === -1 ? 0.5 : 0.3;
   }
   const gap = level - newTopicLevel;
   return gap === 0 ? 1 : gap === -1 ? 0.8 : gap < -1 ? 0.5 : gap === 1 ? 0.45 : 0.2;
@@ -592,8 +620,8 @@ function explain(ctx: {
     });
     if (level !== null) {
       const stretch = level - proficiency;
-      if (stretch >= 1) reasons.push({ about: "level", kind: "pro", text: `Level ${levelName}: a step above your level, where you grow the most.` });
-      else if (stretch === 0) reasons.push({ about: "level", kind: "info", text: `Level ${levelName}: at your level; expect depth rather than new ground.` });
+      if (stretch === 0) reasons.push({ about: "level", kind: "pro", text: `Level ${levelName}: matches your level, the step above what you know.` });
+      else if (stretch >= 1) reasons.push({ about: "level", kind: "con", text: `Level ${levelName}: above your level; expect to stretch.` });
       else reasons.push({ about: "level", kind: "con", text: `Level ${levelName}: below your level; worth it only for the angle it takes.` });
     }
   } else if (intent === "broaden") {
