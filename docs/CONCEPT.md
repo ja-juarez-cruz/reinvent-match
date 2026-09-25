@@ -106,7 +106,7 @@ The source is the `Session` object from the [AWS Events API](https://docs.aws.am
 | `schedule` | `sessionTime` (date, local time, minutes), `venue`, `room` | |
 | `seatAvailability` | `isReservable`, `seatAvailability` | available · limited · veryLimited · unavailable · walkUp |
 | `restrictedTo` | `experiences` | "Executive Summit": may be restricted |
-| `archDepth` (0–3) | derived | design signals in the text (trade-offs, failure, at scale…) + Architecture topic; optional LLM later |
+| `archDepth` (0–3) | derived | distinct design signals in the text (trade-offs, failure, at scale, blast radius, pitfalls, concurrency/throttling, account structure, decoupling, architecture patterns, what changes at scale…) + Architecture topic; optional LLM later |
 | `isCustomerStory` | derived | `Customer story` feature or title patterns: "How X…", "Lessons learned…" |
 | `isSponsored` | derived | `-S` code suffix or "(sponsored by …)" |
 

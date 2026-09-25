@@ -71,3 +71,19 @@ describe("venue and repeats", () => {
     expect(bootcamp.handsOn).toBe(true);
   });
 });
+
+describe("architecture depth signals", () => {
+  it("recognizes operating-at-scale talks as architectural", () => {
+    const s = session({
+      title: "Operating Serverless at scale: What changes at 1000+ functions",
+      abstract:
+        "What works at 10 Lambda functions may not work at 1,000. A single misconfigured function triggers account-level throttling. We discuss account structure and concurrency management to prevent blast radius problems, platform engineering patterns, and where the common pitfalls are.",
+    });
+    expect(s.archDepth).toBe(3);
+  });
+
+  it("does not read AI guardrails or AI governance as architecture", () => {
+    const s = session({ title: "Responsible AI", abstract: "Set guardrails and AI governance for your models." });
+    expect(s.archDepth).toBe(0);
+  });
+});

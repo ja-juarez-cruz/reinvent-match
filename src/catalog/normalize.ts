@@ -103,9 +103,15 @@ const ARCH_SIGNALS = [
   /distributed/,
   /disaster recovery|high availability/,
   /well-architected/,
-  /design (patterns?|decisions?|principles?)|anti-?patterns?|architectural patterns?/,
-  /lessons learned/,
+  /design (decisions?|principles?)|anti-?patterns?|(architecture|architectural|design|integration|engineering|deployment|scaling|resilience|event-driven|migration|platform) patterns?|patterns (for|that)/,
+  /lessons learned|lessons from|hard lessons/,
   /consistency|idempoten/,
+  /blast[- ]radius|cell-based|isolation boundar|noisy neighbou?r/,
+  /pitfalls?|gotchas?|common mistakes|what (goes|went) wrong/,
+  /concurrency|throttl|backpressure|rate limit/,
+  /account structure|multi-account|landing zone|(account|cloud|organization) governance/,
+  /decoupl|coupling|service boundar/,
+  /large-scale|at \d[\d,]*\+? (functions|services|accounts|teams)|(operators|teams) do differently|what changes at scale/,
 ];
 
 export function estimateArchDepth(text: string, topics: string[]): Level {

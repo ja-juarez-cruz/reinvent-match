@@ -108,7 +108,7 @@ La fuente es el objeto `Session` del [AWS Events API](https://docs.aws.amazon.co
 | `schedule` | `sessionTime` (fecha, hora local, minutos), `venue`, `room` | |
 | `seats` | `isReservable`, `seatAvailability` | available · limited · veryLimited · unavailable · walkUp |
 | `restricted` | `experiences` | "Executive Summit": puede estar restringida |
-| `archDepth` (0–3) | derivado | reglas sobre `features` + palabras del abstract (trade-offs, failure, at scale…); con LLM opcional después |
+| `archDepth` (0–3) | derivado | señales de diseño distintas en el texto (trade-offs, fallas, at scale, blast radius, pitfalls, concurrencia/throttling, estructura de cuentas, desacoplamiento, patrones de arquitectura, qué cambia a escala…) + tema Arquitectura; con LLM opcional después |
 | `isCustomerStory` | derivado | patrones del título: "How X…", "Lessons learned…" |
 | `recorded` | regla por `type` | breakout = probablemente sí; chalk/workshop/builders = no |
 
