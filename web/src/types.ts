@@ -20,7 +20,12 @@ export interface CatalogStatus {
 export interface Reason {
   kind: "pro" | "con" | "info";
   text: string;
+  /** Plan reasons say what they are about: match, level, related, skills, format, context, ai, platform, reservation. */
+  about?: string;
 }
+
+/** The only reasons a session card shows: why it matches, the skills it builds and AI readiness. */
+export const CARD_REASONS = new Set(["match", "skills", "ai"]);
 
 export interface Session {
   id: string;

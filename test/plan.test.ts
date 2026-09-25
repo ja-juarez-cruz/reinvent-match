@@ -305,3 +305,25 @@ describe("level per topic", () => {
     expect(plan.context.learn).toContain("domain:containers");
   });
 });
+
+describe("reason tags", () => {
+  it("tags every reason so the card can keep only match, skills and AI", () => {
+    const aiSession = session({
+      sessionId: "R1",
+      abbreviation: "AIM301",
+      title: "Agents with Bedrock",
+      type: "Chalk talk",
+      level: "300 – Advanced",
+      topics: ["Artificial Intelligence"],
+      areasOfInterest: ["Agentic AI"],
+      abstract: "Resilience patterns for agents at scale.",
+    });
+    const plan = buildPlan([aiSession, lambda300], answers({ topics: [{ key: "domain:ai", level: "basic" }, { key: "domain:serverless", level: "intermediate" }], ai: { llm: 2, agents: 0 } }));
+    const reasons = plan.results.flatMap((r) => r.reasons);
+    expect(reasons.every((r) => r.about)).toBe(true);
+    const card = (id: string) =>
+      plan.results.find((r) => r.session.id === id)!.reasons.filter((r) => ["match", "skills", "ai"].includes(r.about)).map((r) => r.about);
+    expect(card("R1")).toEqual(expect.arrayContaining(["match", "ai"]));
+    expect(card("R1")[0]).toBe("match");
+  });
+});

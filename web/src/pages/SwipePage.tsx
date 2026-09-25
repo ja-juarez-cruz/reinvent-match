@@ -7,7 +7,7 @@ import { SessionModal } from "../components/SessionModal";
 import { WeekStrip } from "../components/WeekStrip";
 import { formatDay, formatTimeRange, venueOf } from "../format";
 import { buildLearningPlan } from "../learningPlan";
-import type { AwsEvent, Decision, Intent, PlanItem } from "../types";
+import { CARD_REASONS, type AwsEvent, type Decision, type Intent, type PlanItem } from "../types";
 import { usePlan } from "../usePlan";
 import { buildWeek, impactOf, nextDay } from "../week";
 
@@ -264,7 +264,7 @@ export function SwipePage({ event, eventId, answersId }: Props) {
               </div>
             )}
             <ul className="reasons">
-              {current.reasons.map((r, i) => (
+              {current.reasons.filter((r) => CARD_REASONS.has(r.about ?? "")).map((r, i) => (
                 <li key={i} className={`reason reason-${r.kind}`}>
                   <span>{REASON_ICON[r.kind]}</span> {r.text}
                 </li>

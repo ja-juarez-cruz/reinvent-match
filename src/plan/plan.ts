@@ -51,6 +51,13 @@ export interface PlanSession {
   schedule: NormalizedSession["schedule"];
 }
 
+/** What a reason is about, so views can show only the ones they need (the swipe card keeps match, skills and ai). */
+export type ReasonAbout = "match" | "level" | "related" | "skills" | "format" | "context" | "ai" | "platform" | "reservation";
+
+export interface PlanReason extends Reason {
+  about: ReasonAbout;
+}
+
 export interface PlanItem {
   intent: Intent;
   /** Distinct tags the attendee knows or wants to learn that the session touches. */
@@ -58,7 +65,7 @@ export interface PlanItem {
   /** Seats must be reserved in advance; these sessions go first because seats run out. */
   reservable: boolean;
   score: number;
-  reasons: Reason[];
+  reasons: PlanReason[];
   session: PlanSession;
   /** Taxonomy keys the session contributes to a learning plan: main topic, technologies and concepts. */
   keys: string[];
@@ -443,18 +450,20 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers): Plan
         ...explain({ intent, deciding, knownHits, learnHits, tags, level, proficiency, newTopicLevel, session, mainIsKnown }),
         ...aiReasons(readiness),
         ...ignoredMentions.map((p) => ({
+          about: "platform" as const,
           kind: "con" as const,
           text: `Mentions ${PLATFORMS.find((pl) => pl.id === p)?.label ?? p}, which you marked as not relevant.`,
         })),
         reservable
           ? {
+              about: "reservation" as const,
               kind: "pro" as const,
               text:
                 session.format === "lab" && !catalogFlagsReservations
                   ? "Likely needs a reserved seat (some labs do): plan it early."
                   : "Needs a reserved seat and seats run out: plan it early.",
             }
-          : { kind: "info" as const, text: "No reservation needed: walk in." },
+          : { about: "reservation" as const, kind: "info" as const, text: "No reservation needed: walk in." },
       ],
       session: {
         id: session.id,
@@ -534,16 +543,16 @@ export function aiReadiness(tags: SessionTags, ai: Answers["ai"]): AiReadiness |
   return { fit: total / relevant.length, covered, missing };
 }
 
-function aiReasons(readiness: AiReadiness | null): Reason[] {
+function aiReasons(readiness: AiReadiness | null): PlanReason[] {
   if (!readiness) return [];
-  const reasons: Reason[] = [];
+  const reasons: PlanReason[] = [];
   if (readiness.covered.length > 0 && readiness.missing.length === 0) {
-    reasons.push({ kind: "pro", text: `Your AI background covers what it assumes: ${readiness.covered.join(", ")}.` });
+    reasons.push({ about: "ai", kind: "pro", text: `Your AI background covers what it assumes: ${readiness.covered.join(", ")}.` });
   } else if (readiness.covered.length > 0) {
-    reasons.push({ kind: "info", text: `Builds on AI you know: ${readiness.covered.join(", ")}.` });
+    reasons.push({ about: "ai", kind: "info", text: `Builds on AI you know: ${readiness.covered.join(", ")}.` });
   }
   if (readiness.missing.length > 0) {
-    reasons.push({ kind: "con", text: `Assumes more AI background than you marked: ${readiness.missing.join(", ")}.` });
+    reasons.push({ about: "ai", kind: "con", text: `Assumes more AI background than you marked: ${readiness.missing.join(", ")}.` });
   }
   return reasons;
 }
@@ -569,59 +578,60 @@ function explain(ctx: {
   newTopicLevel: number;
   session: NormalizedSession;
   mainIsKnown: boolean;
-}): Reason[] {
+}): PlanReason[] {
   const { intent, deciding, knownHits, learnHits, tags, level, proficiency, newTopicLevel, session, mainIsKnown } = ctx;
-  const reasons: Reason[] = [];
+  const reasons: PlanReason[] = [];
   const main = labelOfKey(`domain:${tags.primaryDomain}`);
   const levelName = level === null ? null : LEVEL_NAMES[level];
 
   if (intent === "reinforce" && deciding) {
     reasons.push({
+      about: "match",
       kind: "pro",
       text: `Goes deeper on ${labelOfKey(deciding)}, one of your topics (you are ${PROFICIENCY_NAMES[proficiency] ?? "experienced"}).`,
     });
     if (level !== null) {
       const stretch = level - proficiency;
-      if (stretch >= 1) reasons.push({ kind: "pro", text: `Level ${levelName}: a step above your level, where you grow the most.` });
-      else if (stretch === 0) reasons.push({ kind: "info", text: `Level ${levelName}: at your level; expect depth rather than new ground.` });
-      else reasons.push({ kind: "con", text: `Level ${levelName}: below your level; worth it only for the angle it takes.` });
+      if (stretch >= 1) reasons.push({ about: "level", kind: "pro", text: `Level ${levelName}: a step above your level, where you grow the most.` });
+      else if (stretch === 0) reasons.push({ about: "level", kind: "info", text: `Level ${levelName}: at your level; expect depth rather than new ground.` });
+      else reasons.push({ about: "level", kind: "con", text: `Level ${levelName}: below your level; worth it only for the angle it takes.` });
     }
   } else if (intent === "broaden") {
     reasons.push(
       deciding
-        ? { kind: "pro", text: `Applies ${labelOfKey(deciding)}, which you know, to ${main}.` }
+        ? { about: "match", kind: "pro", text: `Applies ${labelOfKey(deciding)}, which you know, to ${main}.` }
         : mainIsKnown
-          ? { kind: "pro", text: `A new angle on ${main}, beyond the tools you listed.` }
-          : { kind: "pro", text: `${main} sits next to what you know; a natural way to widen your profile.` },
+          ? { about: "match", kind: "pro", text: `A new angle on ${main}, beyond the tools you listed.` }
+          : { about: "match", kind: "pro", text: `${main} sits next to what you know; a natural way to widen your profile.` },
     );
   } else {
     reasons.push(
       deciding
-        ? { kind: "pro", text: `Covers ${labelOfKey(deciding)}, which you want to learn.` }
-        : { kind: "info", text: `New ground for you: ${main}.` },
+        ? { about: "match", kind: "pro", text: `Covers ${labelOfKey(deciding)}, which you want to learn.` }
+        : { about: "match", kind: "info", text: `New ground for you: ${main}.` },
     );
   }
   if (intent !== "reinforce" && level !== null) {
     const gap = level - newTopicLevel;
-    if (gap > 0) reasons.push({ kind: "con", text: `Level ${levelName} on a topic that is new to you; it may assume background.` });
-    else reasons.push({ kind: "pro", text: `Level ${levelName}: a good entry point for a new topic at your experience.` });
+    if (gap > 0) reasons.push({ about: "level", kind: "con", text: `Level ${levelName} on a topic that is new to you; it may assume background.` });
+    else reasons.push({ about: "level", kind: "pro", text: `Level ${levelName}: a good entry point for a new topic at your experience.` });
   }
 
   const wanted = learnHits.filter((k) => k !== deciding).map(labelOfKey);
-  if (wanted.length > 0) reasons.push({ kind: "pro", text: `Also covers what you want to learn: ${wanted.join(", ")}.` });
+  if (wanted.length > 0) reasons.push({ about: "related", kind: "pro", text: `Also covers what you want to learn: ${wanted.join(", ")}.` });
   const others = knownHits.filter((k) => k !== deciding).map(labelOfKey);
-  if (others.length > 0) reasons.push({ kind: "info", text: `Also uses what you know: ${others.slice(0, 4).join(", ")}.` });
+  if (others.length > 0) reasons.push({ about: "related", kind: "info", text: `Also uses what you know: ${others.slice(0, 4).join(", ")}.` });
 
   const skills = tags.concepts.map((c) => labelOfKey(`concept:${c}`));
-  if (skills.length > 0) reasons.push({ kind: "pro", text: `Skills: ${skills.slice(0, 4).join(", ")}.` });
+  if (skills.length > 0) reasons.push({ about: "skills", kind: "pro", text: `Skills: ${skills.slice(0, 4).join(", ")}.` });
 
   const style = STYLE_REASON[tags.learningStyle];
-  if (style) reasons.push({ kind: "pro", text: style });
+  if (style) reasons.push({ about: "format", kind: "pro", text: style });
   else if (tags.learningStyle === "presentation") {
-    reasons.push({ kind: "info", text: "Presentation: usually recorded, so lower priority in person." });
+    reasons.push({ about: "format", kind: "info", text: "Presentation: usually recorded, so lower priority in person." });
   }
-  if (session.isCustomerStory) reasons.push({ kind: "pro", text: "Customer story: real decisions and trade-offs." });
-  if (session.isSponsored) reasons.push({ kind: "info", text: "Sponsored session presented by a partner." });
-  if (session.mayRepeat) reasons.push({ kind: "info", text: "Code ends in -R: AWS plans a repeat." });
+  if (session.isCustomerStory) reasons.push({ about: "context", kind: "pro", text: "Customer story: real decisions and trade-offs." });
+  if (session.isSponsored) reasons.push({ about: "context", kind: "info", text: "Sponsored session presented by a partner." });
+  if (session.mayRepeat) reasons.push({ about: "context", kind: "info", text: "Code ends in -R: AWS plans a repeat." });
   return reasons;
 }

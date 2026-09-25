@@ -1,6 +1,6 @@
 import { useEffect, type ReactNode } from "react";
 import { formatDay, formatTimeRange, venueOf } from "../format";
-import type { PlanItem } from "../types";
+import { CARD_REASONS, type PlanItem } from "../types";
 
 const REASON_ICON = { pro: "✅", con: "⚠️", info: "ℹ️" } as const;
 
@@ -53,7 +53,7 @@ export function SessionModal({
           <span>{venueOf(s)}</span>
         </div>
         <ul className="reasons">
-          {item.reasons.slice(0, 4).map((r, i) => (
+          {item.reasons.filter((r) => CARD_REASONS.has(r.about ?? "")).map((r, i) => (
             <li key={i} className={`reason reason-${r.kind}`}>
               <span>{REASON_ICON[r.kind]}</span> {r.text}
             </li>
