@@ -1,4 +1,4 @@
-// Subset of the AWS Events API schema (https://api.awsevents.com/v1/openapi.json) used by Re:Match.
+// Subset of the AWS Events API schema (https://api.awsevents.com/v1/openapi.json) used by Reinvent:Match.
 
 export interface EventAddress {
   city?: string;

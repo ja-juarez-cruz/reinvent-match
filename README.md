@@ -1,8 +1,8 @@
-# Re:Match
+# Reinvent:Match
 
 🇪🇸 [Versión en español](README.es.md)
 
-**Tinder for person ↔ session.** AWS re:Invent has 2,000+ sessions. Re:Match doesn't tell you which ones are *the best*, it tells you which ones *fit you*: based on what you already know, what you want to grow and what you want to explore. Every recommendation says why.
+**Tinder for person ↔ session.** AWS re:Invent has 2,000+ sessions. Reinvent:Match doesn't tell you which ones are *the best*, it tells you which ones *fit you*: based on what you already know, what you want to grow and what you want to explore. Every recommendation says why.
 
 > Unofficial community project, not affiliated with AWS. Uses the official [AWS Events API](https://docs.aws.amazon.com/events/latest/devguide/what-is-events-api.html).
 
@@ -30,11 +30,17 @@ The full design is in [docs/CONCEPT.md](docs/CONCEPT.md). Built for the AWS Even
 Requires Node.js 20+.
 
 ```bash
+npx reinvent-match
+```
+
+That downloads the package from npm and opens Reinvent:Match in your browser. From a clone of this repository instead:
+
+```bash
 npm install
 npm run ui
 ```
 
-This builds the web UI and opens Re:Match in your browser at `http://127.0.0.1:8484`. It runs entirely on your machine:
+Either way the app opens at `http://127.0.0.1:8484`. It runs entirely on your machine:
 
 1. **Event:** pick re:Invent (sign in with your AWS Builder ID) or a public Summit catalog, and download it.
    **Insights:** every session tagged on nine dimensions (topic, technology, audience, learning style, content type, concept, level…) with drill-down charts. See [docs/TAXONOMY.md](docs/TAXONOMY.md).
@@ -82,7 +88,9 @@ Tokens are stored in `~/.rematch/credentials.json` (readable only by you) and re
 ```bash
 npm test          # unit tests + regression against a public catalog snapshot
 npm run typecheck
-npm run build     # emits dist/ with the `rematch` binary
+npm run build     # emits dist/ with the `reinvent-match` binary and the built web UI
+npm pack          # the tarball npm would publish (only zod is installed as a dependency)
+npm publish       # runs typecheck, tests and build first (prepublishOnly)
 ```
 
 ```

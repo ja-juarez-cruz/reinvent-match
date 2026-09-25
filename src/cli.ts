@@ -17,19 +17,19 @@ import { loadProfile } from "./profile/profile.js";
 import { startServer } from "./server/index.js";
 import { buildReport, type Bucket } from "./taxonomy/report.js";
 
-const HELP = `rematch - person-to-session matching for AWS events (unofficial)
+const HELP = `Reinvent:Match - person-to-session matching for AWS events (unofficial)
 
 Usage:
-  rematch ui [--no-open]                  Start the Re:Match app on 127.0.0.1:8484 and open the browser
-  rematch login                           Sign in with your AWS Builder ID (opens the browser)
-  rematch logout [--browser]              Revoke and delete tokens; --browser also ends the Builder ID session
-  rematch whoami                          Show who is signed in
-  rematch schedule <eventId>              Show your reservations, favorites and personal time
-  rematch events                          List ongoing and upcoming AWS events
-  rematch fetch <eventId> [--locale en-US] Download an event catalog into .rematch/cache
-  rematch vocab <eventId> [--field tags]   Show catalog labels to use in your profile
-  rematch report <eventId> [--json]       Tag every session and summarize the catalog by dimension
-  rematch match <eventId> --profile <file> [options]
+  reinvent-match [ui] [--no-open]                Start the app on 127.0.0.1:8484 and open the browser
+  reinvent-match login                           Sign in with your AWS Builder ID (opens the browser)
+  reinvent-match logout [--browser]              Revoke and delete tokens; --browser also ends the Builder ID session
+  reinvent-match whoami                          Show who is signed in
+  reinvent-match schedule <eventId>              Show your reservations, favorites and personal time
+  reinvent-match events                          List ongoing and upcoming AWS events
+  reinvent-match fetch <eventId> [--locale en-US] Download an event catalog
+  reinvent-match vocab <eventId> [--field tags]   Show catalog labels to use in a profile
+  reinvent-match report <eventId> [--json]       Tag every session and summarize the catalog by dimension
+  reinvent-match match <eventId> --profile <file> [options]
 
 Match options:
   --profile, -p <file>     Profile JSON (see examples/profile.example.json)
@@ -66,10 +66,11 @@ async function main(argv: string[]): Promise<number> {
       help: { type: "boolean", short: "h" },
     },
   });
-  const [command, eventId] = positionals;
-  if (!command || values.help) {
+  // No command opens the app: `npx reinvent-match` is all a first-time user needs.
+  const [command = "ui", eventId] = positionals;
+  if (values.help) {
     process.stdout.write(HELP);
-    return command ? 0 : 1;
+    return 0;
   }
 
   const store = new FileTokenStore();
@@ -82,7 +83,7 @@ async function main(argv: string[]): Promise<number> {
     case "ui": {
       const { url, webRoot } = await startServer({ client, auth, store });
       if (!webRoot) console.warn("Web UI not built yet; run `npm run build:web`. Serving the API only.");
-      console.log(`Re:Match is running at ${url}  (Ctrl+C to stop)`);
+      console.log(`Reinvent:Match is running at ${url}  (Ctrl+C to stop)`);
       if (!values["no-open"]) openInBrowser(url);
       return new Promise<number>(() => {});
     }
@@ -105,12 +106,12 @@ async function main(argv: string[]): Promise<number> {
           console.warn(`Could not revoke the refresh token: ${error instanceof Error ? error.message : error}`),
         );
         await store.clear();
-        console.log("Signed out of Re:Match: refresh token revoked and tokens deleted.");
+        console.log("Signed out of Reinvent:Match: refresh token revoked and tokens deleted.");
       } else {
-        console.log("No Re:Match session found.");
+        console.log("No Reinvent:Match session found.");
       }
       if (values.browser) await signOutBrowser();
-      else console.log("Your Builder ID browser session is still active; use `rematch logout --browser` to end it.");
+      else console.log("Your Builder ID browser session is still active; use `reinvent-match logout --browser` to end it.");
       return 0;
     }
     case "whoami": {
@@ -169,7 +170,7 @@ async function main(argv: string[]): Promise<number> {
     case "report": {
       requireEvent(eventId);
       const catalog = await loadCatalog(eventId);
-      if (!catalog) throw new Error(`No cached catalog for ${eventId}. Run \`rematch fetch ${eventId}\` first.`);
+      if (!catalog) throw new Error(`No cached catalog for ${eventId}. Run \`reinvent-match fetch ${eventId}\` first.`);
       const report = buildReport(eventId, catalog.fetchedAt, catalog.sessions.map(normalizeSession));
       if (values.json) {
         console.log(JSON.stringify(report, null, 2));
@@ -257,12 +258,12 @@ async function signOutBrowser(): Promise<void> {
 }
 
 function requireEvent(eventId: string | undefined): asserts eventId is string {
-  if (!eventId) throw new Error("An eventId is required. Run `rematch events` to list them.");
+  if (!eventId) throw new Error("An eventId is required. Run `reinvent-match events` to list them.");
 }
 
 async function catalogSessions(eventId: string): Promise<NormalizedSession[]> {
   const catalog = await loadCatalog(eventId);
-  if (!catalog) throw new Error(`No cached catalog for ${eventId}. Run \`rematch fetch ${eventId}\` first.`);
+  if (!catalog) throw new Error(`No cached catalog for ${eventId}. Run \`reinvent-match fetch ${eventId}\` first.`);
   return catalog.sessions.map(normalizeSession);
 }
 
@@ -313,7 +314,7 @@ main(process.argv.slice(2)).then(
   },
   (error: unknown) => {
     if (error instanceof EventsApiError && error.status === 401) {
-      console.error(`${error.message}\nThis event requires sign-in. Run \`rematch login\`.`);
+      console.error(`${error.message}\nThis event requires sign-in. Run \`reinvent-match login\`.`);
     } else if (error instanceof EventsApiError && error.status === 403) {
       console.error(`${error.message}\nYou are signed in but not registered for this event; register on the event site.`);
     } else {

@@ -1,4 +1,4 @@
-# Re:Match: concepto y diseño inicial
+# Reinvent:Match: concepto y diseño inicial
 
 🇬🇧 [English version](CONCEPT.md)
 
@@ -89,13 +89,13 @@ Cada sesión de los formatos elegidos recibe una intención (ver [`src/plan/plan
 | 🧭 Ampliar | usa lo que sabes en otro tema, o su tema principal es conocido o vecino de uno conocido |
 | 🌱 Aprender (inferido) | todo lo demás, solo si no nombraste objetivos de aprendizaje |
 
-**Tu plan de aprendizaje** convierte cada ❤️ en cuatro grupos: lo que **refuerzas** (etiquetas conocidas y tecnologías dentro de un tema conocido), lo que **amplías** (etiquetas nuevas junto a lo que sabes), lo que **aprendes** (tus objetivos y terreno nuevo) y las **habilidades** que desarrollas (conceptos de arquitectura e ingeniería). El comando `rematch match` sigue usando el modelo de perfil de §3.
+**Tu plan de aprendizaje** convierte cada ❤️ en cuatro grupos: lo que **refuerzas** (etiquetas conocidas y tecnologías dentro de un tema conocido), lo que **amplías** (etiquetas nuevas junto a lo que sabes), lo que **aprendes** (tus objetivos y terreno nuevo) y las **habilidades** que desarrollas (conceptos de arquitectura e ingeniería). El comando `reinvent-match match` sigue usando el modelo de perfil de §3.
 
 ## 4. Modelo de sesión
 
 La fuente es el objeto `Session` del [AWS Events API](https://docs.aws.amazon.com/events/latest/devguide/what-is-events-api.html) (ver §8). Ya trae casi todo lo necesario, así que la v1 **no necesita LLM** para enriquecer datos.
 
-| Campo Re:Match | Campo del API | Ejemplo real (Summit Dubai 2026) |
+| Campo Reinvent:Match | Campo del API | Ejemplo real (Summit Dubai 2026) |
 |---|---|---|
 | `id`, `code` | `sessionId`, `abbreviation` | `AIM201` |
 | `title`, `abstract` | `title`, `abstract` | |
@@ -207,7 +207,7 @@ Cada componente genera sus propias razones, así el porcentaje nunca aparece sin
 
 ### Capacidad por día (implementado)
 
-Cuántas sesiones caben en un día se calcula con el horario, no es un número fijo. Para cada día Re:Match busca el conjunto más grande de sesiones de la pre-lista (sin las ❌) a las que se puede asistir: dos sesiones son compatibles solo si hay tiempo de llegar de una a otra, y en los días que pasan del mediodía debe caber una comida de 60 minutos entre las 11:00 y las 14:00. Es selección de intervalos con tiempos entre venues, resuelta con programación dinámica para cada posible hora de comida ([`web/src/week.ts`](../web/src/week.ts)). Las ❤️ son bloques fijos; "N left" es cuántas más caben alrededor.
+Cuántas sesiones caben en un día se calcula con el horario, no es un número fijo. Para cada día Reinvent:Match busca el conjunto más grande de sesiones de la pre-lista (sin las ❌) a las que se puede asistir: dos sesiones son compatibles solo si hay tiempo de llegar de una a otra, y en los días que pasan del mediodía debe caber una comida de 60 minutos entre las 11:00 y las 14:00. Es selección de intervalos con tiempos entre venues, resuelta con programación dinámica para cada posible hora de comida ([`web/src/week.ts`](../web/src/week.ts)). Las ❤️ son bloques fijos; "N left" es cuántas más caben alrededor.
 
 Los tiempos de traslado son **estimaciones** (AWS tiene shuttles pero no publica tiempos): 10 min dentro del mismo venue, 15–30 min entre los venues vecinos del norte del Strip (Venetian, Wynn/Encore, Caesars Forum, Caesars Palace), 40 min hacia o desde MGM Grand y 25 min si no se conoce el venue.
 
@@ -223,7 +223,7 @@ API oficial (REST en `https://api.awsevents.com/v1` + servidor MCP en `https://a
 
 **Qué ofrece**
 
-| Operación | Uso en Re:Match |
+| Operación | Uso en Reinvent:Match |
 |---|---|
 | `ListEvents`, `GetEvent` | Elegir el evento (sin credenciales) |
 | `ListSessions` (hasta 250 por página, con `nextToken`) | Descargar el catálogo completo: unas 2,200 sesiones son ~9 páginas |
@@ -248,7 +248,7 @@ API oficial (REST en `https://api.awsevents.com/v1` + servidor MCP en `https://a
 ```
 ┌──────────────────── máquina del asistente ────────────────────┐
 │                                                               │
-│  rematch (CLI + UI web en 127.0.0.1:8484)                     │
+│  reinvent-match (CLI + UI web en 127.0.0.1:8484)              │
 │   ├─ auth      OAuth PKCE Builder ID → ~/.rematch (0600)      │
 │   ├─ catalog   ListSessions → caché local (JSON) + ETag/fecha │
 │   ├─ profile   perfil.json (Know/Grow/Explore/Ignore)         │
@@ -266,8 +266,8 @@ API oficial (REST en `https://api.awsevents.com/v1` + servidor MCP en `https://a
 - **Por qué un servidor local y no una página web que llame al API:** las lecturas del catálogo sin sesión aceptan cualquier origen (`Access-Control-Allow-Origin: *`), pero la petición previa de CORS para llamadas con `Authorization` devuelve `404`, y el endpoint de tokens solo acepta el origen `127.0.0.1:8484`. Las llamadas con sesión tienen que salir de un proceso local. La interfaz le habla al servidor local (`/api/...`), que guarda el token y llama al AWS Events API; el token nunca llega al navegador.
 - **Protección del servidor local:** solo escucha en `127.0.0.1`, rechaza cualquier `Host` distinto de `127.0.0.1:<puerto>`/`localhost:<puerto>` (DNS rebinding) y exige el header `X-Rematch` en toda escritura (otros sitios web no pueden mandarlo sin una petición previa de CORS que el servidor nunca aprueba).
 - **Nada sale de la máquina**: el perfil, los swipes y el catálogo se quedan en local. Resuelve privacidad y cumple con que el catálogo no es público.
-- **Distribución:** paquete npm en TypeScript (`npx rematch`) que abre la UI de swipe en el navegador, en `localhost:8484`, el mismo puerto del callback.
-- **Complemento MCP (Fase 2b):** exponer `rematch` como servidor MCP local (`match_sessions`, `explain_match`, `build_agenda`) para que un asistente (Claude Code, Kiro) lo combine con el MCP oficial `awsevents`. El scoring de 2,200 sesiones se hace en código, no en el contexto del LLM.
+- **Distribución:** paquete npm en TypeScript (`npx reinvent-match`) que abre la UI de swipe en el navegador, en `localhost:8484`, el mismo puerto del callback.
+- **Complemento MCP (Fase 2b):** exponer `reinvent-match` como servidor MCP local (`match_sessions`, `explain_match`, `build_agenda`) para que un asistente (Claude Code, Kiro) lo combine con el MCP oficial `awsevents`. El scoring de 2,200 sesiones se hace en código, no en el contexto del LLM.
 - **LLM opcional:** convertir un perfil escrito en texto libre en `perfil.json` y mejorar `archDepth`. Se hace con la cuenta o el asistente del propio usuario, nunca en un backend nuestro.
 - **Si más adelante hay backend** (por ejemplo, para calibrar pesos con la retroalimentación del evento), solo recibe datos anónimos y voluntarios de la Fase 3, nunca el catálogo.
 
@@ -278,7 +278,7 @@ re:Invent 2026: **30 nov – 4 dic**, Las Vegas. La reserva de asientos abre el 
 | Fase | Fecha objetivo | Entregable | Por qué |
 |---|---|---|---|
 | **0 · Método** | ✅ 24 sep | Este documento | Sin un método sólido, el código no sirve |
-| **1 · Motor con datos públicos** | ✅ 24 sep | CLI: `rematch match Summit-Dubai-2026 --profile perfil.json` → candidatas con categoría y razones. Grafo de temas vecinos. Pruebas con catálogos de Summits | Calibrar reglas sin necesitar credenciales |
+| **1 · Motor con datos públicos** | ✅ 24 sep | CLI: `reinvent-match match Summit-Dubai-2026 --profile perfil.json` → candidatas con categoría y razones. Grafo de temas vecinos. Pruebas con catálogos de Summits | Calibrar reglas sin necesitar credenciales |
 | **1b · Tu re:Invent** | 3 oct | Sign-in con Builder ID + catálogo `reinvent2026` + tu perfil → candidatas; swipe en terminal; ❤️ → favoritos oficiales | Tener tu shortlist **antes** del 6 de octubre |
 | **2 · Agenda + reserva** | 6–8 oct | Conflictos, traslados, costo de oportunidad → agenda → `CreatePersonalTime` + `ReserveSessions` con confirmación | Reservar el día que abre |
 | **2b · UI de swipe + MCP** | oct–nov | UI local en `localhost:8484`, paquete instalable, servidor MCP | Que lo usen otros first-timers antes del evento |
@@ -289,7 +289,7 @@ re:Invent 2026: **30 nov – 4 dic**, Las Vegas. La reserva de asientos abre el 
 
 1. **Ventana de tiempo muy corta.** Si la Fase 1b no está lista el 3 de octubre, el plan B es usar el motor para generar la shortlist y reservar a mano en el portal el 6 de octubre.
 2. **Sesiones sin nivel o con tags pobres** (`"No Level"`, `services` vacío): hacer fallback a `topics` y `areasOfInterest` y bajar la confianza del match (mostrarlo en la explicación).
-3. **Reserva automática.** Reservar tiene efectos reales (asientos limitados, choques de horario). Re:Match nunca reserva sin que la persona confirme la lista final, y después verifica con `GetSchedule`.
-4. **Tokens.** Se guardan en `~/.rematch/credentials.json`, que solo puede leer el dueño (0600); pasarlos al keychain del sistema operativo es una mejora posterior. `rematch logout` revoca el refresh token y `--browser` también cierra la sesión de Builder ID.
-5. **Nombre y marca.** "Re:Match" juega con una marca de AWS: aclarar que es no oficial y revisar las guías de marca.
+3. **Reserva automática.** Reservar tiene efectos reales (asientos limitados, choques de horario). Reinvent:Match nunca reserva sin que la persona confirme la lista final, y después verifica con `GetSchedule`.
+4. **Tokens.** Se guardan en `~/.rematch/credentials.json`, que solo puede leer el dueño (0600); pasarlos al keychain del sistema operativo es una mejora posterior. `reinvent-match logout` revoca el refresh token y `--browser` también cierra la sesión de Builder ID.
+5. **Nombre y marca.** "Reinvent:Match" juega con una marca de AWS: aclarar que es no oficial y revisar las guías de marca.
 6. **Alcance.** El API cubre re:Invent, Summits y otros eventos de AWS, así que el modelo es genérico desde el inicio sin costo extra.

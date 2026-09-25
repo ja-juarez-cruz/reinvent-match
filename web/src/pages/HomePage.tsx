@@ -54,7 +54,7 @@ export function HomePage({ session, events, eventId, onSelectEvent, onSignIn }: 
       <div className="hero">
         <h1>Too many sessions. Too few days. Which ones are yours?</h1>
         <p className="lead">
-          Re:Match doesn't rank the <em>best</em> sessions. It finds the ones that <strong>fit you</strong>: what you
+          Reinvent:Match doesn't rank the <em>best</em> sessions. It finds the ones that <strong>fit you</strong>: what you
           already know, what you want to grow, and what you want to explore, and tells you why.
         </p>
       </div>

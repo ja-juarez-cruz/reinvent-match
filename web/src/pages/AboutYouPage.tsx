@@ -117,7 +117,7 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
     <section className="page">
       <div>
         <h1>Tell us about you</h1>
-        <p className="lead">Five quick steps. Re:Match uses them to build a pre-list of sessions, split by what each one does for you.</p>
+        <p className="lead">Five quick steps. Reinvent:Match uses them to build a pre-list of sessions, split by what each one does for you.</p>
       </div>
 
       <ol className="wizard-steps">
@@ -152,7 +152,7 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
           <>
             <h2>What is your level in each topic?</h2>
             <p className="muted">
-              "New to me" means you want to learn it; any other level means you want to go deeper, and Re:Match looks for
+              "New to me" means you want to learn it; any other level means you want to go deeper, and Reinvent:Match looks for
               sessions a step above where you are.
             </p>
             <div className="topic-levels">
@@ -224,7 +224,7 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
               AI background <span className="muted small">(optional, but it makes a big difference)</span>
             </h2>
             <div className="callout">
-              <strong>{aiShare}% of the sessions in this catalog involve AI.</strong> Telling Re:Match what you already
+              <strong>{aiShare}% of the sessions in this catalog involve AI.</strong> Telling Reinvent:Match what you already
               understand helps it find the best AI sessions for you: the goal is that every AI session you pick is one
               you can really get the most out of. Sessions that match your background move up in your swipes; the ones
               that assume more than you have yet are left out.

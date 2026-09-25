@@ -223,7 +223,7 @@ export async function signIn({ openBrowser, timeoutMs = 5 * 60_000, fetchImpl = 
     if (url.pathname !== "/callback" || !pending) return respond(404, signInPage("Not found", ""));
     completeSignIn(pending, url, fetchImpl).then(
       (tokens) => {
-        respond(200, signInPage("Signed in to Re:Match", "You can close this tab and return to the terminal."));
+        respond(200, signInPage("Signed in to Reinvent:Match", "You can close this tab and return to the terminal."));
         settle.resolve(tokens);
       },
       (error: Error) => {

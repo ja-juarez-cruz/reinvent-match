@@ -7,7 +7,7 @@ import { OAuthError, refreshTokens, type TokenSet } from "./oauth.js";
 const EXPIRY_MARGIN_MS = 60_000;
 
 export class NotSignedInError extends Error {
-  constructor(message = "Not signed in. Run `rematch login` first.") {
+  constructor(message = "Not signed in. Run `reinvent-match login` first.") {
     super(message);
     this.name = "NotSignedInError";
   }
@@ -76,7 +76,7 @@ export class AuthSession {
       })
       .catch((error: unknown) => {
         if (error instanceof OAuthError && error.status !== undefined && error.status < 500) {
-          throw new NotSignedInError("Your session expired. Run `rematch login` again.");
+          throw new NotSignedInError("Your session expired. Run `reinvent-match login` again.");
         }
         throw error;
       })

@@ -2,7 +2,7 @@
 
 🇬🇧 [English version](TAXONOMY.md)
 
-Re:Match etiqueta cada sesión en nueve dimensiones para explorar, filtrar y hacer match más allá de las etiquetas propias del catálogo. Las definiciones están en [`src/taxonomy/taxonomy.ts`](../src/taxonomy/taxonomy.ts) y las reglas en [`src/taxonomy/tagger.ts`](../src/taxonomy/tagger.ts).
+Reinvent:Match etiqueta cada sesión en nueve dimensiones para explorar, filtrar y hacer match más allá de las etiquetas propias del catálogo. Las definiciones están en [`src/taxonomy/taxonomy.ts`](../src/taxonomy/taxonomy.ts) y las reglas en [`src/taxonomy/tagger.ts`](../src/taxonomy/tagger.ts).
 
 | Dimensión | Valores | De dónde sale |
 |---|---|---|
@@ -27,5 +27,5 @@ Además, logística: día, venue y track de AWS.
 
 ## Cómo usarla
 
-- `rematch report <eventId>` imprime cada dimensión con sus conteos; `--json` devuelve las sesiones etiquetadas.
+- `reinvent-match report <eventId>` imprime cada dimensión con sus conteos; `--json` devuelve las sesiones etiquetadas.
 - **Insights** en la app: haz clic en cualquier barra o celda del heatmap para filtrar; todas las gráficas y la lista de sesiones siguen los filtros.

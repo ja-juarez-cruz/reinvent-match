@@ -2,13 +2,13 @@
 
 🇬🇧 [English version](HACKATHON.md)
 
-Re:Match se construye para el hackatón del AWS Events API. Fecha límite de entrega: **6 de noviembre de 2026, 11:59 PM PT**.
+Reinvent:Match se construye para el hackatón del AWS Events API. Fecha límite de entrega: **6 de noviembre de 2026, 11:59 PM PT**.
 
-## Criterios de evaluación → qué aporta Re:Match
+## Criterios de evaluación → qué aporta Reinvent:Match
 
 Cuatro criterios con el mismo peso (25% cada uno):
 
-| Criterio | Cómo lo cubre Re:Match |
+| Criterio | Cómo lo cubre Reinvent:Match |
 |---|---|
 | **Creatividad y novedad de la integración** | Match persona ↔ sesión en lugar de un buscador. Categorías explicadas (Deep Dive, Growth, Foundation, Discovery, Skip), *irreemplazabilidad* de los formatos presenciales, learning paths a lo largo de la semana y costo de oportunidad de cada elección. Un servidor MCP local que **se combina con** el MCP oficial `awsevents`: el asistente usa el nuestro para decidir y el oficial para actuar. |
 | **Utilidad para asistentes de re:Invent** | Pensado para el 47% que va por primera vez: convierte 2,000+ sesiones en ~15 con razones, evita sesiones demasiado básicas o avanzadas y lleva la agenda al portal oficial (favoritos, tiempo personal, reservas). También sirve para los Summits. |
@@ -17,22 +17,22 @@ Cuatro criterios con el mismo peso (25% cada uno):
 
 ## Cobertura del API
 
-| Operación | Función en Re:Match | Estado |
+| Operación | Función en Reinvent:Match | Estado |
 |---|---|---|
-| `ListEvents` | `rematch events`: elegir el evento | ✅ |
+| `ListEvents` | `reinvent-match events`: elegir el evento | ✅ |
 | `GetEvent` | Zona horaria y fechas del evento para la agenda | ⬜ |
 | `ListSessions` | Descarga y caché del catálogo completo | ✅ |
 | `GetSession` | Actualizar la disponibilidad de asientos de las sesiones preseleccionadas antes de reservar | ⬜ |
-| `GetSchedule` | `rematch schedule`; la shortlist muestra los favoritos actuales; cada sincronización lo vuelve a leer; falta importarlo a la agenda | ✅ |
+| `GetSchedule` | `reinvent-match schedule`; la shortlist muestra los favoritos actuales; cada sincronización lo vuelve a leer; falta importarlo a la agenda | ✅ |
 | `AssociateFavorites` | ❤️ en el swipe → favorito (lotes de 10; `alreadyFavorited` cuenta como hecho) | ✅ |
 | `DisassociateFavorite` | ❌ sobre una sesión que ya era favorita → se quita | ✅ |
 | `CreatePersonalTime` | Tiempo de traslado entre venues, Expo, comidas, Ask the Experts | ⬜ |
 | `UpdatePersonalTime` | Mover esos bloques cuando cambia la agenda | ⬜ |
-| `DeletePersonalTime` | Quitar bloques creados por Re:Match que ya no hacen falta | ⬜ |
+| `DeletePersonalTime` | Quitar bloques creados por Reinvent:Match que ya no hacen falta | ⬜ |
 | `ReserveSessions` | Reservar la agenda confirmada | ⬜ |
 | `CancelReservation` | Cambiar a una sesión con mejor match, con confirmación | ⬜ |
 
-Re:Match solo modifica los bloques de tiempo personal que él mismo creó (marcados en la descripción), nunca los del asistente.
+Reinvent:Match solo modifica los bloques de tiempo personal que él mismo creó (marcados en la descripción), nunca los del asistente.
 
 ## Calendario
 
@@ -40,8 +40,8 @@ Meta: **la herramienta está completa antes de que abra la reserva de asientos e
 
 La reserva abre el **6 de octubre** en el portal, pero la escritura por API (reservar y cancelar) abre hasta el **8 de octubre**. El plan para el día de apertura toma en cuenta esa diferencia:
 
-- **Para el 5 de octubre:** los favoritos ya están sincronizados con el portal oficial, y Re:Match genera un *plan de reserva*: la agenda sin choques, ordenada por valor × escasez y con un respaldo para cada horario. El 6 de octubre el asistente reserva en el portal siguiendo ese orden, empezando por las sesiones que más probablemente se llenen.
-- **Desde el 8 de octubre:** `rematch reserve` reserva por API lo que falte; si una sesión está llena (`sessionFull`), usa el respaldo que el asistente aprobó antes; reporta choques de horario (`scheduleConflict` + `conflictsWith`); y un vigilante revisa la disponibilidad de asientos de las sesiones llenas sin pasarse de las cuotas.
+- **Para el 5 de octubre:** los favoritos ya están sincronizados con el portal oficial, y Reinvent:Match genera un *plan de reserva*: la agenda sin choques, ordenada por valor × escasez y con un respaldo para cada horario. El 6 de octubre el asistente reserva en el portal siguiendo ese orden, empezando por las sesiones que más probablemente se llenen.
+- **Desde el 8 de octubre:** `reinvent-match reserve` reserva por API lo que falte; si una sesión está llena (`sessionFull`), usa el respaldo que el asistente aprobó antes; reporta choques de horario (`scheduleConflict` + `conflictsWith`); y un vigilante revisa la disponibilidad de asientos de las sesiones llenas sin pasarse de las cuotas.
 
 | Fechas | Hito |
 |---|---|
@@ -51,7 +51,7 @@ La reserva abre el **6 de octubre** en el portal, pero la escritura por API (res
 | 2 – 4 oct | Armado de agenda (choques, traslados entre venues, costo de oportunidad, respaldos), tiempo personal, plan de reserva |
 | **5 oct** | Herramienta completa para el día de apertura; prueba completa de punta a punta |
 | 6 oct | Reservar en el portal siguiendo el plan |
-| 8 oct | `rematch reserve` en vivo contra el API (primera prueba real de escritura) |
+| 8 oct | `reinvent-match reserve` en vivo contra el API (primera prueba real de escritura) |
 | 9 – 20 oct | Vigilante de asientos, sugerencias de cambio, UI de swipe local, servidor MCP |
 | 21 – 31 oct | Publicación en Builder Center, video demo con resultados reales del 6–8 de octubre |
 | Antes del 6 nov | Entregar |

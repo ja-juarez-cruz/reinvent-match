@@ -2,7 +2,7 @@
 
 🇪🇸 [Versión en español](TAXONOMY.es.md)
 
-Re:Match tags every session on nine dimensions so the catalog can be explored, filtered and matched beyond the catalog's own labels. Definitions live in [`src/taxonomy/taxonomy.ts`](../src/taxonomy/taxonomy.ts) and the rules in [`src/taxonomy/tagger.ts`](../src/taxonomy/tagger.ts).
+Reinvent:Match tags every session on nine dimensions so the catalog can be explored, filtered and matched beyond the catalog's own labels. Definitions live in [`src/taxonomy/taxonomy.ts`](../src/taxonomy/taxonomy.ts) and the rules in [`src/taxonomy/tagger.ts`](../src/taxonomy/tagger.ts).
 
 | Dimension | Values | Derived from |
 |---|---|---|
@@ -27,5 +27,5 @@ Plus logistics: day, venue and AWS track.
 
 ## Using it
 
-- `rematch report <eventId>` prints every dimension with counts; `--json` returns the tagged sessions.
+- `reinvent-match report <eventId>` prints every dimension with counts; `--json` returns the tagged sessions.
 - **Insights** in the web app: click any bar or heatmap cell to filter; every chart and the session list follow the filters.

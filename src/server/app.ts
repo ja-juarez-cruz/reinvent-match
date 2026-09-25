@@ -192,7 +192,7 @@ export function createApp(ctx: AppContext) {
       /^\/api\/plan\/([^/]+)$/,
       async (_req, url, [eventId]) => {
         const id = url.searchParams.get("answers");
-        if (!id) throw new HttpError(400, "answers-required", "Tell Re:Match about yourself first.");
+        if (!id) throw new HttpError(400, "answers-required", "Tell Reinvent:Match about yourself first.");
         const answers = await getAnswers(id);
         if (!answers) throw new HttpError(404, "answers-missing", `No answers saved as ${id}.`);
         const [{ sessions, fetchedAt }, swipes] = await Promise.all([sessionsFor(eventId!), loadSwipes(eventId!)]);
@@ -250,7 +250,7 @@ export function createApp(ctx: AppContext) {
   async function handleCallback(url: URL, res: ServerResponse) {
     const pending = pendingSignIns.get(url.searchParams.get("state") ?? "");
     if (!pending) {
-      return sendHtml(res, 400, signInPage("Sign-in expired", "Start the sign-in again from Re:Match."));
+      return sendHtml(res, 400, signInPage("Sign-in expired", "Start the sign-in again from Reinvent:Match."));
     }
     pendingSignIns.delete(pending.state);
     try {

@@ -1,5 +1,5 @@
 /**
- * Re:Match taxonomy: the dimensions every session is tagged on. Rules combine the catalog's own labels (topics,
+ * Reinvent:Match taxonomy: the dimensions every session is tagged on. Rules combine the catalog's own labels (topics,
  * areas of interest, services, roles), the AWS track in the session code and keywords in the title/abstract.
  * Matching uses normalized, word-boundary text (see ../match/labels.ts).
  */

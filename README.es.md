@@ -1,8 +1,8 @@
-# Re:Match
+# Reinvent:Match
 
 🇬🇧 [English version](README.md)
 
-**Un Tinder de persona ↔ sesión.** AWS re:Invent tiene más de 2,000 sesiones. Re:Match no te dice cuáles son *las mejores*, sino cuáles *encajan contigo*, según lo que ya sabes, lo que quieres profundizar y lo que quieres explorar. Cada recomendación explica por qué.
+**Un Tinder de persona ↔ sesión.** AWS re:Invent tiene más de 2,000 sesiones. Reinvent:Match no te dice cuáles son *las mejores*, sino cuáles *encajan contigo*, según lo que ya sabes, lo que quieres profundizar y lo que quieres explorar. Cada recomendación explica por qué.
 
 > Proyecto comunitario no oficial, sin afiliación con AWS. Usa el [AWS Events API](https://docs.aws.amazon.com/events/latest/devguide/what-is-events-api.html) oficial.
 
@@ -32,11 +32,17 @@ El diseño completo está en [docs/CONCEPT.es.md](docs/CONCEPT.es.md). Se constr
 Requiere Node.js 20+.
 
 ```bash
+npx reinvent-match
+```
+
+Eso descarga el paquete de npm y abre Reinvent:Match en tu navegador. Desde un clon de este repositorio:
+
+```bash
 npm install
 npm run ui
 ```
 
-Esto compila la interfaz y abre Re:Match en tu navegador en `http://127.0.0.1:8484`. Todo corre en tu máquina:
+En ambos casos la app se abre en `http://127.0.0.1:8484`. Todo corre en tu máquina:
 
 1. **Evento:** eliges re:Invent (inicias sesión con tu AWS Builder ID) o el catálogo público de un Summit, y lo descargas.
    **Insights:** cada sesión etiquetada en nueve dimensiones (tema, tecnología, audiencia, estilo de aprendizaje, tipo de contenido, concepto, nivel…) con gráficas para ir al detalle. Ver [docs/TAXONOMY.es.md](docs/TAXONOMY.es.md).
@@ -84,7 +90,9 @@ Los tokens se guardan en `~/.rematch/credentials.json` (solo tú puedes leerlo) 
 ```bash
 npm test          # tests unitarios + regresión contra una copia de un catálogo público
 npm run typecheck
-npm run build     # genera dist/ con el binario `rematch`
+npm run build     # genera dist/ con el binario `reinvent-match` y la interfaz compilada
+npm pack          # el paquete que publicaría npm (solo instala zod como dependencia)
+npm publish       # antes corre typecheck, tests y build (prepublishOnly)
 ```
 
 ## Roadmap

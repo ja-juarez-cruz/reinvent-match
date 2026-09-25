@@ -1,14 +1,25 @@
 {
-  "name": "rematch",
+  "name": "reinvent-match",
   "version": "0.1.0",
-  "description": "Person-to-session matching for AWS re:Invent and other AWS events. Unofficial community project.",
+  "description": "Reinvent:Match - find the AWS re:Invent sessions that fit you: what you know, what you want to learn, your level and your week. Runs locally with your AWS Builder ID. Unofficial community project.",
+  "keywords": [
+    "aws",
+    "reinvent",
+    "re:invent",
+    "agenda",
+    "sessions",
+    "aws-events",
+    "builder-id"
+  ],
   "license": "MIT",
   "type": "module",
   "bin": {
-    "rematch": "dist/cli.js"
+    "reinvent-match": "dist/cli.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "README.es.md"
   ],
   "engines": {
     "node": ">=20"
@@ -19,11 +30,10 @@
     "dev": "tsx src/cli.ts",
     "ui": "vite build && tsx src/cli.ts ui",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p web"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p web",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build"
   },
   "dependencies": {
-    "react": "^19.3.0",
-    "react-dom": "^19.3.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {
@@ -31,6 +41,8 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^5.2.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "vite": "^7.3.6",

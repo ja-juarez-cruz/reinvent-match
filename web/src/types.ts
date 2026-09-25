@@ -1,4 +1,4 @@
-// Shapes returned by the local Re:Match server (src/server/app.ts).
+// Shapes returned by the local Reinvent:Match server (src/server/app.ts).
 
 export type Decision = "like" | "pass" | "save";
 

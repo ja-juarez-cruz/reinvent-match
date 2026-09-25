@@ -69,7 +69,7 @@ export function App() {
     <div className="app">
       <header className="topbar">
         <a className="brand" href="#/">
-          <span className="brand-mark">🧭</span> Re:Match
+          <span className="brand-mark">🧭</span> Reinvent:Match
           <span className="brand-sub">find the sessions that fit you</span>
         </a>
         <nav className="steps">
