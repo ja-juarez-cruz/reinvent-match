@@ -180,7 +180,7 @@ export function SwipePage({ event, eventId, answersId }: Props) {
           </div>
         )}
         <p className="muted small">
-          {meta.hint} {data.hidden.format > 0 && `${data.hidden.format} sessions hidden by your format choices.`}{" "}
+          {meta.hint} Sessions that need a reserved seat come first. {data.hidden.format > 0 && `${data.hidden.format} sessions hidden by your format choices.`}{" "}
           {data.hidden.tooBasic > 0 && `${data.hidden.tooBasic} too basic for your level.`}{" "}
           {data.hidden.aiNotReady > 0 && `${data.hidden.aiNotReady} AI sessions assume more AI background than you have yet.`}
         </p>
@@ -196,8 +196,19 @@ export function SwipePage({ event, eventId, answersId }: Props) {
         ) : (
           <article className={`card intent-${current.intent}`} key={s.id}>
             <div className="card-top">
-              <span className={`badge intent-${current.intent}`}>
-                {INTENT_META[current.intent].icon} {INTENT_META[current.intent].label}
+              <span className="badges">
+                <span className={`badge intent-${current.intent}`}>
+                  {INTENT_META[current.intent].icon} {INTENT_META[current.intent].label}
+                </span>
+                {current.reservable ? (
+                  <span className="badge badge-reserve" title="Seats are limited: reserve when reserved seating opens">
+                    🎟 Reserved seating
+                  </span>
+                ) : (
+                  <span className="badge badge-walkin" title="No reservation: walk in">
+                    Walk-in
+                  </span>
+                )}
               </span>
               <span className="score" title="How well it fits your answers">
                 {current.score}%

@@ -154,6 +154,8 @@ export interface Vocabulary {
 
 export interface PlanItem {
   intent: Intent;
+  /** Needs a reserved seat; listed first within its intent. */
+  reservable: boolean;
   score: number;
   reasons: Reason[];
   session: Session & { format: string };

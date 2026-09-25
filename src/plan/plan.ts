@@ -43,6 +43,8 @@ export interface PlanSession {
 
 export interface PlanItem {
   intent: Intent;
+  /** Seats must be reserved in advance; these sessions go first because seats run out. */
+  reservable: boolean;
   score: number;
   reasons: Reason[];
   session: PlanSession;
@@ -63,6 +65,26 @@ export interface Plan {
     techDomain: Record<string, string>;
     labels: Record<string, string>;
   };
+}
+
+/**
+ * Formats included in re:Invent reserved seating, per the re:Invent 2026 FAQ ("bootcamps, builders' sessions, chalk
+ * talks, code talks, exam prep, gamified learning, select labs, and workshops"). Breakouts, lightning talks and
+ * keynotes are walk-in. Used until the catalog itself flags reservable sessions, which happens when seating opens.
+ */
+export const RESERVED_SEATING_FORMATS = new Set([
+  "bootcamp",
+  "builders-session",
+  "chalk-talk",
+  "code-talk",
+  "exam-prep",
+  "gamified",
+  "lab",
+  "workshop",
+]);
+
+export function requiresReservation(session: NormalizedSession, catalogFlagsReservations: boolean): boolean {
+  return catalogFlagsReservations ? session.isReservable : RESERVED_SEATING_FORMATS.has(session.format);
 }
 
 const LEVEL_INDEX: Record<string, number | null> = { "100": 0, "200": 1, "300": 2, "400+": 3, none: null };
@@ -244,6 +266,8 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers): Plan
   const newTopicLevel = NEW_TOPIC_LEVEL[answers.level];
 
   const hidden = { format: 0, tooBasic: 0, aiNotReady: 0, other: 0 };
+  // Before reserved seating opens every session reads isReservable=false; the format rule applies until then.
+  const catalogFlagsReservations = sessions.some((s) => s.isReservable);
   const labels: Record<string, string> = {};
   const results: PlanItem[] = [];
 
@@ -326,12 +350,23 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers): Plan
     ];
     for (const key of new Set([...keys, ...planKeys])) labels[key] ??= labelOfKey(key);
 
+    const reservable = requiresReservation(session, catalogFlagsReservations);
     results.push({
       intent,
+      reservable,
       score: Math.round(score * 100),
       reasons: [
         ...explain({ intent, deciding, knownHits, learnHits, tags, level, proficiency, newTopicLevel, session, mainIsKnown }),
         ...aiReasons(readiness),
+        reservable
+          ? {
+              kind: "pro" as const,
+              text:
+                session.format === "lab" && !catalogFlagsReservations
+                  ? "Likely needs a reserved seat (some labs do): plan it early."
+                  : "Needs a reserved seat and seats run out: plan it early.",
+            }
+          : { kind: "info" as const, text: "No reservation needed: walk in." },
       ],
       session: {
         id: session.id,
@@ -351,7 +386,13 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers): Plan
     });
   }
 
-  results.sort((a, b) => INTENTS.indexOf(a.intent) - INTENTS.indexOf(b.intent) || b.score - a.score);
+  // Within each intent, sessions that need a reserved seat come first: they are the ones that fill up.
+  results.sort(
+    (a, b) =>
+      INTENTS.indexOf(a.intent) - INTENTS.indexOf(b.intent) ||
+      Number(b.reservable) - Number(a.reservable) ||
+      b.score - a.score,
+  );
   for (const key of [...knownKeys, ...learnKeys]) labels[key] ??= labelOfKey(key);
 
   return {

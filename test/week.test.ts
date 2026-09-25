@@ -5,6 +5,7 @@ import { buildWeek, impactOf, nextDay, travelMinutes } from "../web/src/week.js"
 function item(id: string, startTime: string, venue: string, durationMin = 60, date = "2026-12-01"): PlanItem {
   return {
     intent: "reinforce",
+    reservable: true,
     score: 80,
     reasons: [],
     keys: [],

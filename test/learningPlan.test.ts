@@ -14,6 +14,7 @@ const context: PlanContext = {
 function item(id: string, keys: string[], date = "2026-12-01", time = "10:00"): PlanItem {
   return {
     intent: "reinforce",
+    reservable: true,
     score: 80,
     reasons: [],
     keys,

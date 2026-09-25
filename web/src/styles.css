@@ -1242,3 +1242,17 @@ main {
 .notice p {
   margin-top: 0;
 }
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.badge-reserve {
+  --cat: var(--accent);
+}
+
+.badge-walkin {
+  --cat: var(--muted);
+}

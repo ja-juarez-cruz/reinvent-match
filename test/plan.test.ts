@@ -171,3 +171,36 @@ describe("AI background", () => {
     expect(plan.results.map((r) => r.session.id)).toEqual(["A2"]);
   });
 });
+
+describe("reserved seating", () => {
+  const talk = (id: string, type: string, extra: Record<string, unknown> = {}) =>
+    session({
+      sessionId: id,
+      abbreviation: `SVS30${id}`,
+      title: `Scaling Lambda ${id}`,
+      type,
+      level: "300 – Advanced",
+      topics: ["Serverless"],
+      services: ["AWS Lambda"],
+      ...extra,
+    });
+  const all = answers({ formats: ["workshop", "builders", "chalk", "code", "lab", "breakout", "lightning"] });
+
+  it("puts sessions that need a reserved seat first within an intent", () => {
+    const plan = buildPlan([talk("1", "Breakout session"), talk("2", "Chalk talk"), talk("3", "Lightning talk")], all);
+    expect(plan.results.map((r) => [r.session.id, r.reservable])).toEqual([
+      ["2", true],
+      ["1", false],
+      ["3", false],
+    ]);
+    expect(plan.results[0]?.reasons.some((r) => /reserved seat/.test(r.text))).toBe(true);
+  });
+
+  it("switches to the catalog's own flag once reserved seating opens", () => {
+    const plan = buildPlan([talk("1", "Chalk talk", { isReservable: false }), talk("2", "Breakout session", { isReservable: true })], all);
+    expect(plan.results.map((r) => [r.session.id, r.reservable])).toEqual([
+      ["2", true],
+      ["1", false],
+    ]);
+  });
+});

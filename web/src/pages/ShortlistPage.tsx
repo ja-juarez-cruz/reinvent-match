@@ -158,6 +158,11 @@ export function ShortlistPage({ event, eventId, answersId, session, onSignIn }: 
                         {INTENT_META[r.intent].icon}
                       </span>{" "}
                       <strong>{s.title}</strong>
+                      {r.reservable && (
+                        <span className="pill small" title="Needs a reserved seat">
+                          🎟 reserve
+                        </span>
+                      )}
                       {favorites.has(s.id) && <span className="pill pill-ok small">★ favorite</span>}
                     </div>
                     <div className="muted small">
