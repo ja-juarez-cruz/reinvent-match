@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ApiError, api } from "../api";
 import { navigate } from "../App";
 import { LearningPlanPanel } from "../components/LearningPlanPanel";
+import { SessionCode } from "../components/SessionCode";
 import { formatDay, formatTimeRange, overlaps, sessionInterval, venueOf } from "../format";
 import { buildLearningPlan } from "../learningPlan";
 import type { AwsEvent, Decision, FavoritesSyncResult, PlanItem, Schedule, SessionInfo } from "../types";
@@ -169,7 +170,15 @@ export function ShortlistPage({ event, eventId, answersId, session, onSignIn }: 
                       {s.code} · {s.formatLabel} · {s.levelLabel} · {venueOf(s)} · {r.score}%
                     </div>
                     {clashes.length > 0 && (
-                      <div className="small warn">⚠️ Overlaps {clashes.map((c) => c.session.code).join(", ")}</div>
+                      <div className="small warn">
+                        ⚠️ Overlaps{" "}
+                        {clashes.map((c, i) => (
+                          <span key={c.session.id}>
+                            {i > 0 && ", "}
+                            <SessionCode session={c.session} />
+                          </span>
+                        ))}
+                      </div>
                     )}
                   </div>
                   <div className="slot-actions">

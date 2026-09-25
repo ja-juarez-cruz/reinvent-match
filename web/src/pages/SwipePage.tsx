@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ApiError } from "../api";
 import { navigate } from "../App";
 import { LearningPlanPanel } from "../components/LearningPlanPanel";
+import { SessionCode } from "../components/SessionCode";
 import { WeekStrip } from "../components/WeekStrip";
 import { formatDay, formatTimeRange, venueOf } from "../format";
 import { buildLearningPlan } from "../learningPlan";
@@ -232,8 +233,9 @@ export function SwipePage({ event, eventId, answersId }: Props) {
               <div className="impact">
                 {impact.clashes.map(({ item, reason }) => (
                   <div key={item.session.id}>
-                    ⚠️ {reason === "overlap" ? "Overlaps with" : "Not enough time to get to or from"} {item.session.code} (
-                    {item.session.schedule.startTime ?? "TBA"}, {venueOf(item.session)}), already in your picks.
+                    ⚠️ {reason === "overlap" ? "Overlaps with" : "Not enough time to get to or from"}{" "}
+                    <SessionCode session={item.session} /> ({item.session.schedule.startTime ?? "TBA"}, {venueOf(item.session)}),
+                    already in your picks.
                   </div>
                 ))}
                 {impact.full && impact.day && (
