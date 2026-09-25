@@ -3,7 +3,7 @@ import type { Reason } from "../match/engine.js";
 import { aliasesOf } from "../match/labels.js";
 import { tagSession, type SessionTags } from "../taxonomy/tagger.js";
 import { CONCEPTS, DOMAINS, DOMAIN_NEIGHBORS, EXTRA_TECHNOLOGIES, PLATFORMS } from "../taxonomy/taxonomy.js";
-import { AI_PREREQUISITES, FORMAT_CHOICES, type Answers, type SelfLevel } from "./answers.js";
+import { AI_PREREQUISITES, FORMAT_CHOICES, type Answers, type TopicLevel } from "./answers.js";
 
 export const INTENTS = ["reinforce", "broaden", "learn"] as const;
 export type Intent = (typeof INTENTS)[number];
@@ -105,9 +105,15 @@ const IGNORED_MENTION_FACTOR = 0.8;
 
 const LEVEL_INDEX: Record<string, number | null> = { "100": 0, "200": 1, "300": 2, "400+": 3, none: null };
 /** Proficiency on what the attendee knows. */
-const KNOWN_PROFICIENCY: Record<SelfLevel, number> = { basic: 1, intermediate: 2, advanced: 3 };
-/** Highest comfortable level on a topic that is new to the attendee. */
-const NEW_TOPIC_LEVEL: Record<SelfLevel, number> = { basic: 1, intermediate: 2, advanced: 2 };
+const TOPIC_PROFICIENCY: Record<TopicLevel, number> = { new: 0, basic: 1, intermediate: 2, advanced: 3 };
+const PROFICIENCY_NAMES = ["new to you", "Basic", "Intermediate", "Advanced"];
+/**
+ * Highest comfortable session level on a topic new to the attendee, from their strongest topic: someone advanced
+ * elsewhere can start a new topic at 300; otherwise 200.
+ */
+function newTopicLevelFor(strongest: number): number {
+  return strongest >= 2 ? 2 : 1;
+}
 const LEVEL_NAMES = ["100", "200", "300", "400"];
 
 const IRREPLACEABILITY: Record<string, number> = {
@@ -305,24 +311,30 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers): Plan
   const techDomain = technologyDomains(tagged);
   const relations = topicRelations(tagged, technologyDomainInfo(tagged));
   const ignored = new Set(answers.ignore);
-  // Attendees pick topics; each topic brings its technologies and characteristic concepts along.
-  const knownKeys = expandTopics(answers.known, relations);
-  const learnKeys = expandTopics(answers.learn, relations).filter((k) => !knownKeys.includes(k));
+  // Every picked topic is a goal: with a level it is one to go deeper on, "new" means learn it. Each topic brings its
+  // technologies and characteristic concepts along, at the topic's level.
+  const knownTopics = answers.topics.filter((t) => t.level !== "new");
+  const newTopics = answers.topics.filter((t) => t.level === "new").map((t) => t.key);
+  const keyProficiency = new Map<string, number>();
+  for (const topic of knownTopics) {
+    for (const key of expandTopics([topic.key], relations)) {
+      keyProficiency.set(key, Math.max(keyProficiency.get(key) ?? 0, TOPIC_PROFICIENCY[topic.level]));
+    }
+  }
+  const knownKeys = [...keyProficiency.keys()];
+  const learnKeys = expandTopics(newTopics, relations).filter((k) => !keyProficiency.has(k));
   const known = new Set(knownKeys);
   const learn = new Set(learnKeys);
-  // A topic both known and wanted is one to go deeper on: its sessions are reinforced and count toward coverage.
-  const deepenTopics = answers.learn.filter((k) => answers.known.includes(k));
-  const deepen = new Set(expandTopics(deepenTopics, relations));
-  const knownDomains = domainsOfKeys(answers.known, techDomain);
-  const learnDomains = domainsOfKeys(answers.learn, techDomain);
+  const knownDomains = domainsOfKeys(knownTopics.map((t) => t.key), techDomain);
+  const learnDomains = domainsOfKeys(newTopics, techDomain);
   const neighborDomains = new Set(
     [...knownDomains].flatMap((d) => DOMAIN_NEIGHBORS[d] ?? []).filter((d) => !knownDomains.has(d)),
   );
   const allowedFormats = new Set(
     FORMAT_CHOICES.filter((c) => answers.formats.includes(c.id)).flatMap((c) => c.formats),
   );
-  const proficiency = KNOWN_PROFICIENCY[answers.level];
-  const newTopicLevel = NEW_TOPIC_LEVEL[answers.level];
+  const strongest = Math.max(0, ...knownTopics.map((t) => TOPIC_PROFICIENCY[t.level]));
+  const newTopicLevel = newTopicLevelFor(strongest);
 
   const hidden = { format: 0, tooBasic: 0, aiNotReady: 0, ignored: 0, other: 0 };
   // Before reserved seating opens every session reads isReservable=false; the format rule applies until then.
@@ -356,6 +368,8 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers): Plan
     const coreKnownHit = knownHits.find((k) => hitStrength(k, tags.primaryDomain) >= 0.7);
     const mainIsKnown = knownDomains.has(tags.primaryDomain);
     const mainIsNeighbor = neighborDomains.has(tags.primaryDomain);
+    // Level is judged against the attendee's level in the topic the session is about.
+    const proficiency = keyProficiency.get(coreKnownHit ?? "") ?? strongest;
 
     // Reinforce wins when the session is squarely about what the attendee knows; anything they want to learn in it
     // shows up as a reason. Otherwise an explicit learning goal beats broadening.
@@ -401,8 +415,7 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers): Plan
     const depth = session.archDepth / 3;
     // How many of the attendee's tags (known and to learn) the session touches; separates sessions that max out
     // every other component.
-    const deepenHits = keys.filter((k) => deepen.has(k));
-    const goalHits = new Set([...knownHits, ...learnHits]).size + deepenHits.length;
+    const goalHits = new Set([...knownHits, ...learnHits]).size;
     const coverage = Math.min(1, goalHits / COVERAGE_TARGET);
     let score = 0.3 * relevance + 0.2 * levelFit + 0.2 * irreplaceability + 0.15 * depth + 0.15 * coverage;
     if (session.isCustomerStory) score = Math.min(1, score + 0.02);
@@ -428,16 +441,6 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers): Plan
       score: Math.round(score * 100),
       reasons: [
         ...explain({ intent, deciding, knownHits, learnHits, tags, level, proficiency, newTopicLevel, session, mainIsKnown }),
-        ...(deepenHits.length > 0
-          ? [
-              {
-                kind: "pro" as const,
-                text: `One of the topics you want to go deeper on: ${[
-                  ...new Set(deepenTopics.filter((t) => deepenHits.includes(t)).map(labelOfKey)),
-                ].join(", ") || labelOfKey(deepenHits[0]!)}.`,
-              },
-            ]
-          : []),
         ...aiReasons(readiness),
         ...ignoredMentions.map((p) => ({
           kind: "con" as const,
@@ -573,7 +576,10 @@ function explain(ctx: {
   const levelName = level === null ? null : LEVEL_NAMES[level];
 
   if (intent === "reinforce" && deciding) {
-    reasons.push({ kind: "pro", text: `Goes deeper on ${labelOfKey(deciding)}, which you already know.` });
+    reasons.push({
+      kind: "pro",
+      text: `Goes deeper on ${labelOfKey(deciding)}, one of your topics (you are ${PROFICIENCY_NAMES[proficiency] ?? "experienced"}).`,
+    });
     if (level !== null) {
       const stretch = level - proficiency;
       if (stretch >= 1) reasons.push({ kind: "pro", text: `Level ${levelName}: a step above your level, where you grow the most.` });

@@ -1,11 +1,12 @@
 import { z } from "zod";
 import { PLATFORMS } from "../taxonomy/taxonomy.js";
 
-export const MAX_KNOWN = 8;
-export const MAX_LEARN = 5;
+/** Eight topics are plenty for a full agenda, even when one of them is AI. */
+export const MAX_TOPICS = 8;
 
-export const LEVELS = ["basic", "intermediate", "advanced"] as const;
-export type SelfLevel = (typeof LEVELS)[number];
+/** The attendee's level in each topic they pick: "new" means learn it, the rest mean go deeper. */
+export const TOPIC_LEVELS = ["new", "basic", "intermediate", "advanced"] as const;
+export type TopicLevel = (typeof TOPIC_LEVELS)[number];
 
 /** Format choices shown to the attendee, each covering one or more catalog formats. */
 export const FORMAT_CHOICES: { id: string; label: string; formats: string[] }[] = [
@@ -44,11 +45,16 @@ export const AI_FAMILIARITY = ["Not yet", "Some", "Comfortable"] as const;
  */
 const topicKey = z.string().regex(/^domain:[a-z-]+$/, "Pick topics, such as domain:serverless");
 
-export const answersSchema = z.object({
+const topicSchema = z.object({ key: topicKey, level: z.enum(TOPIC_LEVELS) });
+
+const answersObject = z.object({
   name: z.string().max(80).optional(),
-  known: z.array(topicKey).min(1, "Pick at least one topic you know").max(MAX_KNOWN),
-  learn: z.array(topicKey).max(MAX_LEARN).default([]),
-  level: z.enum(LEVELS),
+  /** Up to eight topics to learn or go deeper on, each with the attendee's level in it. */
+  topics: z
+    .array(topicSchema)
+    .min(1, "Pick at least one topic")
+    .max(MAX_TOPICS)
+    .refine((topics) => new Set(topics.map((t) => t.key)).size === topics.length, "Each topic once"),
   /** Vendor platforms that are not relevant to the attendee: sessions built around them are hidden. */
   ignore: z.array(z.enum(PLATFORMS.map((p) => p.id) as [string, ...string[]])).default([]),
   /** Optional AI background; only answered prerequisites affect scoring. */
@@ -64,4 +70,24 @@ export const answersSchema = z.object({
     .refine((ids) => ids.every((id) => FORMAT_CHOICES.some((f) => f.id === id)), "Unknown format"),
 });
 
-export type Answers = z.infer<typeof answersSchema>;
+/**
+ * Answers saved before per-topic levels had `known` topics with one global `level` and `learn` topics. Known
+ * topics keep that level; topics only in `learn` become new.
+ */
+function migrateLegacy(input: unknown): unknown {
+  if (typeof input !== "object" || input === null || "topics" in input) return input;
+  const { known = [], learn = [], level = "intermediate", ...rest } = input as {
+    known?: string[];
+    learn?: string[];
+    level?: string;
+  };
+  const topics = [
+    ...known.map((key) => ({ key, level })),
+    ...learn.filter((key) => !known.includes(key)).map((key) => ({ key, level: "new" })),
+  ].slice(0, MAX_TOPICS);
+  return { ...rest, topics };
+}
+
+export const answersSchema = z.preprocess(migrateLegacy, answersObject);
+
+export type Answers = z.infer<typeof answersObject>;

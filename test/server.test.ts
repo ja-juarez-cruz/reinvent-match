@@ -122,6 +122,7 @@ describe("onboarding and plan", () => {
     const vocab = await (await fetch(`${base}/api/vocabulary/Summit-Dubai-2026`)).json();
     expect(vocab.technologies.length).toBeGreaterThan(0);
     const options = await (await fetch(`${base}/api/onboarding`)).json();
-    expect(options.maxKnown).toBe(8);
+    expect(options.maxTopics).toBe(8);
+    expect(options.topicLevels).toEqual(["new", "basic", "intermediate", "advanced"]);
   });
 });

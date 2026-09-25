@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import { navigate } from "../App";
-import type { Answers, OnboardingOptions, SelfLevel, Vocabulary, VocabularyEntry } from "../types";
+import type { Answers, OnboardingOptions, TopicLevel, Vocabulary, VocabularyEntry } from "../types";
 
 interface Props {
   eventId: string | null;
@@ -9,32 +9,24 @@ interface Props {
   onSaved: (id: string) => void;
 }
 
-const STEPS = ["What you want to learn", "What you know & your level", "Your platforms", "AI background", "Formats"] as const;
+const STEPS = ["Your topics", "Your level in each", "Your platforms", "AI background", "Formats"] as const;
 
-const LEVEL_CARDS: { id: SelfLevel; title: string; body: string }[] = [
-  {
-    id: "basic",
-    title: "Basic",
-    body: "You have used these services and follow guides or examples. Re:Match aims at 200-level on what you know and 100–200 on new topics.",
-  },
-  {
-    id: "intermediate",
-    title: "Intermediate",
-    body: "You build and run production workloads with them. Re:Match aims at 300-level on what you know and 200–300 on new topics.",
-  },
-  {
-    id: "advanced",
-    title: "Advanced",
-    body: "You design systems and make trade-offs with them. Re:Match aims at 400-level on what you know and 300 on new topics.",
-  },
+const TOPIC_LEVEL_OPTIONS: { id: TopicLevel; label: string; hint: string }[] = [
+  { id: "new", label: "New to me", hint: "Learn it: entry sessions (100–200, or 300 if you are advanced elsewhere)" },
+  { id: "basic", label: "Basic", hint: "You follow guides and examples: aims at 200-level sessions" },
+  { id: "intermediate", label: "Intermediate", hint: "You build and run it in production: aims at 300-level" },
+  { id: "advanced", label: "Advanced", hint: "You design with it and make trade-offs: aims at 400-level" },
 ];
 
-const EMPTY: Answers = { known: [], learn: [], level: "intermediate", ignore: [], ai: {}, formats: [] };
+/** While editing, a topic can be picked before its level is chosen. */
+type Draft = Omit<Answers, "topics"> & { topics: { key: string; level?: TopicLevel }[] };
+
+const EMPTY: Draft = { topics: [], ignore: [], ai: {}, formats: [] };
 
 export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
   const [options, setOptions] = useState<OnboardingOptions | null>(null);
   const [vocab, setVocab] = useState<Vocabulary | null>(null);
-  const [answers, setAnswers] = useState<Answers>(EMPTY);
+  const [answers, setAnswers] = useState<Draft>(EMPTY);
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   /** The platforms step needs an explicit answer: new attendees start with nothing marked as used. */
@@ -85,7 +77,15 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
   }
   if (!options || !vocab) return <section className="page muted">{error ?? "Loading the catalog's topics…"}</section>;
 
-  const canContinue = [answers.learn.length > 0, answers.known.length > 0, platformsAnswered, true, answers.formats.length > 0][step];
+  const topicKeys = answers.topics.map((t) => t.key);
+  const allLevelsSet = answers.topics.length > 0 && answers.topics.every((t) => t.level);
+  const canContinue = [answers.topics.length > 0, allLevelsSet, platformsAnswered, true, answers.formats.length > 0][step];
+  const setTopicKeys = (keys: string[]) =>
+    setAnswers({ ...answers, topics: keys.map((key) => answers.topics.find((t) => t.key === key) ?? { key }) });
+  const setTopicLevel = (key: string, level: TopicLevel) =>
+    setAnswers({ ...answers, topics: answers.topics.map((t) => (t.key === key ? { ...t, level } : t)) });
+  const relatedOf = (key: string) =>
+    (vocab.domains.find((d) => d.key === key)?.related ?? []).map((k) => labels.get(k) ?? k.slice(k.indexOf(":") + 1));
   const platformIds = vocab.platforms.map((p) => p.id);
   // Stored as the platforms to leave out; asked as the ones the attendee works with.
   const usedPlatforms = platformsAnswered ? platformIds.filter((id) => !answers.ignore.includes(id)) : [];
@@ -103,7 +103,7 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
     setError(null);
     try {
       const id = answersId ?? "me";
-      await api.saveAnswers(id, answers);
+      await api.saveAnswers(id, { ...answers, topics: answers.topics.map((t) => ({ key: t.key, level: t.level! })) });
       onSaved(id);
       navigate("swipe");
     } catch (e) {
@@ -117,7 +117,7 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
     <section className="page">
       <div>
         <h1>Tell us about you</h1>
-        <p className="lead">Five quick questions. Re:Match uses them to build a pre-list of sessions, split by what each one does for you.</p>
+        <p className="lead">Five quick steps. Re:Match uses them to build a pre-list of sessions, split by what each one does for you.</p>
       </div>
 
       <ol className="wizard-steps">
@@ -135,53 +135,48 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
           <>
             <h2>What do you want to learn or go deeper on?</h2>
             <p className="muted">
-              Pick 1 to <strong>{options.maxLearn}</strong> topics. They can be new to you or ones you already know and
-              want to master; Re:Match builds your pre-list around them.
+              Pick up to <strong>{options.maxTopics}</strong> topics, new to you or ones you want to master. Eight is plenty
+              for a full agenda, even with AI among them. Each topic brings its technologies and practices along.
             </p>
             <TagPicker
               vocab={vocab}
-              selected={answers.learn}
+              selected={topicKeys}
               exclude={[]}
-              max={options.maxLearn}
+              max={options.maxTopics}
               labels={labels}
-              onChange={(learn) => setAnswers({ ...answers, learn })}
+              onChange={setTopicKeys}
             />
           </>
         )}
         {step === 1 && (
           <>
-            <h2>What are you already familiar with?</h2>
+            <h2>What is your level in each topic?</h2>
             <p className="muted">
-              Pick up to <strong>{options.maxKnown}</strong> topics you work with. Each topic brings its technologies and
-              practices along. Topics marked 📈 are ones you want to go deeper on: pick them here too if you already work
-              with them, and Re:Match will look for sessions that take you further.
+              "New to me" means you want to learn it; any other level means you want to go deeper, and Re:Match looks for
+              sessions a step above where you are.
             </p>
-            <TagPicker
-              vocab={vocab}
-              selected={answers.known}
-              exclude={[]}
-              wanted={answers.learn}
-              max={options.maxKnown}
-              labels={labels}
-              onChange={(known) => setAnswers({ ...answers, known })}
-              afterTopics={
-                <div>
-                  <h3 className="level-title">Which level do you identify with in these topics?</h3>
-                  <div className="level-grid">
-                    {LEVEL_CARDS.map((l) => (
-                      <button
-                        key={l.id}
-                        className={`level-card ${answers.level === l.id ? "selected" : ""}`}
-                        onClick={() => setAnswers({ ...answers, level: l.id })}
-                      >
-                        <strong>{l.title}</strong>
-                        <span className="muted small">{l.body}</span>
-                      </button>
-                    ))}
+            <div className="topic-levels">
+              {answers.topics.map((t) => {
+                const hint = TOPIC_LEVEL_OPTIONS.find((o) => o.id === t.level)?.hint;
+                const related = relatedOf(t.key);
+                return (
+                  <div key={t.key} className="topic-level-row">
+                    <div>
+                      <strong>{labels.get(t.key) ?? t.key}</strong>
+                      {related.length > 0 && <div className="muted small">Includes {related.join(", ")}</div>}
+                      <div className={`small ${hint ? "muted" : "warn"}`}>{hint ?? "Choose your level"}</div>
+                    </div>
+                    <div className="segmented">
+                      {TOPIC_LEVEL_OPTIONS.map((o) => (
+                        <button key={o.id} className={t.level === o.id ? "on" : ""} onClick={() => setTopicLevel(t.key, o.id)}>
+                          {o.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              }
-            />
+                );
+              })}
+            </div>
           </>
         )}
         {step === 2 && (
@@ -313,7 +308,7 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
         ) : (
           <button
             className="primary"
-            disabled={!canContinue || saving || answers.known.length === 0 || answers.learn.length === 0}
+            disabled={!canContinue || saving || !allLevelsSet}
             onClick={finish}
           >
             {saving ? "Building…" : "Build my pre-list →"}
@@ -328,19 +323,13 @@ function TagPicker({
   vocab,
   selected,
   exclude,
-  wanted = [],
   max,
   labels,
   onChange,
-  afterTopics,
 }: {
   vocab: Vocabulary;
   selected: string[];
   exclude: string[];
-  /** Topics the attendee wants to go deeper on, flagged so they can also mark them as known. */
-  wanted?: string[];
-  /** Rendered between the clickable topics and the read-only technologies and practices. */
-  afterTopics?: ReactNode;
   max: number;
   labels: Map<string, string>;
   onChange: (keys: string[]) => void;
@@ -442,7 +431,7 @@ function TagPicker({
                   onClick={() => toggle(e.key)}
                   title={`${e.count} sessions · includes ${(e.related ?? []).map((k) => labels.get(k) ?? k).join(", ") || "no specific tags"}`}
                 >
-                  {on ? "✓ " : wanted.includes(e.key) ? "📈 " : ""}
+                  {on ? "✓ " : ""}
                   {e.label} <span className="muted">{e.count}</span>
                 </button>
               );
@@ -450,7 +439,6 @@ function TagPicker({
           </div>
         </div>
       )}
-      {afterTopics}
       <p className="small muted">Technologies and practices below are selected through their topic.</p>
       {readOnly("Technologies", technologies)}
       {!q && !allTech && (

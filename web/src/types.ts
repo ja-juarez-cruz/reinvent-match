@@ -115,14 +115,13 @@ export interface CatalogReport {
   sessions: TaggedSession[];
 }
 
-export type SelfLevel = "basic" | "intermediate" | "advanced";
+export type TopicLevel = "new" | "basic" | "intermediate" | "advanced";
 export type Intent = "reinforce" | "broaden" | "learn";
 
 export interface Answers {
   name?: string;
-  known: string[];
-  learn: string[];
-  level: SelfLevel;
+  /** Up to eight topics to learn or go deeper on, each with the attendee's level in it. */
+  topics: { key: string; level: TopicLevel }[];
   /** Vendor platforms that are not relevant: sessions built around them are hidden. */
   ignore: string[];
   /** AI prerequisite id → 0 not yet, 1 some, 2 comfortable. */
@@ -131,9 +130,8 @@ export interface Answers {
 }
 
 export interface OnboardingOptions {
-  maxKnown: number;
-  maxLearn: number;
-  levels: SelfLevel[];
+  maxTopics: number;
+  topicLevels: TopicLevel[];
   formats: { id: string; label: string }[];
   aiPrerequisites: { id: string; label: string; hint: string }[];
   aiFamiliarity: string[];

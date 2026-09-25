@@ -26,17 +26,35 @@ const lambda300Raw = {
 const lambda300 = session(lambda300Raw);
 
 describe("answers", () => {
-  it("caps the topics you know and want to learn", () => {
-    const nine = Array.from({ length: 9 }, (_, i) => `domain:topic-${"abcdefghi"[i]}`);
-    expect(answersSchema.safeParse({ known: nine, level: "basic", formats: ["chalk"] }).success).toBe(false);
-    expect(answersSchema.safeParse({ known: ["domain:ai"], learn: nine.slice(0, 6), level: "basic", formats: ["chalk"] }).success).toBe(false);
-    expect(answersSchema.safeParse({ known: ["domain:ai"], level: "basic", formats: [] }).success).toBe(false);
+  it("caps topics at eight, each once, with a level", () => {
+    const nine = Array.from({ length: 9 }, (_, i) => ({ key: `domain:topic-${"abcdefghi"[i]}`, level: "new" }));
+    const base = { level: "basic", formats: ["chalk"] };
+    expect(answersSchema.safeParse({ ...base, topics: nine }).success).toBe(false);
+    expect(answersSchema.safeParse({ ...base, topics: nine.slice(0, 8) }).success).toBe(true);
+    expect(answersSchema.safeParse({ ...base, topics: [nine[0], nine[0]] }).success).toBe(false);
+    expect(answersSchema.safeParse({ ...base, topics: [{ key: "domain:ai", level: "expert" }] }).success).toBe(false);
+    expect(answersSchema.safeParse({ ...base, topics: [{ key: "domain:ai", level: "new" }], formats: [] }).success).toBe(false);
+  });
+
+  it("converts answers saved with known/learn and one global level", () => {
+    const legacy = answersSchema.parse({
+      known: ["domain:serverless", "domain:ai"],
+      learn: ["domain:ai", "domain:containers"],
+      level: "advanced",
+      formats: ["chalk"],
+    });
+    expect(legacy.topics).toEqual([
+      { key: "domain:serverless", level: "advanced" },
+      { key: "domain:ai", level: "advanced" },
+      { key: "domain:containers", level: "new" },
+    ]);
   });
 
   it("only accepts topics; technologies and practices come with them", () => {
-    expect(answersSchema.safeParse({ known: ["tech:AWS Lambda"], level: "basic", formats: ["chalk"] }).success).toBe(false);
-    expect(answersSchema.safeParse({ known: ["concept:event-driven"], level: "basic", formats: ["chalk"] }).success).toBe(false);
-    expect(answersSchema.safeParse({ known: ["domain:serverless"], level: "basic", formats: ["chalk"] }).success).toBe(true);
+    const one = (key: string) => ({ topics: [{ key, level: "basic" }], formats: ["chalk"] });
+    expect(answersSchema.safeParse(one("tech:AWS Lambda")).success).toBe(false);
+    expect(answersSchema.safeParse(one("concept:event-driven")).success).toBe(false);
+    expect(answersSchema.safeParse(one("domain:serverless")).success).toBe(true);
   });
 });
 
@@ -262,12 +280,28 @@ describe("scores do not saturate", () => {
   });
 });
 
-describe("going deeper", () => {
-  it("rewards sessions on a topic you know and also want to go deeper on", () => {
-    const plain = buildPlan([lambda300], answers({ learn: ["domain:ai"] })).results[0]!;
-    const deeper = buildPlan([lambda300], answers({ learn: ["domain:serverless"] })).results[0]!;
-    expect(deeper.intent).toBe("reinforce");
-    expect(deeper.score).toBeGreaterThan(plain.score);
-    expect(deeper.reasons.some((r) => r.kind === "pro" && /go deeper on: Serverless/.test(r.text))).toBe(true);
+describe("level per topic", () => {
+  const topics = (level: string) => answers({ topics: [{ key: "domain:serverless", level }] });
+
+  it("judges each session against your level in its topic", () => {
+    // A 300 session is one step up for Basic (the sweet spot) and at level for Intermediate.
+    const basic = buildPlan([lambda300], topics("basic")).results[0]!;
+    const intermediate = buildPlan([lambda300], topics("intermediate")).results[0]!;
+    expect(basic.intent).toBe("reinforce");
+    expect(basic.score).toBeGreaterThan(intermediate.score);
+    expect(basic.reasons[0]?.text).toMatch(/one of your topics \(you are Basic\)/);
+  });
+
+  it("treats a topic marked new as one to learn", () => {
+    expect(buildPlan([lambda300], topics("new")).results[0]?.intent).toBe("learn");
+  });
+
+  it("mixes levels: advanced in one topic, new in another", () => {
+    const plan = buildPlan(
+      [lambda300],
+      answers({ topics: [{ key: "domain:serverless", level: "advanced" }, { key: "domain:containers", level: "new" }] }),
+    );
+    expect(plan.context.known).toContain("domain:serverless");
+    expect(plan.context.learn).toContain("domain:containers");
   });
 });
