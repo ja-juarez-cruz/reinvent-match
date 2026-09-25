@@ -158,19 +158,16 @@ export function SwipePage({ event, eventId, answersId }: Props) {
             </div>
             {impact && (impact.clashes.length > 0 || impact.full) && (
               <div className="impact">
-                {impact.clashes.length > 0 && (
-                  <div>
-                    ⚠️ Overlaps with{" "}
-                    {impact.clashes
-                      .map((c) => `${c.session.code} (${c.session.schedule.startTime ?? "TBA"})`)
-                      .join(", ")}
-                    , already in your picks.
+                {impact.clashes.map(({ item, reason }) => (
+                  <div key={item.session.id}>
+                    ⚠️ {reason === "overlap" ? "Overlaps with" : "Not enough time to get to or from"} {item.session.code} (
+                    {item.session.schedule.startTime ?? "TBA"}, {venueOf(item.session)}), already in your picks.
                   </div>
-                )}
+                ))}
                 {impact.full && impact.day && (
                   <div>
-                    ⛔ {formatDay(impact.day.date)} is already at {impact.day.liked.length} sessions; adding this one goes over
-                    the daily limit.
+                    ⛔ {formatDay(impact.day.date)} is full: with your {impact.day.liked.length} picks, lunch and travel, nothing
+                    else fits.
                   </div>
                 )}
               </div>

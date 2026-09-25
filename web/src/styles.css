@@ -1128,12 +1128,18 @@ main {
   color: var(--danger);
 }
 
-.clash-mark {
+.week-marks {
   position: absolute;
   bottom: 0.4rem;
   right: 0.45rem;
+  display: flex;
+  gap: 0.35rem;
   font-size: 0.68rem;
   font-weight: 700;
+}
+
+.clash-mark,
+.lunch-mark {
   color: var(--warn);
 }
 
@@ -1162,10 +1168,6 @@ main {
   background: var(--warn);
 }
 
-.slot-over {
-  outline: 2px solid var(--danger);
-  outline-offset: -1px;
-}
 
 .impact {
   display: flex;

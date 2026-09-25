@@ -197,6 +197,14 @@ Cada componente genera sus propias razones, así el porcentaje nunca aparece sin
 - **Algoritmo v1:** selección de intervalos ponderada y greedy, con penalización por traslado. Alcanza para ~80 candidatas; si hace falta, se cambia a un solver de restricciones.
 - **Distribución sugerida** (editable): 35% arquitectura · 25% profundizar lo conocido · 25% tecnologías nuevas · 15% exploración.
 
+### Capacidad por día (implementado)
+
+Cuántas sesiones caben en un día se calcula con el horario, no es un número fijo. Para cada día Re:Match busca el conjunto más grande de sesiones de la pre-lista (sin las ❌) a las que se puede asistir: dos sesiones son compatibles solo si hay tiempo de llegar de una a otra, y en los días que pasan del mediodía debe caber una comida de 60 minutos entre las 11:00 y las 14:00. Es selección de intervalos con tiempos entre venues, resuelta con programación dinámica para cada posible hora de comida ([`web/src/week.ts`](../web/src/week.ts)). Las ❤️ son bloques fijos; "N left" es cuántas más caben alrededor.
+
+Los tiempos de traslado son **estimaciones** (AWS tiene shuttles pero no publica tiempos): 10 min dentro del mismo venue, 15–30 min entre los venues vecinos del norte del Strip (Venetian, Wynn/Encore, Caesars Forum, Caesars Palace), 40 min hacia o desde MGM Grand y 25 min si no se conoce el venue.
+
+Con el horario de re:Invent 2026, el máximo es de 14–15 sesiones al día con todos los formatos (los lightning talks de 20 minutos se encadenan en el mismo teatro) y de 4–6 al día solo con workshops, builders' sessions, chalk talks y code talks; el viernes permite 3.
+
 ## 7. Después del evento (Fase de validación)
 
 Por cada sesión a la que se asistió: ¿cumplió lo esperado? · ¿fue demasiado básica o avanzada? · ¿la repetirías? · ¿el formato ayudó? Con eso se calibran los pesos y las reglas de `stretch`. Esto es lo que convierte *"mi agenda"* en *un método reproducible*.

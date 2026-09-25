@@ -197,6 +197,14 @@ Each component produces its own reasons, so a percentage never appears without c
 - **v1 algorithm:** greedy weighted interval scheduling with a travel penalty. Enough for ~80 candidates; switch to a constraint solver if needed.
 - **Suggested mix** (editable): 35% architecture · 25% deepen known · 25% new technologies · 15% exploration.
 
+### Daily capacity (implemented)
+
+How many sessions fit in a day is computed from the schedule, not fixed. For each day Re:Match finds the largest set of sessions from the attendee's pre-list (minus ❌) that can all be attended, where two sessions are compatible only if there is time to get from one to the other, and a 60-minute lunch fits between 11:00 and 14:00 on days that run past noon. It is weighted interval scheduling with venue-dependent gaps, solved with dynamic programming for each possible lunch slot ([`web/src/week.ts`](../web/src/week.ts)). ❤️ picks are fixed blocks; "N left" is how many more fit around them.
+
+Travel times are **estimates** (AWS runs shuttles but publishes no times): 10 min within a venue, 15–30 min between the neighboring north-Strip venues (Venetian, Wynn/Encore, Caesars Forum, Caesars Palace), 40 min to or from MGM Grand, 25 min when the venue is unknown.
+
+With re:Invent 2026's schedule, the maximum is 14–15 sessions a day across all formats (20-minute lightning talks chain in the same theater) and 4–6 a day with workshops, builders' sessions, chalk talks and code talks only; Friday allows 3.
+
 ## 7. After the event (validation)
 
 For each session attended: did it meet expectations? · too basic or too advanced? · would you attend again? · did the format help? This calibrates the weights and `stretch` rules, and turns *"my agenda"* into *a reproducible method*.
