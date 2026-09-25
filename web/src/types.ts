@@ -138,6 +138,7 @@ export interface OnboardingOptions {
   maxTopics: number;
   topicLevels: TopicLevel[];
   formats: { id: string; label: string }[];
+  formatGroups: { id: string; title: string; audience: string; formats: string[] }[];
   aiPrerequisites: { id: string; label: string; hint: string }[];
   aiFamiliarity: string[];
   platforms: { id: string; label: string }[];

@@ -477,15 +477,7 @@ main {
 
 .abstract {
   margin: 0 0 0.25rem;
-  display: -webkit-box;
-  -webkit-line-clamp: 7;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
   white-space: pre-line;
-}
-
-.abstract.open {
-  display: block;
 }
 
 .actions {
@@ -1350,4 +1342,27 @@ main {
 .slot.highlight {
   outline: 3px solid var(--accent);
   transition: outline-color 0.3s;
+}
+
+.format-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.format-group {
+  background: var(--surface-2);
+  border-radius: 12px;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.format-group-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
 }

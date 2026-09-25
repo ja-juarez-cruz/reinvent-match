@@ -270,23 +270,53 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
                 Clear
               </button>
             </div>
-            <div className="chips format-chips">
-              {options.formats.map((f) => {
-                const on = answers.formats.includes(f.id);
+            <div className="format-groups">
+              {options.formatGroups.map((group) => {
+                const all = group.formats.every((id) => answers.formats.includes(id));
                 return (
-                  <button
-                    key={f.id}
-                    className={`chip ${on ? "on" : ""}`}
-                    onClick={() =>
-                      setAnswers({
-                        ...answers,
-                        formats: on ? answers.formats.filter((x) => x !== f.id) : [...answers.formats, f.id],
-                      })
-                    }
-                  >
-                    {on ? "✓ " : ""}
-                    {f.label}
-                  </button>
+                  <div key={group.id} className="format-group">
+                    <div className="format-group-head">
+                      <div>
+                        <strong>{group.title}</strong>
+                        <div className="muted small">For {group.audience}</div>
+                      </div>
+                      <button
+                        className="link small"
+                        onClick={() =>
+                          setAnswers({
+                            ...answers,
+                            formats: all
+                              ? answers.formats.filter((id) => !group.formats.includes(id))
+                              : [...new Set([...answers.formats, ...group.formats])],
+                          })
+                        }
+                      >
+                        {all ? "Clear group" : "Select group"}
+                      </button>
+                    </div>
+                    <div className="chips">
+                      {options.formats
+                        .filter((f) => group.formats.includes(f.id))
+                        .map((f) => {
+                          const on = answers.formats.includes(f.id);
+                          return (
+                            <button
+                              key={f.id}
+                              className={`chip ${on ? "on" : ""}`}
+                              onClick={() =>
+                                setAnswers({
+                                  ...answers,
+                                  formats: on ? answers.formats.filter((x) => x !== f.id) : [...answers.formats, f.id],
+                                })
+                              }
+                            >
+                              {on ? "✓ " : ""}
+                              {f.label}
+                            </button>
+                          );
+                        })}
+                    </div>
+                  </div>
                 );
               })}
             </div>

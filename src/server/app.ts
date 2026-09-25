@@ -15,7 +15,7 @@ import { NotSignedInError, type AuthSession, type TokenStore } from "../auth/ses
 import { loadCatalog, saveCatalog } from "../catalog/cache.js";
 import { normalizeSession, type NormalizedSession } from "../catalog/normalize.js";
 import { matchSessions } from "../match/engine.js";
-import { AI_FAMILIARITY, AI_PREREQUISITES, FORMAT_CHOICES, MAX_TOPICS, TOPIC_LEVELS } from "../plan/answers.js";
+import { AI_FAMILIARITY, AI_PREREQUISITES, FORMAT_CHOICES, FORMAT_GROUPS, MAX_TOPICS, TOPIC_LEVELS } from "../plan/answers.js";
 import { buildPlan, buildVocabulary } from "../plan/plan.js";
 import { TEMPLATES } from "../profile/templates.js";
 import { getAnswers, listAnswers, saveAnswers } from "../store/answers.js";
@@ -171,6 +171,7 @@ export function createApp(ctx: AppContext) {
         maxTopics: MAX_TOPICS,
         topicLevels: TOPIC_LEVELS,
         formats: FORMAT_CHOICES.map(({ id, label }) => ({ id, label })),
+        formatGroups: FORMAT_GROUPS,
         aiPrerequisites: AI_PREREQUISITES.map(({ id, label, hint }) => ({ id, label, hint })),
         aiFamiliarity: AI_FAMILIARITY,
         platforms: PLATFORMS.map(({ id, label }) => ({ id, label })),

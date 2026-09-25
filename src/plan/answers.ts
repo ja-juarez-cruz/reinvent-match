@@ -21,6 +21,19 @@ export const FORMAT_CHOICES: { id: string; label: string; formats: string[] }[] 
 ];
 
 /**
+ * Formats grouped by who they are mostly aimed at, from the catalog's own target roles on re:Invent 2026: code talks,
+ * builders' sessions, workshops and labs over-index on developers, DevOps and architects (1.2–1.5×); chalk talks are
+ * the design discussions architects and tech leads favor; breakouts and lightning talks over-index on technical
+ * leaders (1.3×) and business, sales and presales roles (1.4–2.3×).
+ */
+export const FORMAT_GROUPS: { id: string; title: string; audience: string; formats: string[] }[] = [
+  { id: "hands-on", title: "Hands-on", audience: "developers, DevOps & architects", formats: ["workshop", "builders", "code", "lab"] },
+  { id: "design", title: "Design discussions", audience: "architects & tech leads", formats: ["chalk"] },
+  { id: "overview", title: "Overviews & strategy", audience: "managers, leaders, sales & presales", formats: ["breakout", "lightning"] },
+  { id: "certification", title: "Certification", audience: "anyone preparing an AWS exam", formats: ["exam"] },
+];
+
+/**
  * Background an AI session assumes, and which AI subtopics (see ../taxonomy/taxonomy.ts) rely on it. With 71% of
  * re:Invent sessions touching AI, this is what separates the ones an attendee can get the most out of.
  */

@@ -327,3 +327,11 @@ describe("reason tags", () => {
     expect(card("R1")[0]).toBe("match");
   });
 });
+
+describe("format groups", () => {
+  it("place every format choice in exactly one audience group", async () => {
+    const { FORMAT_CHOICES, FORMAT_GROUPS } = await import("../src/plan/answers.js");
+    const grouped = FORMAT_GROUPS.flatMap((g) => g.formats);
+    expect(grouped.sort()).toEqual(FORMAT_CHOICES.map((f) => f.id).sort());
+  });
+});

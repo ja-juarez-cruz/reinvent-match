@@ -30,7 +30,6 @@ export function SwipePage({ event, eventId, answersId }: Props) {
   const { data, error, decide } = usePlan(eventId, answersId);
   const [tab, setTab] = useState<Intent>("reinforce");
   const [history, setHistory] = useState<string[]>([]);
-  const [expanded, setExpanded] = useState(false);
   const [dayFilter, setDayFilter] = useState<string | null>(null);
   const [fullNotice, setFullNotice] = useState<string | null>(null);
   /** A picked session that clashes with the current card, opened to review or swap. */
@@ -68,7 +67,6 @@ export function SwipePage({ event, eventId, answersId }: Props) {
       pendingFullCheck.current = { date: current.session.schedule.date, wasFull: (day?.remaining ?? 1) <= 0 };
     }
     setHistory((h) => [...h, current.session.id]);
-    setExpanded(false);
     await decide(current.session.id, decision);
   }
 
@@ -143,7 +141,6 @@ export function SwipePage({ event, eventId, answersId }: Props) {
   function chooseDay(date: string | null) {
     setDayFilter(date);
     setFullNotice(null);
-    setExpanded(false);
   }
 
   return (
@@ -270,12 +267,7 @@ export function SwipePage({ event, eventId, answersId }: Props) {
                 </li>
               ))}
             </ul>
-            <p className={`abstract ${expanded ? "open" : ""}`}>{s.abstract}</p>
-            {s.abstract.length > 280 && (
-              <button className="link small" onClick={() => setExpanded((x) => !x)}>
-                {expanded ? "Show less" : "Read full abstract"}
-              </button>
-            )}
+            <p className="abstract">{s.abstract}</p>
             {s.speakers.length > 0 && <p className="muted small">🎤 {s.speakers.join(" · ")}</p>}
             <div className="actions">
               <button className="act pass" onClick={() => act("pass")} title="Not for me (←)">
