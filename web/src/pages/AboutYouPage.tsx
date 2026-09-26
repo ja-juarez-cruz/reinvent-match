@@ -15,7 +15,7 @@ const TOPIC_LEVEL_OPTIONS: { id: TopicLevel; label: string; hint: string }[] = [
   { id: "new", label: "New to me", hint: "Learn it: entry sessions (100–200, or 300 if you are advanced elsewhere)" },
   { id: "basic", label: "Basic", hint: "You follow guides and examples: aims at 200-level sessions" },
   { id: "intermediate", label: "Intermediate", hint: "You build and run it in production: aims at 300-level" },
-  { id: "advanced", label: "Advanced", hint: "You design with it and make trade-offs: aims at 400-level" },
+  { id: "advanced", label: "Advanced", hint: "You design with it and make trade-offs: aims at 300 and 400-level" },
 ];
 
 /** While editing, a topic can be picked before its level is chosen. */

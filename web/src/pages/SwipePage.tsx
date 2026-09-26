@@ -146,6 +146,7 @@ export function SwipePage({ event, eventId, answersId }: Props) {
   const hidden = [
     [data.hidden.format, "not in your formats"],
     [data.hidden.tooBasic, "too basic for your level"],
+    [data.hidden.tooAdvanced ?? 0, "too advanced for a first step"],
     [data.hidden.aiNotReady, "assume AI background you haven't marked"],
     [data.hidden.ignored, "built around platforms you don't use"],
   ] as const;

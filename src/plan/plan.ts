@@ -64,6 +64,8 @@ export interface PlanItem {
   goalHits: number;
   /** Seats must be reserved in advance; these sessions go first because seats run out. */
   reservable: boolean;
+  /** The session's level suits the attendee; only these lead, reservable ones first. */
+  fitsLevel: boolean;
   score: number;
   reasons: PlanReason[];
   session: PlanSession;
@@ -74,7 +76,7 @@ export interface PlanItem {
 
 export interface Plan {
   results: PlanItem[];
-  hidden: { format: number; tooBasic: number; aiNotReady: number; ignored: number; other: number };
+  hidden: { format: number; tooBasic: number; tooAdvanced: number; aiNotReady: number; ignored: number; other: number };
   /** Everything the UI needs to turn liked sessions into a learning-plan report. */
   context: {
     known: string[];
@@ -114,6 +116,8 @@ const LEVEL_INDEX: Record<string, number | null> = { "100": 0, "200": 1, "300": 
 /** Proficiency on what the attendee knows. */
 const TOPIC_PROFICIENCY: Record<TopicLevel, number> = { new: 0, basic: 1, intermediate: 2, advanced: 3 };
 const PROFICIENCY_NAMES = ["new to you", "Basic", "Intermediate", "Advanced"];
+/** Advanced covers both 300 ("Advanced" in the catalog) and 400 ("Expert"). */
+const ADVANCED = 3;
 /**
  * Highest comfortable session level on a topic new to the attendee, from their strongest topic: someone advanced
  * elsewhere can start a new topic at 300; otherwise 200.
@@ -123,13 +127,36 @@ function newTopicLevelFor(strongest: number): number {
 }
 const LEVEL_NAMES = ["100", "200", "300", "400"];
 
+/**
+ * What only the event gives: hands-on and discussions are rarely recorded. Recorded formats still score well, since
+ * only formats the attendee picked reach the plan; they just come second.
+ */
 const IRREPLACEABILITY: Record<string, number> = {
   "hands-on": 1,
   discussion: 0.95,
   "live-coding": 0.8,
-  presentation: 0.3,
-  certification: 0.4,
+  presentation: 0.75,
+  certification: 0.75,
 };
+
+/**
+ * Score weights. Architecture depth (trade-offs, failure modes, scale) is what an architect comes for; for anyone
+ * else it only nudges, so it cannot lift a resilience talk above their own topic.
+ */
+const WEIGHTS = {
+  architect: { relevance: 0.3, level: 0.2, format: 0.2, depth: 0.15, coverage: 0.15 },
+  other: { relevance: 0.4, level: 0.2, format: 0.2, depth: 0.05, coverage: 0.15 },
+};
+
+/**
+ * When no topic is marked new, Learn offers at most this many sessions from topics two steps away, and at most
+ * EXPLORE_PER_TOPIC from any one of them, so AI (a third of the catalog) cannot fill it alone.
+ */
+const EXPLORE_CAP = 40;
+const EXPLORE_PER_TOPIC = 8;
+
+/** Bootcamps and labs the catalog reserves for AWS Partners say so only in the abstract. */
+const PARTNERS_ONLY = /\bfor AWS Partners only\b|\bPartners only\b/i;
 
 const STYLE_REASON: Record<string, string> = {
   "hands-on": "Hands-on: you build it yourself, hard to replicate after the event.",
@@ -313,7 +340,11 @@ function hitStrength(key: string, primaryDomain: string): number {
   return 0.7;
 }
 
-export function buildPlan(sessions: NormalizedSession[], answers: Answers): Plan {
+/**
+ * @param keep sessions the attendee already picked (❤️ or 🔖): list caps never drop them, so a pick does not vanish
+ *   from their plan.
+ */
+export function buildPlan(sessions: NormalizedSession[], answers: Answers, keep: ReadonlySet<string> = new Set()): Plan {
   const tagged = tagAll(sessions);
   const techDomain = technologyDomains(tagged);
   const relations = topicRelations(tagged, technologyDomainInfo(tagged));
@@ -323,9 +354,14 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers): Plan
   const knownTopics = answers.topics.filter((t) => t.level !== "new");
   const newTopics = answers.topics.filter((t) => t.level === "new").map((t) => t.key);
   const keyProficiency = new Map<string, number>();
-  for (const topic of knownTopics) {
+  /** The picked topic that brought each key along, so a card can say "part of Architecture" instead of "you know". */
+  const keySource = new Map<string, string>();
+  for (const topic of answers.topics) {
     for (const key of expandTopics([topic.key], relations)) {
-      keyProficiency.set(key, Math.max(keyProficiency.get(key) ?? 0, TOPIC_PROFICIENCY[topic.level]));
+      if (key === topic.key || !keySource.has(key)) keySource.set(key, topic.key);
+      if (topic.level !== "new") {
+        keyProficiency.set(key, Math.max(keyProficiency.get(key) ?? 0, TOPIC_PROFICIENCY[topic.level]));
+      }
     }
   }
   const topicProficiency = new Map(knownTopics.map((t) => [splitKey(t.key)[1], TOPIC_PROFICIENCY[t.level]] as const));
@@ -344,20 +380,44 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers): Plan
   const neighborDomains = new Set(
     [...knownDomains].flatMap((d) => DOMAIN_NEIGHBORS[d] ?? []).filter((d) => !knownDomains.has(d)),
   );
+  // Topics next to what the attendee wants to learn are learning too: someone new to compute can start with an
+  // entry-level containers or serverless session.
+  const learnNeighbors = new Set(
+    [...learnDomains]
+      .flatMap((d) => DOMAIN_NEIGHBORS[d] ?? [])
+      .filter((d) => !knownDomains.has(d) && !neighborDomains.has(d) && !learnDomains.has(d)),
+  );
+  // With nothing marked new, Learn is a short list of topics two steps from what they know, not everything else.
+  const exploreDomains = new Set(
+    learn.size > 0
+      ? []
+      : [...neighborDomains].flatMap((d) => DOMAIN_NEIGHBORS[d] ?? []).filter((d) => !knownDomains.has(d) && !neighborDomains.has(d)),
+  );
+  const architect = answers.topics.some((t) => t.key === "domain:architecture" && t.level !== "new");
+  const weights = architect ? WEIGHTS.architect : WEIGHTS.other;
+  const aiTopic = answers.topics.find((t) => t.key === "domain:ai");
+  // Unanswered AI questions read as "not yet" unless AI is a topic the attendee knows well.
+  const aiUnansweredAsZero = !aiTopic || aiTopic.level === "new" || aiTopic.level === "basic";
   const allowedFormats = new Set(
     FORMAT_CHOICES.filter((c) => answers.formats.includes(c.id)).flatMap((c) => c.formats),
   );
   const strongest = Math.max(0, ...knownTopics.map((t) => TOPIC_PROFICIENCY[t.level]));
   const newTopicLevel = newTopicLevelFor(strongest);
 
-  const hidden = { format: 0, tooBasic: 0, aiNotReady: 0, ignored: 0, other: 0 };
+  const hidden = { format: 0, tooBasic: 0, tooAdvanced: 0, aiNotReady: 0, ignored: 0, other: 0 };
+  const exploring = new Set<string>();
   // Before reserved seating opens every session reads isReservable=false; the format rule applies until then.
   const catalogFlagsReservations = sessions.some((s) => s.isReservable);
   const labels: Record<string, string> = {};
   const results: PlanItem[] = [];
 
   for (const { session, tags } of tagged) {
-    if (session.format === "break" || session.format === "keynote" || session.restrictedTo.length > 0) {
+    if (
+      session.format === "break" ||
+      session.format === "keynote" ||
+      session.restrictedTo.length > 0 ||
+      PARTNERS_ONLY.test(session.abstract)
+    ) {
       hidden.other += 1;
       continue;
     }
@@ -421,15 +481,25 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers): Plan
     } else if (knownHits.length > 0 || mainIsKnown || mainIsNeighbor) {
       intent = "broaden";
       deciding = knownHits[0];
-    } else if (learn.size === 0 || learnDomains.has(tags.primaryDomain)) {
+    } else if (learnDomains.has(tags.primaryDomain) || learnNeighbors.has(tags.primaryDomain)) {
       intent = "learn";
+    } else if (exploreDomains.has(tags.primaryDomain)) {
+      intent = "learn";
+      exploring.add(session.id);
     } else {
       hidden.other += 1;
       continue;
     }
+    // New ground two or more levels above where the attendee can start (a 400 for someone new to AWS) is left out.
+    if (intent !== "reinforce" && level !== null && level - newTopicLevel >= 2) {
+      hidden.tooAdvanced += 1;
+      continue;
+    }
 
-    const readiness = aiReadiness(tags, answers.ai);
-    if (readiness && readiness.fit < AI_HIDE_BELOW) {
+    // AI-first sessions the attendee is not ready for are hidden; sessions that only touch AI are just ranked lower.
+    const aiFirst = tags.primaryDomain === "ai";
+    const readiness = aiReadiness(tags, answers.ai, { aiFirst, unansweredAsZero: aiUnansweredAsZero });
+    if (readiness && aiFirst && readiness.fit < AI_HIDE_BELOW) {
       hidden.aiNotReady += 1;
       continue;
     }
@@ -450,12 +520,18 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers): Plan
     // every other component.
     const goalHits = new Set([...knownHits, ...learnHits]).size;
     const coverage = Math.min(1, goalHits / COVERAGE_TARGET);
-    let score = 0.3 * relevance + 0.2 * levelFit + 0.2 * irreplaceability + 0.15 * depth + 0.15 * coverage;
+    let score =
+      weights.relevance * relevance +
+      weights.level * levelFit +
+      weights.format * irreplaceability +
+      weights.depth * depth +
+      weights.coverage * coverage;
     if (session.isCustomerStory) score = Math.min(1, score + 0.02);
     if (session.isSponsored) score *= 0.85;
     if (ignoredMentions.length > 0) score *= IGNORED_MENTION_FACTOR;
-    // AI background lowers AI sessions that assume more than the attendee has (×0.55–1), so the usable ones lead.
-    if (readiness) score *= 0.55 + 0.45 * readiness.fit;
+    // AI background lowers AI sessions that assume more than the attendee has (×0.55–1 when AI is the subject,
+    // ×0.8–1 when it is a side topic), so the usable ones lead.
+    if (readiness) score *= aiFirst ? 0.55 + 0.45 * readiness.fit : 0.8 + 0.2 * readiness.fit;
 
     // Secondary topics are noisy (AI is everywhere), so only those the attendee picked count toward the plan.
     const planKeys = [
@@ -470,10 +546,23 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers): Plan
     results.push({
       intent,
       reservable,
+      fitsLevel: levelFit >= LEVEL_FIT_BAND,
       goalHits,
       score: Math.round(score * 100),
       reasons: [
-        ...explain({ intent, deciding, knownHits, learnHits, tags, level, proficiency, newTopicLevel, session, mainIsKnown }),
+        ...explain({
+          intent,
+          deciding,
+          knownHits,
+          learnHits,
+          tags,
+          level,
+          proficiency,
+          newTopicLevel,
+          session,
+          mainIsKnown,
+          sourceOf: (key) => keySource.get(key),
+        }),
         ...aiReasons(readiness),
         ...ignoredMentions.map((p) => ({
           about: "platform" as const,
@@ -509,18 +598,37 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers): Plan
     });
   }
 
-  // Within each intent, sessions that need a reserved seat come first: they are the ones that fill up.
+  // Within each intent, sessions at the attendee's level come first; among those, the ones that need a reserved seat
+  // lead, since they fill up. A reservable session at the wrong level never jumps ahead of a right-level walk-in.
   results.sort(
     (a, b) =>
       INTENTS.indexOf(a.intent) - INTENTS.indexOf(b.intent) ||
+      Number(b.fitsLevel) - Number(a.fitsLevel) ||
       Number(b.reservable) - Number(a.reservable) ||
       b.score - a.score ||
       b.goalHits - a.goalHits,
   );
+  // Exploring beyond the neighbors stays short and varied.
+  const perTopic = new Map<string, number>();
+  let explored = 0;
+  const dropped = new Set<PlanItem>();
+  for (const r of results) {
+    if (!exploring.has(r.session.id)) continue;
+    const topic = r.keys[0] ?? "";
+    const n = perTopic.get(topic) ?? 0;
+    if (keep.has(r.session.id)) continue;
+    if (explored >= EXPLORE_CAP || n >= EXPLORE_PER_TOPIC) dropped.add(r);
+    else {
+      perTopic.set(topic, n + 1);
+      explored += 1;
+    }
+  }
+  hidden.other += dropped.size;
+  const kept = results.filter((r) => !dropped.has(r));
   for (const key of [...knownKeys, ...learnKeys]) labels[key] ??= labelOfKey(key);
 
   return {
-    results,
+    results: kept,
     hidden,
     context: {
       known: knownKeys,
@@ -547,16 +655,22 @@ export interface AiReadiness {
 
 /**
  * How ready the attendee is for an AI session, from the prerequisites its AI subtopics rely on. Null when the
- * session is not about AI or the attendee answered none of its prerequisites.
+ * session is not about AI or the attendee skipped the AI step. When AI is only a side topic, a session asks for no
+ * more than some familiarity whatever its level: its level measures the main topic.
  */
-export function aiReadiness(tags: SessionTags, ai: Answers["ai"]): AiReadiness | null {
-  if (!tags.domains.includes("ai")) return null;
+export function aiReadiness(
+  tags: SessionTags,
+  ai: Answers["ai"],
+  { aiFirst = true, unansweredAsZero = false }: { aiFirst?: boolean; unansweredAsZero?: boolean } = {},
+): AiReadiness | null {
+  if (!tags.domains.includes("ai") || Object.keys(ai).length === 0) return null;
   const required = AI_PREREQUISITES.filter((p) => p.subtopics.some((s) => tags.aiSubtopics.includes(s)));
   const relevant = (required.length > 0 ? required : AI_PREREQUISITES.filter((p) => p.id === "llm")).filter(
-    (p) => ai[p.id] !== undefined,
+    (p) => unansweredAsZero || ai[p.id] !== undefined,
   );
   if (relevant.length === 0) return null;
-  const need = AI_NEED_BY_LEVEL[LEVEL_INDEX[tags.level] ?? 1] ?? 0.5;
+  const levelNeed = AI_NEED_BY_LEVEL[LEVEL_INDEX[tags.level] ?? 1] ?? 0.5;
+  const need = aiFirst ? levelNeed : Math.min(levelNeed, 0.5);
   const covered: string[] = [];
   const missing: string[] = [];
   let total = 0;
@@ -579,18 +693,26 @@ function aiReasons(readiness: AiReadiness | null): PlanReason[] {
   }
   if (readiness.missing.length > 0) {
     const more = readiness.missing.length > 2 ? ` +${readiness.missing.length - 2} more` : "";
-    reasons.push({ about: "ai", kind: "con", text: `Assumes AI you haven't marked: ${readiness.missing.slice(0, 2).join(", ")}${more}.` });
+    reasons.push({ about: "ai", kind: "con", text: `Assumes more AI than you marked in: ${readiness.missing.slice(0, 2).join(", ")}${more}.` });
   }
   return reasons;
+}
+
+/** Level fit that lets a session lead its tab (see the sort in buildPlan). */
+const LEVEL_FIT_BAND = 0.8;
+
+function atLevel(level: number, proficiency: number): boolean {
+  return level === proficiency || (proficiency === ADVANCED && level === ADVANCED - 1);
 }
 
 function fitLevel(intent: Intent, level: number | null, proficiency: number, newTopicLevel: number): number {
   if (level === null) return 0.5;
   if (intent === "reinforce") {
+    // Basic ↔ 200, Intermediate ↔ 300, Advanced ↔ 300 and 400 (the catalog calls 300 "Advanced", 400 "Expert"): a
+    // session at the attendee's level is the step above what they already know; one level higher is a stretch.
+    if (atLevel(level, proficiency)) return 1;
     const stretch = level - proficiency;
-    // Proficiency and session level share a scale (Basic ↔ 200, Intermediate ↔ 300, Advanced ↔ 400): a session at
-    // the attendee's level is the step above what they already know; one level higher is a stretch.
-    return stretch === 0 ? 1 : stretch === 1 ? 0.6 : stretch === -1 ? 0.5 : 0.3;
+    return stretch === 1 ? 0.6 : stretch === -1 ? 0.5 : 0.3;
   }
   const gap = level - newTopicLevel;
   return gap === 0 ? 1 : gap === -1 ? 0.8 : gap < -1 ? 0.5 : gap === 1 ? 0.45 : 0.2;
@@ -607,28 +729,38 @@ function explain(ctx: {
   newTopicLevel: number;
   session: NormalizedSession;
   mainIsKnown: boolean;
+  /** The picked topic that brought a key along. */
+  sourceOf: (key: string) => string | undefined;
 }): PlanReason[] {
-  const { intent, deciding, knownHits, learnHits, tags, level, proficiency, newTopicLevel, session, mainIsKnown } = ctx;
+  const { intent, deciding, knownHits, learnHits, tags, level, proficiency, newTopicLevel, session, mainIsKnown, sourceOf } = ctx;
   const reasons: PlanReason[] = [];
   const main = labelOfKey(`domain:${tags.primaryDomain}`);
-  const levelName = level === null ? null : LEVEL_NAMES[level];
+  // The catalog's own label ("300 – Advanced", "500 – Distinguished") reads better than our 0–3 scale.
+  const levelName = session.levelLabel?.replace(/\s+-\s+/, " – ") ?? (level === null ? null : LEVEL_NAMES[level]);
+  // "Serverless, one of your topics" for a picked topic; "AWS Lambda, part of Serverless" for what it brought along.
+  const ofYourTopics = (key: string) => {
+    const source = sourceOf(key);
+    return source && source !== key ? `${labelOfKey(key)}, part of ${labelOfKey(source)}` : `${labelOfKey(key)}, one of your topics`;
+  };
 
   if (intent === "reinforce" && deciding) {
     reasons.push({
       about: "match",
       kind: "pro",
-      text: `Goes deeper on ${labelOfKey(deciding)}, one of your topics (you are ${PROFICIENCY_NAMES[proficiency] ?? "experienced"}).`,
+      text: `Goes deeper on ${ofYourTopics(deciding)} (you are ${PROFICIENCY_NAMES[proficiency] ?? "experienced"}).`,
     });
     if (level !== null) {
       const stretch = level - proficiency;
-      if (stretch === 0) reasons.push({ about: "level", kind: "pro", text: `Level ${levelName}: matches your level, the step above what you know.` });
+      if (atLevel(level, proficiency)) reasons.push({ about: "level", kind: "pro", text: `Level ${levelName}: matches your level, the step above what you know.` });
       else if (stretch >= 1) reasons.push({ about: "level", kind: "con", text: `Level ${levelName}: above your level; expect to stretch.` });
       else reasons.push({ about: "level", kind: "con", text: `Level ${levelName}: below your level; worth it only for the angle it takes.` });
     }
   } else if (intent === "broaden") {
     reasons.push(
       deciding
-        ? { about: "match", kind: "pro", text: `Applies ${labelOfKey(deciding)}, which you know, to ${main}.` }
+        ? sourceOf(deciding) && sourceOf(deciding) !== deciding
+          ? { about: "match", kind: "pro", text: `Applies ${labelOfKey(deciding)} (from your ${labelOfKey(sourceOf(deciding)!)} topic) to ${main}.` }
+          : { about: "match", kind: "pro", text: `Applies ${labelOfKey(deciding)}, which you know, to ${main}.` }
         : mainIsKnown
           ? { about: "match", kind: "pro", text: `A new angle on ${main}, beyond the tools you listed.` }
           : { about: "match", kind: "pro", text: `${main} sits next to what you know; a natural way to widen your profile.` },
@@ -649,7 +781,7 @@ function explain(ctx: {
   const wanted = learnHits.filter((k) => k !== deciding).map(labelOfKey);
   if (wanted.length > 0) reasons.push({ about: "related", kind: "pro", text: `Also covers what you want to learn: ${wanted.join(", ")}.` });
   const others = knownHits.filter((k) => k !== deciding).map(labelOfKey);
-  if (others.length > 0) reasons.push({ about: "related", kind: "info", text: `Also uses what you know: ${others.slice(0, 4).join(", ")}.` });
+  if (others.length > 0) reasons.push({ about: "related", kind: "info", text: `Also covers your topics: ${others.slice(0, 4).join(", ")}.` });
 
   const skills = tags.concepts.map((c) => labelOfKey(`concept:${c}`));
   if (skills.length > 0) reasons.push({ about: "skills", kind: "pro", text: `Skills: ${skills.slice(0, 4).join(", ")}.` });

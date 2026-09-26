@@ -175,8 +175,8 @@ describe("AI background", () => {
   });
 
   it("ranks AI sessions higher when the attendee has the background they assume", () => {
-    const ready = buildPlan([agentSession("300 – Advanced")], aiAnswers({ llm: 2, agents: 2 })).results[0];
-    const partial = buildPlan([agentSession("300 – Advanced")], aiAnswers({ llm: 2, agents: 1 })).results[0];
+    const ready = buildPlan([agentSession("300 – Advanced")], aiAnswers({ llm: 2, agents: 2, bedrock: 2 })).results[0];
+    const partial = buildPlan([agentSession("300 – Advanced")], aiAnswers({ llm: 2, agents: 1, bedrock: 2 })).results[0];
     expect(ready!.score).toBeGreaterThan(partial!.score);
     expect(ready!.reasons.some((r) => r.kind === "pro" && /AI background covers/.test(r.text))).toBe(true);
     expect(partial!.reasons.some((r) => r.kind === "con" && /AI agents & tool use/.test(r.text))).toBe(true);
@@ -345,7 +345,7 @@ describe("reason tags", () => {
       areasOfInterest: ["Agentic AI"],
       abstract: "Resilience patterns for agents at scale.",
     });
-    const plan = buildPlan([aiSession, lambda300], answers({ topics: [{ key: "domain:ai", level: "basic" }, { key: "domain:serverless", level: "intermediate" }], ai: { llm: 2, agents: 0 } }));
+    const plan = buildPlan([aiSession, lambda300], answers({ topics: [{ key: "domain:ai", level: "basic" }, { key: "domain:serverless", level: "intermediate" }], ai: { llm: 2, agents: 1, bedrock: 1 } }));
     const reasons = plan.results.flatMap((r) => r.reasons);
     expect(reasons.every((r) => r.about)).toBe(true);
     const card = (id: string) =>
@@ -361,4 +361,126 @@ describe("format groups", () => {
     const grouped = FORMAT_GROUPS.flatMap((g) => g.formats);
     expect(grouped.sort()).toEqual(FORMAT_CHOICES.map((f) => f.id).sort());
   });
+});
+
+// Findings of the persona review (test/personas, npm run personas), kept as regressions.
+describe("persona review", () => {
+  const talk = (code: string, title: string, level: string, type = "Chalk talk", extra: Record<string, unknown> = {}) =>
+    session({ sessionId: code, abbreviation: code, title, type, level, ...extra });
+  const everyFormat = ["workshop", "builders", "chalk", "code", "lab", "breakout", "lightning", "exam"];
+
+  it("treats 300 (the catalog's Advanced) as at level for an Advanced topic", () => {
+    const plan = buildPlan(
+      [talk("SEC301", "IAM policy evaluation in depth", "300 – Advanced", "Chalk talk", { topics: ["Security & Identity"] })],
+      answers({ topics: [{ key: "domain:security", level: "advanced" }], formats: everyFormat }),
+    );
+    const item = plan.results[0]!;
+    expect(item.fitsLevel).toBe(true);
+    expect(item.reasons.find((r) => r.about === "level")?.text).toMatch(/matches your level/);
+  });
+
+  it("puts a right-level walk-in ahead of a reservable session at the wrong level", () => {
+    const plan = buildPlan(
+      [
+        talk("SVS401", "Lambda internals", "400 – Expert", "Chalk talk", { topics: ["Serverless"] }),
+        talk("SVS201", "Lambda for your team", "200 – Intermediate", "Breakout session", { topics: ["Serverless"] }),
+      ],
+      answers({ topics: [{ key: "domain:serverless", level: "basic" }], formats: everyFormat }),
+    );
+    expect(plan.results.map((r) => r.session.code)).toEqual(["SVS201", "SVS401"]);
+  });
+
+  it("leaves out new ground two levels above where someone new can start", () => {
+    const plan = buildPlan(
+      [
+        talk("CMP401", "EC2 performance deep dive", "400 – Expert", "Workshop", { topics: ["Compute"] }),
+        talk("CMP201", "Getting started with EC2", "200 – Intermediate", "Breakout session", { topics: ["Compute"] }),
+      ],
+      answers({ topics: [{ key: "domain:compute", level: "new" }], formats: everyFormat }),
+    );
+    expect(plan.results.map((r) => r.session.code)).toEqual(["CMP201"]);
+    expect(plan.hidden.tooAdvanced).toBe(1);
+  });
+
+  it("offers entry sessions next to a topic someone wants to learn", () => {
+    const plan = buildPlan(
+      [talk("CON201", "Launch a container app", "200 – Intermediate", "Builders' session", { topics: ["Containers"] })],
+      answers({ topics: [{ key: "domain:compute", level: "new" }], formats: everyFormat }),
+    );
+    expect(plan.results.map((r) => [r.session.code, r.intent])).toEqual([["CON201", "learn"]]);
+  });
+
+  it("never hides a session whose main topic is not AI for lack of AI background", () => {
+    const secondary = talk("SEC401", "Agent identity and least privilege", "400 – Expert", "Chalk talk", {
+      topics: ["Security & Identity", "Artificial Intelligence"],
+      areasOfInterest: ["Agentic AI"],
+    });
+    const plan = buildPlan([secondary], answers({ topics: [{ key: "domain:security", level: "advanced" }], ai: { llm: 1 }, formats: everyFormat }));
+    expect(plan.hidden.aiNotReady).toBe(0);
+    expect(plan.results).toHaveLength(1);
+  });
+
+  it("counts unanswered AI questions as not yet when AI is new or basic", () => {
+    const training = talk("AIM301", "Distributed training on Trainium", "300 – Advanced", "Chalk talk", {
+      topics: ["Artificial Intelligence"],
+      areasOfInterest: ["Machine Learning"],
+    });
+    const plan = buildPlan([training], answers({ topics: [{ key: "domain:ai", level: "basic" }], ai: { llm: 1 }, formats: everyFormat }));
+    expect(plan.hidden.aiNotReady).toBe(1);
+  });
+
+  it("does not let architecture wording outrank someone's own topic unless they picked Architecture", () => {
+    const resilience = talk("ANT301", "Cross-region disaster recovery trade-offs at scale for analytics", "300 – Advanced", "Chalk talk", {
+      topics: ["Analytics"],
+      abstract: "Failure modes, blast radius, multi-region failover and the trade-offs of consistency at scale.",
+    });
+    const spark = talk("ANT302", "Tuning Apache Spark jobs", "300 – Advanced", "Chalk talk", { topics: ["Analytics"], abstract: "Spark tuning." });
+    const score = (topics: { key: string; level: string }[]) => {
+      const plan = buildPlan([resilience, spark], answers({ topics, formats: everyFormat }));
+      const of = (code: string) => plan.results.find((r) => r.session.code === code)!.score;
+      return of("ANT301") - of("ANT302");
+    };
+    const dataEngineer = score([{ key: "domain:analytics", level: "advanced" }]);
+    const architect = score([{ key: "domain:analytics", level: "advanced" }, { key: "domain:architecture", level: "advanced" }]);
+    expect(dataEngineer).toBeLessThan(architect);
+    expect(dataEngineer).toBeLessThanOrEqual(5);
+  });
+
+  it("keeps Learn short when nothing is marked new", () => {
+    const far = Array.from({ length: 60 }, (_, i) =>
+      talk(`STG2${String(i).padStart(2, "0")}`, `Storage story ${i}`, "200 – Intermediate", "Breakout session", { topics: ["Storage"] }),
+    );
+    // Storage is two steps from Serverless (through Databases): explored, but at most 8 sessions of one topic.
+    const plan = buildPlan(far, answers({ topics: [{ key: "domain:serverless", level: "intermediate" }], formats: everyFormat }));
+    const learn = plan.results.filter((r) => r.intent === "learn").length;
+    expect(learn).toBeGreaterThan(0);
+    expect(learn).toBeLessThanOrEqual(8);
+  });
+
+  it("leaves out sessions reserved for AWS Partners", () => {
+    const partners = talk("TNC210", "Partner bootcamp", "200 – Intermediate", "Bootcamp", {
+      topics: ["Serverless"],
+      abstract: "A bootcamp for AWS Partners only.",
+    });
+    const plan = buildPlan([partners], answers({ topics: [{ key: "domain:serverless", level: "basic" }], formats: everyFormat }));
+    expect(plan.results).toHaveLength(0);
+  });
+
+  it("says a technology comes from a picked topic instead of claiming the attendee knows it", () => {
+    const plan = buildPlan(
+      [talk("CON301", "Scaling Amazon EKS clusters", "200 – Intermediate", "Chalk talk", { topics: ["Containers"], services: ["Amazon Elastic Kubernetes Service (Amazon EKS)"] })],
+      answers({ topics: [{ key: "domain:containers", level: "basic" }], formats: everyFormat }),
+    );
+    const match = plan.results[0]!.reasons.find((r) => r.about === "match")!.text;
+    expect(match).toMatch(/Containers/);
+  });
+});
+
+it("never lets the Learn cap drop a session the attendee already picked", () => {
+  const talk = (i: number) =>
+    session({ sessionId: `STG${i}`, abbreviation: `STG2${String(i).padStart(2, "0")}`, title: `Storage story ${i}`, type: "Breakout session", level: "200 – Intermediate", topics: ["Storage"] });
+  const far = Array.from({ length: 60 }, (_, i) => talk(i));
+  const opts = { topics: [{ key: "domain:serverless", level: "intermediate" }], formats: ["breakout"] };
+  expect(buildPlan(far, answers(opts)).results.some((r) => r.session.id === "STG59")).toBe(false);
+  expect(buildPlan(far, answers(opts), new Set(["STG59"])).results.some((r) => r.session.id === "STG59")).toBe(true);
 });

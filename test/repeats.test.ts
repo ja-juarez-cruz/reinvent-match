@@ -123,3 +123,18 @@ it("treats a sponsored run with the same track, format and title as the same ses
   expect(seriesOf([jam, sponsored]).size).toBe(0);
   expect(repeatsOf([breakout, chalk]).size).toBe(0);
 });
+
+it("keeps apart sessions numbered as repeats whose titles differ", () => {
+  const titled = (code: string, title: string) => {
+    const i = item(code, "10:00", "Venetian");
+    i.session.title = title;
+    return i;
+  };
+  const spark = titled("ANT424-R", "Simplify Data Analytics operations with AI-powered Apache Spark agents");
+  const glue = titled("ANT424-R1", "Migrating legacy ETL to serverless with AWS Glue [REPEAT]");
+  const iceberg = titled("ANT413-R", "Automating data pipelines with agentic AI and Apache Iceberg");
+  const icebergAgain = titled("ANT413-R1", "Self-healing data pipelines with agentic AI and Apache Iceberg [REPEAT]");
+  const repeats = repeatsOf([spark, glue, iceberg, icebergAgain]);
+  expect(repeats.has(spark.session.id)).toBe(false);
+  expect(repeats.get(iceberg.session.id)?.map((i) => i.session.code)).toEqual(["ANT413-R1"]);
+});

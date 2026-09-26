@@ -197,7 +197,8 @@ export function createApp(ctx: AppContext) {
         const answers = await getAnswers(id);
         if (!answers) throw new HttpError(404, "answers-missing", `No answers saved as ${id}.`);
         const [{ sessions, fetchedAt }, swipes] = await Promise.all([sessionsFor(eventId!), loadSwipes(eventId!)]);
-        return { fetchedAt, answers, ...buildPlan(sessions, answers), swipes };
+        const picked = new Set(Object.keys(swipes).filter((id) => swipes[id]?.decision !== "pass"));
+        return { fetchedAt, answers, ...buildPlan(sessions, answers, picked), swipes };
       },
     ],
     ["GET", /^\/api\/templates$/, async () => TEMPLATES],

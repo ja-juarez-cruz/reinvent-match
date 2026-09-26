@@ -18,6 +18,15 @@ function normalizedTitle(title: string): string {
     .trim();
 }
 
+/** Titles of two times of one session share most of their words ("[REPEAT]" aside). */
+function similarTitles(a: string, b: string): boolean {
+  const words = (t: string) => new Set(normalizedTitle(t.replace(/\[repeat\]/gi, "")).split(" ").filter((w) => w.length > 3));
+  const x = words(a);
+  const y = words(b);
+  const shared = [...x].filter((w) => y.has(w)).length;
+  return shared / Math.max(1, Math.min(x.size, y.size)) >= 0.5;
+}
+
 /**
  * One key per session, shared by all its times. Times are found two ways: the repeat code ("-R", "-R1"), and, for
  * repeats the catalog codes separately (a sponsored run of a Jam, GHJ311 and GHJ317-S), the same track, format and
@@ -33,6 +42,7 @@ export function sessionKeys(items: PlanItem[]): Map<string, string> {
     return root;
   };
   const firstBy = new Map<string, string>();
+  const byId = new Map(items.map((i) => [i.session.id, i]));
   for (const item of items) {
     const id = item.session.id;
     parent.set(id, id);
@@ -42,8 +52,11 @@ export function sessionKeys(items: PlanItem[]): Map<string, string> {
       `title|${track}|${item.session.format}|${normalizedTitle(item.session.title)}`,
     ]) {
       const first = firstBy.get(key);
-      if (first) parent.set(find(id), find(first));
-      else firstBy.set(key, id);
+      // A repeat code with a different title is a different session the catalog numbered as a repeat
+      // (ANT424-R Spark agents, ANT424-R1 Glue ETL migration).
+      const sameSession = first && (key.startsWith("title|") || similarTitles(item.session.title, byId.get(first)!.session.title));
+      if (sameSession) parent.set(find(id), find(first));
+      else if (!first) firstBy.set(key, id);
     }
   }
   return new Map(items.map((i) => [i.session.id, find(i.session.id)]));

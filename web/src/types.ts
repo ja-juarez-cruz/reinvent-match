@@ -187,7 +187,7 @@ export interface PlanResponse {
   fetchedAt: string;
   answers: Answers;
   results: PlanItem[];
-  hidden: { format: number; tooBasic: number; aiNotReady: number; ignored: number; other: number };
+  hidden: { format: number; tooBasic: number; tooAdvanced: number; aiNotReady: number; ignored: number; other: number };
   context: PlanContext;
   swipes: SwipeLog;
 }
