@@ -1,7 +1,7 @@
 import type { NormalizedSession } from "../catalog/normalize.js";
 import type { Reason } from "../match/engine.js";
 import { aliasesOf, normalizeText, textContains } from "../match/labels.js";
-import { tagSession, type SessionTags } from "../taxonomy/tagger.js";
+import { tagSession, technologyLabel, textAliases, type SessionTags } from "../taxonomy/tagger.js";
 import { CONCEPTS, DOMAINS, DOMAIN_NEIGHBORS, EXTRA_TECHNOLOGIES, PLATFORMS } from "../taxonomy/taxonomy.js";
 import { AI_PREREQUISITES, FORMAT_CHOICES, type Answers, type TopicLevel } from "./answers.js";
 
@@ -111,6 +111,9 @@ export function requiresReservation(session: NormalizedSession, catalogFlagsRese
 /** Touching this many of the attendee's tags counts as full coverage. */
 const COVERAGE_TARGET = 6;
 const IGNORED_MENTION_FACTOR = 0.8;
+const SPONSORED_FACTOR = 0.7;
+/** Seats run out: a small lift, so a reservable session wins a close call without burying better walk-ins. */
+const RESERVABLE_BONUS = 0.03;
 
 const LEVEL_INDEX: Record<string, number | null> = { "100": 0, "200": 1, "300": 2, "400+": 3, none: null };
 /** Proficiency on what the attendee knows. */
@@ -185,7 +188,9 @@ interface Tagged {
 }
 
 function tagAll(sessions: NormalizedSession[]): Tagged[] {
-  return sessions.map((session) => ({ session, tags: tagSession(session) }));
+  const labels = new Set(sessions.flatMap((s) => s.services.map(technologyLabel)));
+  const knownServices = new Map([...labels].map((label) => [label, textAliases(label)]));
+  return sessions.map((session) => ({ session, tags: tagSession(session, knownServices) }));
 }
 
 /** Topic a technology is curated under in the taxonomy (service lists and extra technologies), if any. */
@@ -354,11 +359,11 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers, keep:
   const knownTopics = answers.topics.filter((t) => t.level !== "new");
   const newTopics = answers.topics.filter((t) => t.level === "new").map((t) => t.key);
   const keyProficiency = new Map<string, number>();
-  /** The picked topic that brought each key along, so a card can say "part of Architecture" instead of "you know". */
-  const keySource = new Map<string, string>();
+  /** The picked topics that bring each key along, so a card can say "part of Architecture" instead of "you know". */
+  const keySources = new Map<string, string[]>();
   for (const topic of answers.topics) {
     for (const key of expandTopics([topic.key], relations)) {
-      if (key === topic.key || !keySource.has(key)) keySource.set(key, topic.key);
+      keySources.set(key, [...(keySources.get(key) ?? []), topic.key]);
       if (topic.level !== "new") {
         keyProficiency.set(key, Math.max(keyProficiency.get(key) ?? 0, TOPIC_PROFICIENCY[topic.level]));
       }
@@ -370,6 +375,21 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers, keep:
     const [kind, id] = splitKey(key);
     const owner = kind === "tech" ? techDomain[id] : undefined;
     return (owner !== undefined ? topicProficiency.get(owner) : undefined) ?? keyProficiency.get(key) ?? strongest;
+  };
+  /**
+   * The picked topic a key comes from on a given session: the key itself when it is a picked topic, else the
+   * session's own main topic when that brought it, else the topic a technology belongs to, else the first one.
+   */
+  const sourceOf = (key: string, primaryDomain: string): string | undefined => {
+    const sources = keySources.get(key);
+    if (!sources) return undefined;
+    const [kind, id] = splitKey(key);
+    return (
+      sources.find((t) => t === key) ??
+      sources.find((t) => t === `domain:${primaryDomain}`) ??
+      (kind === "tech" ? sources.find((t) => t === `domain:${techDomain[id]}`) : undefined) ??
+      sources[0]
+    );
   };
   const knownKeys = [...keyProficiency.keys()];
   const learnKeys = expandTopics(newTopics, relations).filter((k) => !keyProficiency.has(k));
@@ -406,6 +426,8 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers, keep:
 
   const hidden = { format: 0, tooBasic: 0, tooAdvanced: 0, aiNotReady: 0, ignored: 0, other: 0 };
   const exploring = new Set<string>();
+  /** The picked topic each Reinforce session goes deeper on, to share the first cards among topics. */
+  const reinforceTopic = new Map<string, string>();
   // Before reserved seating opens every session reads isReservable=false; the format rule applies until then.
   const catalogFlagsReservations = sessions.some((s) => s.isReservable);
   const labels: Record<string, string> = {};
@@ -436,7 +458,12 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers, keep:
       ...tags.technologies.map((t) => `tech:${t}`),
       ...tags.concepts.map((c) => `concept:${c}`),
     ];
-    const knownHits = keys.filter((k) => known.has(k)).sort((a, b) => hitStrength(b, tags.primaryDomain) - hitStrength(a, tags.primaryDomain));
+    const knownHits = keys
+      .filter((k) => known.has(k))
+      .sort(
+        (a, b) =>
+          hitStrength(b, tags.primaryDomain) - hitStrength(a, tags.primaryDomain) || proficiencyOf(b) - proficiencyOf(a),
+      );
     const learnHits = keys.filter((k) => learn.has(k)).sort((a, b) => hitStrength(b, tags.primaryDomain) - hitStrength(a, tags.primaryDomain));
     const level = LEVEL_INDEX[tags.level] ?? null;
     // A technology named in the title is what the session is about, even when its track files it under another topic:
@@ -463,6 +490,12 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers, keep:
     const mainIsNeighbor = neighborDomains.has(tags.primaryDomain);
     // Level is judged against the attendee's level in the topic the session is about.
     const proficiency = coreKnownHit ? proficiencyOf(coreKnownHit) : strongest;
+    // Whether the session can lead its tab is judged against the strongest picked topic it is about: inference on EKS
+    // is at level for an Advanced AI engineer even when the score judges it against Basic containers.
+    const bestProficiency = Math.max(
+      proficiency,
+      ...knownHits.filter((k) => hitStrength(k, tags.primaryDomain) >= 0.7).map(proficiencyOf),
+    );
 
     // Reinforce wins when the session is squarely about what the attendee knows; anything they want to learn in it
     // shows up as a reason. Otherwise an explicit learning goal beats broadening.
@@ -497,7 +530,10 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers, keep:
     }
 
     // AI-first sessions the attendee is not ready for are hidden; sessions that only touch AI are just ranked lower.
-    const aiFirst = tags.primaryDomain === "ai";
+    // AI is the subject when it is the main topic, or when the title is about it and the main topic is not one the
+    // attendee knows: an agent lab filed under Learning is an AI session, agent identity for a security expert is not.
+    const aiFirst =
+      tags.primaryDomain === "ai" || (!mainIsKnown && tags.aiSubtopics.length > 0 && AI_IN_TITLE.test(session.title));
     const readiness = aiReadiness(tags, answers.ai, { aiFirst, unansweredAsZero: aiUnansweredAsZero });
     if (readiness && aiFirst && readiness.fit < AI_HIDE_BELOW) {
       hidden.aiNotReady += 1;
@@ -527,7 +563,8 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers, keep:
       weights.depth * depth +
       weights.coverage * coverage;
     if (session.isCustomerStory) score = Math.min(1, score + 0.02);
-    if (session.isSponsored) score *= 0.85;
+    // Sponsored sessions are partners pitching; they never lead and weigh less.
+    if (session.isSponsored) score *= SPONSORED_FACTOR;
     if (ignoredMentions.length > 0) score *= IGNORED_MENTION_FACTOR;
     // AI background lowers AI sessions that assume more than the attendee has (×0.55–1 when AI is the subject,
     // ×0.8–1 when it is a side topic), so the usable ones lead.
@@ -543,10 +580,14 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers, keep:
     for (const key of new Set([...keys, ...planKeys])) labels[key] ??= labelOfKey(key);
 
     const reservable = requiresReservation(session, catalogFlagsReservations);
+    if (reservable) score = Math.min(1, score + RESERVABLE_BONUS);
+    if (intent === "reinforce" && deciding) reinforceTopic.set(session.id, sourceOf(deciding, tags.primaryDomain) ?? deciding);
     results.push({
       intent,
       reservable,
-      fitsLevel: levelFit >= LEVEL_FIT_BAND,
+      fitsLevel:
+        !session.isSponsored &&
+        (levelFit >= LEVEL_FIT_BAND || fitLevel(intent, level, bestProficiency, newTopicLevel) >= LEVEL_FIT_BAND),
       goalHits,
       score: Math.round(score * 100),
       reasons: [
@@ -561,7 +602,7 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers, keep:
           newTopicLevel,
           session,
           mainIsKnown,
-          sourceOf: (key) => keySource.get(key),
+          sourceOf: (key) => sourceOf(key, tags.primaryDomain),
         }),
         ...aiReasons(readiness),
         ...ignoredMentions.map((p) => ({
@@ -598,16 +639,24 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers, keep:
     });
   }
 
-  // Within each intent, sessions at the attendee's level come first; among those, the ones that need a reserved seat
-  // lead, since they fill up. A reservable session at the wrong level never jumps ahead of a right-level walk-in.
+  // Within each intent, sessions at the attendee's level come first, by score (a reserved seat adds a little: see
+  // RESERVABLE_BONUS). A session at the wrong level never jumps ahead of a right-level one.
   results.sort(
     (a, b) =>
       INTENTS.indexOf(a.intent) - INTENTS.indexOf(b.intent) ||
       Number(b.fitsLevel) - Number(a.fitsLevel) ||
-      Number(b.reservable) - Number(a.reservable) ||
       b.score - a.score ||
       b.goalHits - a.goalHits,
   );
+  // Reinforce deals its right-level cards topic by topic, so the sessions that touch many topics at once (resilience,
+  // operations) cannot crowd out the attendee's own topics. An Advanced topic gets two cards per round.
+  const weightOf = (topic: string) =>
+    answers.topics.find((t) => t.key === topic)?.level === "advanced" ? 2 : 1;
+  const band = results.filter((r) => r.intent === "reinforce" && r.fitsLevel);
+  if (band.length > 0) {
+    const start = results.indexOf(band[0]!);
+    results.splice(start, band.length, ...interleave(band, (r) => reinforceTopic.get(r.session.id) ?? "", weightOf));
+  }
   // Exploring beyond the neighbors stays short and varied.
   const perTopic = new Map<string, number>();
   let explored = 0;
@@ -641,8 +690,24 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers, keep:
   };
 }
 
+/**
+ * Round robin over groups (in the order their best item comes), taking `weight` items from each group per round and
+ * keeping each group's own order.
+ */
+export function interleave<T>(items: T[], groupOf: (item: T) => string, weightOf: (group: string) => number): T[] {
+  const groups = new Map<string, T[]>();
+  for (const item of items) groups.set(groupOf(item), [...(groups.get(groupOf(item)) ?? []), item]);
+  const out: T[] = [];
+  while (out.length < items.length) {
+    for (const [group, queue] of groups) out.push(...queue.splice(0, weightOf(group)));
+  }
+  return out;
+}
+
 /** Familiarity an AI session expects of its prerequisites, by level (100 → none … 400 → comfortable). */
 const AI_NEED_BY_LEVEL = [0, 0.5, 0.75, 1];
+/** Titles about AI rather than merely touching it. */
+const AI_IN_TITLE = /\b(AI|GenAI|generative|agents?|agentic|multi-agent|LLMs?|MCP|machine learning|ML|foundation models?|RAG)\b/i;
 /** Below this fit an AI session is hidden: it assumes background the attendee does not have yet. */
 const AI_HIDE_BELOW = 0.35;
 
@@ -676,8 +741,9 @@ export function aiReadiness(
   let total = 0;
   for (const p of relevant) {
     const familiarity = (ai[p.id] ?? 0) / 2;
-    if (familiarity >= need) covered.push(p.label);
-    else missing.push(p.label);
+    // A level-100 session asks for nothing; it is not "covered" by background the attendee marked as none.
+    if (familiarity >= need && familiarity > 0) covered.push(p.label);
+    else if (familiarity < need) missing.push(p.label);
     total += familiarity >= need ? 1 : Math.max(0, 1 - (need - familiarity) * 1.5);
   }
   return { fit: total / relevant.length, covered, missing };
@@ -768,7 +834,9 @@ function explain(ctx: {
   } else {
     reasons.push(
       deciding
-        ? { about: "match", kind: "pro", text: `Covers ${labelOfKey(deciding)}, which you want to learn.` }
+        ? sourceOf(deciding) && sourceOf(deciding) !== deciding
+          ? { about: "match", kind: "pro", text: `Covers ${labelOfKey(deciding)}, part of ${labelOfKey(sourceOf(deciding)!)}, which you want to learn.` }
+          : { about: "match", kind: "pro", text: `Covers ${labelOfKey(deciding)}, which you want to learn.` }
         : { about: "match", kind: "info", text: `New ground for you: ${main}.` },
     );
   }

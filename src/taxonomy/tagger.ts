@@ -80,7 +80,31 @@ const DOMAIN_BY_TOPIC = new Map(
   DOMAINS.flatMap((d) => (d.topics ?? []).map((t) => [normalizeText(t), d.id] as const)),
 );
 
-export function tagSession(s: NormalizedSession): SessionTags {
+/**
+ * Service names that can be recognized in free text: the full name ("AWS Glue", "Amazon Bedrock"), multi-word
+ * aliases ("Step Functions", "SageMaker AI"), and single-word aliases only when they cannot be an ordinary word, that
+ * is acronyms and CamelCase names (EKS, S3, SageMaker, DynamoDB), never "connect", "glue" or "lambda".
+ */
+export function textAliases(label: string): string[] {
+  const aliases = new Set([label]);
+  const short = label.replace(/^(Amazon|AWS)\s+/, "");
+  for (const alias of [short, ...aliasesOf(label)]) {
+    const original = label.match(new RegExp(escape(alias), "i"))?.[0] ?? alias;
+    const distinctive = /\s/.test(alias.trim()) || /[A-Z].*[A-Z]|\d/.test(original);
+    if (alias.length >= 2 && distinctive) aliases.add(alias);
+  }
+  return [...aliases];
+}
+
+function escape(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * @param knownServices service labels found anywhere in the catalog (see technologyLabel), recognized in the title and
+ *   abstract of sessions that list no services, or not all of them: many AI sessions name SageMaker only in the text.
+ */
+export function tagSession(s: NormalizedSession, knownServices: Map<string, string[]> = new Map()): SessionTags {
   const p = prepare(s);
   const prefix = s.code.match(/^[A-Z]+/)?.[0] ?? "";
   const track = TRACKS[prefix];
@@ -98,6 +122,7 @@ export function tagSession(s: NormalizedSession): SessionTags {
 
   const technologies = [
     ...s.services.map(technologyLabel),
+    ...[...knownServices].filter(([, aliases]) => aliases.some((a) => textContains(p.text, a))).map(([label]) => label),
     ...EXTRA_TECHNOLOGIES.filter((t) => t.keywords.some((k) => textContains(p.text, k))).map((t) => t.label),
   ];
 

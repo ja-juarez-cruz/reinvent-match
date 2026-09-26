@@ -172,13 +172,28 @@ export const DOMAINS: TagDefinition[] = [
     services: ["Billing and Cost Management", "Cost Explorer"],
     titleKeywords: ["cost", "costs", "FinOps", "pricing", "spend", "economics"],
   },
+  // Business used to cover apps, leadership and partners at once; for an engineering manager that meant Amazon Quick
+  // deep dives and Marketplace listings instead of leadership sessions. They are three topics now.
   {
     id: "business",
-    label: "Business, Leadership & Partners",
+    label: "Business Applications",
     topics: ["Business Applications"],
-    areas: ["Innovation & Transformation", "Customer Enablement", "Learning from Amazon", "Tech for Impact", "SaaS"],
-    services: ["Connect", "Quick", "Quick Suite", "Marketplace"],
-    titleKeywords: ["leader", "leaders", "leader's", "strategy", "business", "executive", "executives", "ROI", "transformation", "partner", "partners"],
+    areas: ["Customer Enablement"],
+    services: ["Connect", "Quick", "Quick Suite"],
+    titleKeywords: ["contact center", "Amazon Connect", "Amazon Quick", "Quick Suite"],
+  },
+  {
+    id: "leadership",
+    label: "Leadership & Strategy",
+    areas: ["Innovation & Transformation", "Learning from Amazon", "Tech for Impact"],
+    titleKeywords: ["leader", "leaders", "leader's", "leadership", "strategy", "executive", "executives", "ROI", "transformation", "operating model", "culture", "organization", "teams"],
+  },
+  {
+    id: "partners",
+    label: "Partners & Marketplace",
+    areas: ["SaaS"],
+    services: ["Marketplace"],
+    titleKeywords: ["partner", "partners", "Marketplace", "ISV", "SaaS", "co-sell", "MSP", "resell"],
   },
   {
     id: "hybrid",
@@ -220,13 +235,13 @@ export const TRACKS: Record<string, { label: string; domain?: string }> = {
   NET: { label: "Networking", domain: "networking" },
   COM: { label: "Community", domain: "learning" },
   HMC: { label: "Hybrid & Multicloud", domain: "hybrid" },
-  PEX: { label: "Partner Experience", domain: "business" },
+  PEX: { label: "Partner Experience", domain: "partners" },
   INV: { label: "Innovation talks (500)" },
   GHJ: { label: "AI League (gamified)", domain: "ai" },
   OPN: { label: "Open Source", domain: "devtools" },
   API: { label: "Application Integration", domain: "integration" },
-  SNR: { label: "Senior leaders", domain: "business" },
-  AMZ: { label: "Amazon stories" },
+  SNR: { label: "Senior leaders", domain: "leadership" },
+  AMZ: { label: "Amazon stories", domain: "leadership" },
 };
 
 export const AI_SUBTOPICS: TagDefinition[] = [
@@ -349,11 +364,13 @@ export const DOMAIN_NEIGHBORS: Record<string, string[]> = {
   architecture: ["serverless", "integration", "observability", "security", "cost", "databases"],
   migration: ["architecture", "databases", "containers", "compute"],
   cost: ["architecture", "observability", "compute"],
-  business: ["ai", "industry", "cost"],
+  business: ["ai", "industry", "integration"],
+  leadership: ["business", "cost", "ai", "industry"],
+  partners: ["business", "industry", "migration"],
   hybrid: ["networking", "compute", "migration"],
-  industry: ["business", "ai"],
+  industry: ["business", "leadership", "ai"],
   learning: ["devtools", "ai"],
-  ai: ["analytics", "devtools", "integration", "business"],
+  ai: ["analytics", "devtools", "integration", "business", "leadership"],
 };
 
 /**

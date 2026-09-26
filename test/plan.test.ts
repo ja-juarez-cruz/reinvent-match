@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { CachedCatalog } from "../src/catalog/cache.js";
 import { normalizeSession } from "../src/catalog/normalize.js";
 import { answersSchema } from "../src/plan/answers.js";
-import { buildPlan, buildVocabulary, expandTopics } from "../src/plan/plan.js";
+import { buildPlan, buildVocabulary, expandTopics, interleave } from "../src/plan/plan.js";
 import { session } from "./helpers.js";
 
 const answers = (over: Record<string, unknown> = {}) =>
@@ -218,10 +218,8 @@ describe("reserved seating", () => {
 
   it("switches to the catalog's own flag once reserved seating opens", () => {
     const plan = buildPlan([talk("1", "Chalk talk", { isReservable: false }), talk("2", "Breakout session", { isReservable: true })], all);
-    expect(plan.results.map((r) => [r.session.id, r.reservable])).toEqual([
-      ["2", true],
-      ["1", false],
-    ]);
+    const reservable = Object.fromEntries(plan.results.map((r) => [r.session.id, r.reservable]));
+    expect(reservable).toEqual({ "1": false, "2": true });
   });
 });
 
@@ -483,4 +481,96 @@ it("never lets the Learn cap drop a session the attendee already picked", () => 
   const opts = { topics: [{ key: "domain:serverless", level: "intermediate" }], formats: ["breakout"] };
   expect(buildPlan(far, answers(opts)).results.some((r) => r.session.id === "STG59")).toBe(false);
   expect(buildPlan(far, answers(opts), new Set(["STG59"])).results.some((r) => r.session.id === "STG59")).toBe(true);
+});
+
+describe("persona review, round two", () => {
+  const talk = (code: string, title: string, level: string, type = "Chalk talk", extra: Record<string, unknown> = {}) =>
+    session({ sessionId: code, abbreviation: code, title, type, level, ...extra });
+  const everyFormat = ["workshop", "builders", "chalk", "code", "lab", "breakout", "lightning", "exam"];
+
+  it("lets a better walk-in beat a reservable session at the same level", () => {
+    const plan = buildPlan(
+      [
+        talk("MAM301", "Migration chalk talk", "200 – Intermediate", "Chalk talk", { topics: ["Migration & Modernization"] }),
+        talk("MAM206", "How United Airlines migrated: lessons learned", "200 – Intermediate", "Breakout session", {
+          topics: ["Migration & Modernization", "Architecture"],
+          services: ["AWS Application Migration Service", "AWS Database Migration Service"],
+        }),
+      ],
+      answers({ topics: [{ key: "domain:migration", level: "basic" }, { key: "domain:architecture", level: "basic" }], formats: everyFormat }),
+    );
+    expect(plan.results[0]!.session.code).toBe("MAM206");
+  });
+
+  it("deals Reinforce topic by topic, two cards per round for an Advanced topic", () => {
+    expect(interleave(["s1", "s2", "s3", "a1", "a2", "n1"], (x) => x[0]!, (g) => (g === "s" ? 2 : 1))).toEqual([
+      "s1", "s2", "a1", "n1", "s3", "a2",
+    ]);
+    const arc = (i: number) => talk(`ARC30${i}`, `Resilience patterns ${i}`, "300 – Advanced", "Chalk talk", { topics: ["Architecture"], abstract: "Failure modes, blast radius and trade-offs at scale." });
+    const sec = (i: number) => talk(`SEC30${i}`, `IAM deep dive ${i}`, "300 – Advanced", "Chalk talk", { topics: ["Security & Identity"] });
+    const plan = buildPlan(
+      [arc(1), arc(2), arc(3), sec(1), sec(2), sec(3)],
+      answers({ topics: [{ key: "domain:security", level: "advanced" }, { key: "domain:architecture", level: "intermediate" }], formats: everyFormat }),
+    );
+    expect(plan.results.slice(0, 3).filter((r) => r.session.code.startsWith("SEC"))).toHaveLength(2);
+  });
+
+  it("judges whether a session leads by the strongest topic it is about", () => {
+    // As in the catalog, SageMaker AI is one of the AI topic's technologies.
+    const sagemaker = (i: number) =>
+      talk(`AIM31${i}`, `SageMaker session ${i}`, "300 – Advanced", "Chalk talk", { topics: ["Artificial Intelligence"], services: ["Amazon SageMaker AI"] });
+    const plan = buildPlan(
+      [sagemaker(1), sagemaker(2), sagemaker(3), talk("CON313", "Scalable inference on Amazon EKS", "300 – Advanced", "Chalk talk", {
+        topics: ["Artificial Intelligence", "Containers"],
+        services: ["Amazon Elastic Kubernetes Service (Amazon EKS)", "Amazon SageMaker AI"],
+      })],
+      answers({ topics: [{ key: "domain:ai", level: "advanced" }, { key: "domain:containers", level: "basic" }], ai: { llm: 2, ml: 2, infra: 2, training: 2, agents: 2, rag: 2, mcp: 2, eval: 2, bedrock: 2 }, formats: everyFormat }),
+    );
+    expect(plan.results.find((r) => r.session.code === "CON313")!.fitsLevel).toBe(true);
+  });
+
+  it("treats an agent lab filed under Learning as an AI session", () => {
+    const lab = talk("TNC215", "Build your first AI agent", "200 – Intermediate", "Lab", { areasOfInterest: ["Agentic AI", "Training & Certification"] });
+    const noAi = { llm: 0, ml: 0, rag: 0, agents: 0, mcp: 0, training: 0, eval: 0, infra: 0, bedrock: 0 };
+    const plan = buildPlan([lab], answers({ topics: [{ key: "domain:compute", level: "new" }, { key: "domain:learning", level: "new" }], ai: noAi, formats: everyFormat }));
+    expect(plan.hidden.aiNotReady).toBe(1);
+  });
+
+  it("does not say AI background covers a session when it is all 'not yet'", () => {
+    const intro = talk("AIM101", "Introduction to generative AI", "100 – Foundational", "Breakout session", { topics: ["Artificial Intelligence"], areasOfInterest: ["Generative AI"] });
+    const plan = buildPlan([intro], answers({ topics: [{ key: "domain:ai", level: "new" }], ai: { llm: 0, bedrock: 0 }, formats: everyFormat }));
+    expect(plan.results[0]!.reasons.some((r) => /covers what it assumes/.test(r.text))).toBe(false);
+  });
+
+  it("never lets a sponsored session lead", () => {
+    const plan = buildPlan(
+      [talk("AIM227-S", "Partner AI platform (sponsored by Example)", "200 – Intermediate", "Breakout session", { topics: ["Artificial Intelligence"] })],
+      answers({ topics: [{ key: "domain:ai", level: "basic" }], formats: everyFormat }),
+    );
+    expect(plan.results[0]!.fitsLevel).toBe(false);
+  });
+
+  it("recognizes a service named only in the abstract", () => {
+    const listed = talk("AIM401", "Train models", "300 – Advanced", "Workshop", { topics: ["Artificial Intelligence"], services: ["Amazon SageMaker AI"] });
+    const unlisted = talk("AIM404", "Deploy inference endpoints", "300 – Advanced", "Workshop", {
+      topics: ["Artificial Intelligence"],
+      abstract: "Host models on Amazon SageMaker AI endpoints and connect them to your apps.",
+    });
+    const plan = buildPlan([listed, unlisted], answers({ topics: [{ key: "domain:ai", level: "advanced" }], formats: everyFormat }));
+    expect(plan.results.find((r) => r.session.code === "AIM404")!.keys).toContain("tech:Amazon SageMaker AI");
+    expect(plan.results.find((r) => r.session.code === "AIM404")!.keys).not.toContain("tech:Amazon Connect");
+  });
+
+  it("files senior-leader sessions under Leadership and partner sessions under Partners", () => {
+    const plan = buildPlan(
+      [
+        talk("SNR304", "How AI changes the way Amazon works", "300 – Advanced", "Breakout session"),
+        talk("PEX313", "Sell through AWS Marketplace", "300 – Advanced", "Chalk talk"),
+      ],
+      answers({ topics: [{ key: "domain:leadership", level: "intermediate" }], formats: everyFormat }),
+    );
+    const snr = plan.results.find((r) => r.session.code === "SNR304")!;
+    expect(snr.intent).toBe("reinforce");
+    expect(plan.results.find((r) => r.session.code === "PEX313")?.intent).not.toBe("reinforce");
+  });
 });
