@@ -8,7 +8,6 @@ import { buildAgenda } from "../agenda";
 import { formatTimeRange } from "../format";
 import { buildLearningPlan } from "../learningPlan";
 import type { AwsEvent, Decision, FavoritesSyncResult, PlanItem, Schedule, SessionInfo } from "../types";
-import { ALTERNATIVES_PER_PICK } from "../queue";
 import { usePlan } from "../usePlan";
 import { buildWeek } from "../week";
 
@@ -79,7 +78,7 @@ export function ShortlistPage({ event, eventId, answersId, session, onSignIn }: 
     return (
       <section className="page">
         <div className="panel">
-          <p>Tell Reinvent:Match about you first, then swipe to build your shortlist.</p>
+          <p>Tell Reinvent:Match about you first, then swipe to build your match.</p>
           <button className="primary" onClick={() => navigate("profile")}>
             About you →
           </button>
@@ -88,41 +87,36 @@ export function ShortlistPage({ event, eventId, answersId, session, onSignIn }: 
     );
   }
   if (error) return <section className="page error">{error.message}</section>;
-  if (!data || !plan || !agenda) return <section className="page muted">Loading your shortlist…</section>;
+  if (!data || !plan || !agenda) return <section className="page muted">Loading your match…</section>;
 
   return (
     <section className="page swipe-layout">
       <div className="swipe-main">
-        <h1>Your shortlist</h1>
-        <p className="lead">
-          {liked.length} interested · {picked.length - liked.length} maybe. Your week by hour: the session to attend in
-          each slot, with up to {ALTERNATIVES_PER_PICK} alternatives (your 🔖 maybes first). Click a session to swap or
-          drop it.
-        </p>
-
-        {event?.authenticationRequired && (
-          <div className="panel sync-panel">
-            <div>
-              <h3>Send ❤️ to your official re:Invent favorites</h3>
-              <p className="muted small">
-                Favorites show up in the re:Invent portal and app, ready for when reserved seating opens. Sessions you
-                downgrade here to 🔖 maybe or ❌ are removed from favorites if they were there; favorites you made only
-                in the portal are left alone.
-              </p>
-            </div>
-            {canSync ? (
+        <div className="match-head">
+          <div>
+            <h1>❤️ My Match</h1>
+            <p className="muted">
+              {liked.length} ❤️ · {picked.length - liked.length} 🔖 · click a session to swap or drop it
+            </p>
+          </div>
+          {event?.authenticationRequired &&
+            (canSync ? (
               <button
                 className="primary"
+                title="Adds your ❤️ to your favorites in the re:Invent portal and app, and removes the ones you downgraded here. Favorites you made only in the portal are left alone."
                 disabled={syncing || (liked.length === 0 && (schedule?.favorites.length ?? 0) === 0)}
                 onClick={runSync}
               >
-                {syncing ? "Syncing…" : `Sync ${liked.length} to favorites`}
+                {syncing ? "Syncing…" : `★ Sync ${liked.length} to re:Invent favorites`}
               </button>
             ) : (
-              <button className="primary" onClick={onSignIn}>
-                Sign in to sync
+              <button className="primary" onClick={onSignIn} title="Sign in to send your ❤️ to your re:Invent favorites">
+                Sign in to sync favorites
               </button>
-            )}
+            ))}
+        </div>
+        {(sync || syncError) && (
+          <div className="panel sync-panel">
             {sync && (
               <p className="small">
                 ✅ Added {sync.added.length}, removed {sync.removed.length}. The portal now shows{" "}

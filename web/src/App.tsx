@@ -8,11 +8,13 @@ import { SwipePage } from "./pages/SwipePage";
 import type { AwsEvent, SessionInfo } from "./types";
 import { useStored } from "./useStored";
 
-type Route = "home" | "insights" | "profile" | "swipe" | "shortlist";
+type Route = "home" | "insights" | "profile" | "swipe" | "match";
 
 function routeFromHash(): Route {
   const r = window.location.hash.replace(/^#\/?/, "").split("?")[0];
-  return r === "insights" || r === "profile" || r === "swipe" || r === "shortlist" ? r : "home";
+  // "shortlist" was My Match's earlier name; old links still land there.
+  if (r === "shortlist") return "match";
+  return r === "insights" || r === "profile" || r === "swipe" || r === "match" ? r : "home";
 }
 
 export function navigate(route: Route): void {
@@ -21,10 +23,9 @@ export function navigate(route: Route): void {
 
 const STEPS: { route: Route; label: string }[] = [
   { route: "home", label: "1 · Event" },
-  { route: "insights", label: "Insights" },
   { route: "profile", label: "2 · About you" },
   { route: "swipe", label: "3 · Swipe" },
-  { route: "shortlist", label: "4 · Shortlist" },
+  { route: "match", label: "4 · ❤️ My Match" },
 ];
 
 export function App() {
@@ -78,6 +79,9 @@ export function App() {
               {s.label}
             </a>
           ))}
+          <a href="#/insights" className={`nav-aside ${route === "insights" ? "active" : ""}`} title="What the catalog is made of">
+            📊 Insights
+          </a>
         </nav>
         <div className="auth">
           {session?.signedIn ? (
@@ -97,7 +101,7 @@ export function App() {
 
       {justSignedIn && <div className="toast">✅ Signed in with your AWS Builder ID.</div>}
 
-      <main className={route === "shortlist" ? "wide" : undefined}>
+      <main className={route === "match" ? "wide" : undefined}>
         {route === "home" && (
           <HomePage
             session={session}
@@ -110,7 +114,7 @@ export function App() {
         {route === "insights" && <InsightsPage event={event} eventId={eventId} />}
         {route === "profile" && <AboutYouPage eventId={eventId} answersId={answersId} onSaved={setAnswersId} />}
         {route === "swipe" && <SwipePage event={event} eventId={eventId} answersId={answersId} />}
-        {route === "shortlist" && (
+        {route === "match" && (
           <ShortlistPage event={event} eventId={eventId} answersId={answersId} session={session} onSignIn={signIn} />
         )}
       </main>

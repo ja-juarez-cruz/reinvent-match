@@ -1,5 +1,5 @@
 import { useEffect, type ReactNode } from "react";
-import { formatDay, formatTimeRange, venueOf } from "../format";
+import { formatWhen, venueOf } from "../format";
 import { CARD_REASONS, type PlanItem } from "../types";
 
 const REASON_ICON = { pro: "✅", con: "⚠️", info: "ℹ️" } as const;
@@ -48,7 +48,7 @@ export function SessionModal({
           <span>{s.formatLabel ?? s.format}</span>
           {s.levelLabel && <span>{s.levelLabel}</span>}
           <span>
-            {formatDay(s.schedule.date)} · {formatTimeRange(s)}
+            {formatWhen(s)}
           </span>
           <span>{venueOf(s)}</span>
         </div>

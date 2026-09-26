@@ -578,7 +578,8 @@ function aiReasons(readiness: AiReadiness | null): PlanReason[] {
     reasons.push({ about: "ai", kind: "info", text: `Builds on AI you know: ${readiness.covered.join(", ")}.` });
   }
   if (readiness.missing.length > 0) {
-    reasons.push({ about: "ai", kind: "con", text: `Assumes more AI background than you marked: ${readiness.missing.join(", ")}.` });
+    const more = readiness.missing.length > 2 ? ` +${readiness.missing.length - 2} more` : "";
+    reasons.push({ about: "ai", kind: "con", text: `Assumes AI you haven't marked: ${readiness.missing.slice(0, 2).join(", ")}${more}.` });
   }
   return reasons;
 }

@@ -84,8 +84,6 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
     setAnswers({ ...answers, topics: keys.map((key) => answers.topics.find((t) => t.key === key) ?? { key }) });
   const setTopicLevel = (key: string, level: TopicLevel) =>
     setAnswers({ ...answers, topics: answers.topics.map((t) => (t.key === key ? { ...t, level } : t)) });
-  const relatedOf = (key: string) =>
-    (vocab.domains.find((d) => d.key === key)?.related ?? []).map((k) => labels.get(k) ?? k.slice(k.indexOf(":") + 1));
   const platformIds = vocab.platforms.map((p) => p.id);
   // Stored as the platforms to leave out; asked as the ones the attendee works with.
   const usedPlatforms = platformsAnswered ? platformIds.filter((id) => !answers.ignore.includes(id)) : [];
@@ -117,7 +115,7 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
     <section className="page">
       <div>
         <h1>Tell us about you</h1>
-        <p className="lead">Five quick steps. Reinvent:Match uses them to build a pre-list of sessions, split by what each one does for you.</p>
+        <p className="lead">Five quick steps to build your pre-list.</p>
       </div>
 
       <ol className="wizard-steps">
@@ -135,8 +133,7 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
           <>
             <h2>What do you want to learn or go deeper on?</h2>
             <p className="muted">
-              Pick up to <strong>{options.maxTopics}</strong> topics, new to you or ones you want to master. Eight is plenty
-              for a full agenda, even with AI among them. Each topic brings its technologies and practices along.
+              Up to <strong>{options.maxTopics}</strong> topics, new to you or ones to master.
             </p>
             <TagPicker
               vocab={vocab}
@@ -151,19 +148,14 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
         {step === 1 && (
           <>
             <h2>What is your level in each topic?</h2>
-            <p className="muted">
-              "New to me" means you want to learn it; any other level means you want to go deeper, and Reinvent:Match looks for
-              sessions at that level, the step above what you already know.
-            </p>
+            <p className="muted">"New to me" means learn it; any other level means go deeper at that level.</p>
             <div className="topic-levels">
               {answers.topics.map((t) => {
                 const hint = TOPIC_LEVEL_OPTIONS.find((o) => o.id === t.level)?.hint;
-                const related = relatedOf(t.key);
                 return (
                   <div key={t.key} className="topic-level-row">
                     <div>
                       <strong>{labels.get(t.key) ?? t.key}</strong>
-                      {related.length > 0 && <div className="muted small">Includes {related.join(", ")}</div>}
                       <div className={`small ${hint ? "muted" : "warn"}`}>{hint ?? "Choose your level"}</div>
                     </div>
                     <div className="segmented">
@@ -182,10 +174,7 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
         {step === 2 && (
           <>
             <h2>Which of these platforms do you work with?</h2>
-            <p className="muted">
-              Many sessions are built around one vendor platform. Mark the ones you use (or want to learn); sessions built
-              around the others are left out, and sessions that only mention them move down.
-            </p>
+            <p className="muted">Sessions built around the platforms you leave unmarked are left out.</p>
             <div className="chips">
               {vocab.platforms.map((p) => {
                 const on = usedPlatforms.includes(p.id);
@@ -224,12 +213,9 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
               AI background <span className="muted small">(optional, but it makes a big difference)</span>
             </h2>
             <div className="callout">
-              <strong>{aiShare}% of the sessions in this catalog involve AI.</strong> Telling Reinvent:Match what you already
-              understand helps it find the best AI sessions for you: the goal is that every AI session you pick is one
-              you can really get the most out of. Sessions that match your background move up in your swipes; the ones
-              that assume more than you have yet are left out.
+              <strong>{aiShare}% of the sessions involve AI.</strong> Tell us what you know so every AI session you pick is
+              one you can get the most out of. Skip any you are unsure about.
             </div>
-            <p className="muted small">Skip any you are unsure about; unanswered ones do not affect your results.</p>
             <div className="ai-grid">
               {options.aiPrerequisites.map((p) => (
                 <div key={p.id} className="ai-row">
@@ -261,7 +247,7 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
         {step === 4 && (
           <>
             <h2>Which formats do you want?</h2>
-            <p className="muted">Pick one, several or all. Only these formats go into your pre-list.</p>
+            <p className="muted">Only these formats go into your pre-list.</p>
             <div className="row">
               <button className="ghost small" onClick={() => setAnswers({ ...answers, formats: options.formats.map((f) => f.id) })}>
                 Select all
@@ -440,10 +426,10 @@ function TagPicker({
         ))}
       </div>
       {included.length > 0 && (
-        <p className="small muted includes">
-          Includes {included.length} technologies and practices:{" "}
+        <details className="small muted includes">
+          <summary>Includes {included.length} technologies and practices</summary>
           {included.map((k) => labels.get(k) ?? k).join(", ")}.
-        </p>
+        </details>
       )}
       <input placeholder="Search: Serverless, DynamoDB, event-driven…" value={query} onChange={(e) => setQuery(e.target.value)} />
 

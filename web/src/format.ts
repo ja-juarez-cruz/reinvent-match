@@ -38,3 +38,8 @@ export function venueOf(s: Session): string {
   return s.schedule.venue ?? s.schedule.room?.split("|")[0]?.trim() ?? "Venue TBA";
 }
 
+
+/** "Tue, Dec 1 · 10:00–11:00", or just "Time TBA" before the catalog schedules it. */
+export function formatWhen(s: Session): string {
+  return s.schedule.date && s.schedule.startTime ? `${formatDay(s.schedule.date)} · ${formatTimeRange(s)}` : "Time TBA";
+}

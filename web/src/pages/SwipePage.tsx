@@ -4,7 +4,7 @@ import { navigate } from "../App";
 import { SessionCode } from "../components/SessionCode";
 import { SessionModal } from "../components/SessionModal";
 import { WeekStrip, explainDay } from "../components/WeekStrip";
-import { formatDay, formatTimeRange, venueOf } from "../format";
+import { formatDay, formatWhen, venueOf } from "../format";
 import { CARD_REASONS, type AwsEvent, type Decision, type Intent, type PlanItem } from "../types";
 import { usePlan } from "../usePlan";
 import { ALTERNATIVES_PER_PICK, buildQueue } from "../queue";
@@ -144,6 +144,17 @@ export function SwipePage({ event, eventId, answersId }: Props) {
   if (!data) return <section className="page muted">Building your pre-list for {event?.name ?? "the event"}…</section>;
 
   const s = current?.session;
+  const hidden = [
+    [data.hidden.format, "not in your formats"],
+    [data.hidden.tooBasic, "too basic for your level"],
+    [data.hidden.aiNotReady, "assume AI background you haven't marked"],
+    [data.hidden.ignored, "built around platforms you don't use"],
+  ] as const;
+  const hiddenTotal = hidden.reduce((n, [count]) => n + count, 0);
+  const hiddenReasons = hidden
+    .filter(([count]) => count > 0)
+    .map(([count, why]) => `${count} ${why}`)
+    .join("\n");
   const meta = INTENT_META[tab];
   const impact = current ? impactOf(current, week) : null;
   const fullDay = fullNotice ? week.find((d) => d.date === fullNotice) : undefined;
@@ -198,15 +209,15 @@ export function SwipePage({ event, eventId, answersId }: Props) {
             {TABS.map((i) => {
               const left = (byIntent.get(i) ?? []).filter((r) => !data.swipes[r.session.id] && onDay(r)).length;
               return (
-                <button key={i} className={`tab ${tab === i ? "active" : ""}`} onClick={() => setTab(i)}>
+                <button key={i} className={`tab ${tab === i ? "active" : ""}`} onClick={() => setTab(i)} title={INTENT_META[i].hint}>
                   {INTENT_META[i].icon} {INTENT_META[i].label}
                   <span className="count">{left}</span>
                 </button>
               );
             })}
           </div>
-          <button className="ghost small" onClick={() => navigate("shortlist")}>
-            Shortlist →
+          <button className="ghost small" onClick={() => navigate("match")}>
+            ❤️ My Match →
           </button>
         </div>
         {dayFilter && (
@@ -217,12 +228,6 @@ export function SwipePage({ event, eventId, answersId }: Props) {
             </button>
           </div>
         )}
-        <p className="muted small">
-          {meta.hint} Sessions that need a reserved seat come first. {data.hidden.format > 0 && `${data.hidden.format} sessions hidden by your format choices.`}{" "}
-          {data.hidden.tooBasic > 0 && `${data.hidden.tooBasic} too basic for your level.`}{" "}
-          {data.hidden.aiNotReady > 0 && `${data.hidden.aiNotReady} AI sessions assume more AI background than you have yet.`}{" "}
-          {data.hidden.ignored > 0 && `${data.hidden.ignored} built around platforms you marked as not for you.`}
-        </p>
 
         {tabQueue.stage !== "fill" && (tabQueue.alternatives > 0 || tabQueue.rest > 0) && (
           <div className="panel notice" role="status">
@@ -274,8 +279,7 @@ export function SwipePage({ event, eventId, answersId }: Props) {
             <div className="panel empty">
               <p>
                 You've reviewed every session in {meta.label}
-                {dayFilter ? ` on ${formatDay(dayFilter)}` : ""}. Pick another tab{dayFilter ? " or day" : ""}, or check your
-                shortlist.
+                {dayFilter ? ` on ${formatDay(dayFilter)}` : ""}. Pick another tab{dayFilter ? " or day" : ""}, or check My Match.
               </p>
             </div>
           )
@@ -309,7 +313,7 @@ export function SwipePage({ event, eventId, answersId }: Props) {
               <span>{s.formatLabel ?? s.format}</span>
               {s.levelLabel && <span>{s.levelLabel}</span>}
               <span>
-                {formatDay(s.schedule.date)} · {formatTimeRange(s)}
+                {formatWhen(s)}
               </span>
               <span>{venueOf(s)}</span>
             </div>
@@ -351,24 +355,28 @@ export function SwipePage({ event, eventId, answersId }: Props) {
                 ❤️ <span>Interested</span>
               </button>
             </div>
-            <div className="keys muted small">
-              ← not for me · ↓ maybe · → interested · U undo
-              {history.length > 0 && (
-                <button className="link small" onClick={undo}>
-                  Undo last
+            {history.length > 0 && (
+              <div className="keys muted small">
+                <button className="link small" onClick={undo} title="Undo (U)">
+                  ↩ Undo
                 </button>
-              )}
-            </div>
+              </div>
+            )}
           </article>
         )}
         <p className="muted small center">
           {tabQueue.stage === "fill"
-            ? `${tabQueue.fit} that fit your calendar in ${meta.label}${tabQueue.alternatives + tabQueue.rest > 0 ? ` · ${tabQueue.alternatives + tabQueue.rest} clashing, for later` : ""}`
+            ? `${tabQueue.fit} left that fit your week`
             : tabQueue.stage === "alternatives"
-              ? `${tabQueue.alternatives} alternatives left in ${meta.label}`
+              ? `${tabQueue.alternatives} alternatives left`
               : showRest
-                ? `${queue.length} left in ${meta.label}`
-                : ""}
+                ? `${queue.length} left`
+                : ""}{" "}
+          {hiddenTotal > 0 && (
+            <span className="hint" title={hiddenReasons}>
+              · {hiddenTotal} hidden ⓘ
+            </span>
+          )}
         </p>
       </div>
       {openClash && current && (
@@ -386,10 +394,7 @@ export function SwipePage({ event, eventId, answersId }: Props) {
           <button className="link" onClick={() => setOpenClash(null)}>
             Keep both
           </button>
-          <p className="muted small">
-            A session you swap out or remove stays in your shortlist as 🔖 maybe, as a backup, and is removed from your
-            official favorites the next time you sync.
-          </p>
+          <p className="muted small">The one you drop stays as a 🔖 backup.</p>
         </SessionModal>
       )}
     </section>
