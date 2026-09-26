@@ -1,0 +1,47 @@
+{
+  "name": "Security specialist",
+  "description": "Cloud security engineer: IAM, detection, network perimeter. Curious about securing AI but new to it.",
+  "expectations": [
+    "Security sessions at 300/400 lead Reinforce",
+    "Networking and observability as Broaden",
+    "AI security sessions only if they don't assume ML depth"
+  ],
+  "answers": {
+    "topics": [
+      {
+        "key": "domain:security",
+        "level": "advanced"
+      },
+      {
+        "key": "domain:networking",
+        "level": "intermediate"
+      },
+      {
+        "key": "domain:observability",
+        "level": "intermediate"
+      },
+      {
+        "key": "domain:architecture",
+        "level": "intermediate"
+      },
+      {
+        "key": "domain:ai",
+        "level": "new"
+      }
+    ],
+    "ignore": [
+      "sap",
+      "vmware",
+      "mainframe"
+    ],
+    "ai": {
+      "llm": 1
+    },
+    "formats": [
+      "chalk",
+      "builders",
+      "workshop",
+      "code"
+    ]
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "name": "Presales / solutions engineer",
+  "description": "Sells and scopes AWS for customers across industries. Needs the big picture, customer stories and what is new, not live coding. Works with every platform customers bring.",
+  "expectations": [
+    "Mostly breakouts, lightning talks and chalk talks",
+    "Customer stories and industry sessions near the top",
+    "Nothing 400-level or code-heavy in the first cards",
+    "AI sessions at an overview level, not model training"
+  ],
+  "answers": {
+    "topics": [
+      {
+        "key": "domain:ai",
+        "level": "basic"
+      },
+      {
+        "key": "domain:business",
+        "level": "intermediate"
+      },
+      {
+        "key": "domain:migration",
+        "level": "basic"
+      },
+      {
+        "key": "domain:cost",
+        "level": "basic"
+      },
+      {
+        "key": "domain:architecture",
+        "level": "basic"
+      },
+      {
+        "key": "domain:industry",
+        "level": "new"
+      }
+    ],
+    "ignore": [],
+    "ai": {
+      "llm": 1,
+      "agents": 1,
+      "bedrock": 1,
+      "ml": 0
+    },
+    "formats": [
+      "breakout",
+      "lightning",
+      "chalk"
+    ]
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "name": "Engineering manager",
+  "description": "Leads teams building on AWS. Cares about strategy, productivity, cost and how AI changes engineering, not about typing code.",
+  "expectations": [
+    "Breakouts and lightning talks on strategy, developer productivity and cost",
+    "Leadership and customer-story sessions visible",
+    "No code talks (not chosen) and few 400s"
+  ],
+  "answers": {
+    "topics": [
+      {
+        "key": "domain:business",
+        "level": "intermediate"
+      },
+      {
+        "key": "domain:devtools",
+        "level": "basic"
+      },
+      {
+        "key": "domain:cost",
+        "level": "basic"
+      },
+      {
+        "key": "domain:ai",
+        "level": "basic"
+      },
+      {
+        "key": "domain:observability",
+        "level": "basic"
+      }
+    ],
+    "ignore": [
+      "sap",
+      "mainframe"
+    ],
+    "ai": {
+      "llm": 1,
+      "agents": 1,
+      "bedrock": 1
+    },
+    "formats": [
+      "breakout",
+      "lightning",
+      "chalk"
+    ]
+  }
+}

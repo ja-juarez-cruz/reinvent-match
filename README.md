@@ -109,6 +109,10 @@ src/
 └── cli.ts
 ```
 
+## Reviewing recommendations with personas
+
+`test/personas/` holds test personas (presales, principal architect, complete beginner, data engineer, security specialist, engineering manager, ML engineer), each with its onboarding answers and what a reviewer should expect to see. `npm run personas` builds, for each one, the pre-list, what is hidden and why, the first cards of every tab with their reasons, a week filled the way the app fills it, and automatic red flags, into `~/.rematch/reports/personas-<event>.html` (outside the repository, since it holds catalog data). Hand a persona's section to someone with that profile, or to a review agent, and ask what is wrong for them, what is missing and which reasons don't hold; confirmed findings become tests.
+
 ## Roadmap
 
 - [x] Match engine against public catalogs

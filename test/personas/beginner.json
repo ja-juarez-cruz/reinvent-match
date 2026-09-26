@@ -1,0 +1,55 @@
+{
+  "name": "Complete beginner",
+  "description": "New to AWS, first cloud job. Knows almost nothing yet and wants foundations to build on; no AI background.",
+  "expectations": [
+    "Mostly 100 and 200 sessions",
+    "No 300+ sessions in the first 20 cards of any tab",
+    "Hands-on workshops and certification prep welcome",
+    "Very few AI sessions, and only introductory ones"
+  ],
+  "answers": {
+    "topics": [
+      {
+        "key": "domain:compute",
+        "level": "new"
+      },
+      {
+        "key": "domain:storage",
+        "level": "new"
+      },
+      {
+        "key": "domain:databases",
+        "level": "new"
+      },
+      {
+        "key": "domain:learning",
+        "level": "new"
+      }
+    ],
+    "ignore": [
+      "microsoft",
+      "sap",
+      "vmware",
+      "mainframe",
+      "oracle"
+    ],
+    "ai": {
+      "llm": 0,
+      "ml": 0,
+      "rag": 0,
+      "agents": 0,
+      "mcp": 0,
+      "training": 0,
+      "eval": 0,
+      "infra": 0,
+      "bedrock": 0
+    },
+    "formats": [
+      "workshop",
+      "builders",
+      "lab",
+      "breakout",
+      "exam"
+    ]
+  }
+}

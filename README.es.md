@@ -95,6 +95,10 @@ npm pack          # el paquete que publicaría npm (solo instala zod como depend
 npm publish       # antes corre typecheck, tests y build (prepublishOnly)
 ```
 
+## Revisar las recomendaciones con perfiles
+
+`test/personas/` tiene perfiles de prueba (preventa, arquitecto principal, principiante total, data engineer, especialista en seguridad, engineering manager, ML engineer), cada uno con sus respuestas del onboarding y lo que un revisor debería ver. `npm run personas` arma, para cada uno, la pre-lista, qué se oculta y por qué, las primeras tarjetas de cada pestaña con sus razones, una semana llenada como la llena la app y banderas automáticas, en `~/.rematch/reports/personas-<evento>.html` (fuera del repositorio, porque contiene datos del catálogo). Dale la sección de un perfil a alguien con ese perfil, o a un agente revisor, y pregúntale qué está mal para él, qué falta y qué razones no se sostienen; lo que se confirme se vuelve prueba.
+
 ## Roadmap
 
 - [x] Motor de match con catálogos públicos

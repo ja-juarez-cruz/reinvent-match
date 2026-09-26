@@ -1,0 +1,61 @@
+{
+  "name": "Principal architect",
+  "description": "Designs large distributed systems and makes trade-offs daily. Wants depth, failure modes and patterns; basic sessions are a waste of time.",
+  "expectations": [
+    "Almost only 300 and 400 sessions",
+    "Architecture, resilience and trade-off sessions lead Reinforce",
+    "No 100/200 sessions in the first 20 Reinforce cards",
+    "Chalk talks and builders' sessions over breakouts"
+  ],
+  "answers": {
+    "topics": [
+      {
+        "key": "domain:architecture",
+        "level": "advanced"
+      },
+      {
+        "key": "domain:serverless",
+        "level": "advanced"
+      },
+      {
+        "key": "domain:integration",
+        "level": "advanced"
+      },
+      {
+        "key": "domain:security",
+        "level": "intermediate"
+      },
+      {
+        "key": "domain:databases",
+        "level": "intermediate"
+      },
+      {
+        "key": "domain:cost",
+        "level": "intermediate"
+      },
+      {
+        "key": "domain:observability",
+        "level": "intermediate"
+      }
+    ],
+    "ignore": [
+      "microsoft",
+      "sap",
+      "vmware",
+      "mainframe",
+      "oracle"
+    ],
+    "ai": {
+      "llm": 2,
+      "agents": 1,
+      "rag": 1,
+      "bedrock": 1,
+      "mcp": 1
+    },
+    "formats": [
+      "chalk",
+      "breakout",
+      "builders"
+    ]
+  }
+}

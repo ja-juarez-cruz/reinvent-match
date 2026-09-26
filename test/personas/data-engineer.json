@@ -1,0 +1,50 @@
+{
+  "name": "Data engineer",
+  "description": "Builds pipelines and lakehouses in production; wants to go deeper on analytics and get started with AI on data.",
+  "expectations": [
+    "Analytics, lakehouse, streaming and Iceberg sessions lead",
+    "300/400 on analytics, entry-level on AI",
+    "Hands-on formats first"
+  ],
+  "answers": {
+    "topics": [
+      {
+        "key": "domain:analytics",
+        "level": "advanced"
+      },
+      {
+        "key": "domain:databases",
+        "level": "intermediate"
+      },
+      {
+        "key": "domain:storage",
+        "level": "intermediate"
+      },
+      {
+        "key": "domain:ai",
+        "level": "basic"
+      },
+      {
+        "key": "domain:integration",
+        "level": "basic"
+      }
+    ],
+    "ignore": [
+      "microsoft",
+      "sap",
+      "vmware",
+      "mainframe"
+    ],
+    "ai": {
+      "llm": 1,
+      "ml": 1,
+      "rag": 1
+    },
+    "formats": [
+      "workshop",
+      "builders",
+      "chalk",
+      "code"
+    ]
+  }
+}

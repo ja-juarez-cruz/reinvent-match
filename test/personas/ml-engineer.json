@@ -1,0 +1,53 @@
+{
+  "name": "ML engineer",
+  "description": "Trains, fine-tunes and serves models in production. Wants advanced AI and inference sessions; containers are new territory.",
+  "expectations": [
+    "AI sessions at 300/400 lead, including training and inference",
+    "No 'intro to generative AI' sessions near the top",
+    "Containers sessions as entry-level"
+  ],
+  "answers": {
+    "topics": [
+      {
+        "key": "domain:ai",
+        "level": "advanced"
+      },
+      {
+        "key": "domain:compute",
+        "level": "intermediate"
+      },
+      {
+        "key": "domain:analytics",
+        "level": "intermediate"
+      },
+      {
+        "key": "domain:containers",
+        "level": "basic"
+      }
+    ],
+    "ignore": [
+      "microsoft",
+      "sap",
+      "vmware",
+      "mainframe",
+      "oracle"
+    ],
+    "ai": {
+      "llm": 2,
+      "ml": 2,
+      "rag": 2,
+      "agents": 2,
+      "mcp": 2,
+      "training": 2,
+      "eval": 2,
+      "infra": 2,
+      "bedrock": 2
+    },
+    "formats": [
+      "workshop",
+      "builders",
+      "code",
+      "chalk"
+    ]
+  }
+}
