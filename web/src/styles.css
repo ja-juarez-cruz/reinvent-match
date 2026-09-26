@@ -1376,3 +1376,151 @@ main {
   align-items: center;
   gap: 0.4rem;
 }
+
+/* Shortlist: the week by hour */
+
+.agenda-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.agenda {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.agenda th,
+.agenda td {
+  border-bottom: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+  padding: 0.35rem;
+  vertical-align: top;
+  text-align: left;
+}
+
+.agenda thead th {
+  position: sticky;
+  top: 0;
+  background: var(--surface-2);
+  font-size: 0.9rem;
+}
+
+.agenda .agenda-hour {
+  width: 3.2rem;
+  border-left: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.agenda td {
+  height: 2.4rem;
+}
+
+.agenda-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  border-left: 4px solid var(--cat);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--cat) 10%, var(--surface));
+  padding: 0.35rem 0.4rem;
+  margin-bottom: 0.3rem;
+}
+
+.agenda-pick.clash {
+  outline: 2px solid var(--warn);
+}
+
+.agenda-pick-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+
+.agenda-title,
+.agenda-alt-title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.agenda-title {
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  font-size: 0.88rem;
+  line-height: 1.25;
+}
+
+.agenda-alts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  border-top: 1px dashed var(--border);
+  padding-top: 0.3rem;
+}
+
+.agenda-alt {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.2rem 0.35rem;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+
+.agenda-alt:hover,
+.agenda-pick-main:hover .agenda-title {
+  color: var(--accent);
+}
+
+.agenda-alt-title {
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+}
+
+.agenda-cont {
+  border-left: 4px solid var(--cat);
+  padding-left: 0.4rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-bottom: 0.3rem;
+}
+
+.agenda-lunch {
+  border-radius: 6px;
+  background: var(--surface-2);
+  padding: 0.2rem 0.4rem;
+  margin-bottom: 0.3rem;
+}
+
+.agenda-list {
+  margin: 0;
+  padding-left: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.swipe-solo {
+  max-width: 820px;
+  margin: 0 auto;
+}
+
+main.wide {
+  max-width: 1480px;
+}

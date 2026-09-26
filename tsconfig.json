@@ -18,6 +18,7 @@
   "exclude": [
     "test/learningPlan.test.ts",
     "test/week.test.ts",
-    "test/queue.test.ts"
+    "test/queue.test.ts",
+    "test/agenda.test.ts"
   ]
 }

@@ -1,12 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ApiError } from "../api";
 import { navigate } from "../App";
-import { LearningPlanPanel } from "../components/LearningPlanPanel";
 import { SessionCode } from "../components/SessionCode";
 import { SessionModal } from "../components/SessionModal";
 import { WeekStrip, explainDay } from "../components/WeekStrip";
 import { formatDay, formatTimeRange, venueOf } from "../format";
-import { buildLearningPlan } from "../learningPlan";
 import { CARD_REASONS, type AwsEvent, type Decision, type Intent, type PlanItem } from "../types";
 import { usePlan } from "../usePlan";
 import { ALTERNATIVES_PER_PICK, buildQueue } from "../queue";
@@ -48,7 +46,6 @@ export function SwipePage({ event, eventId, answersId }: Props) {
   }, [data]);
 
   const onDay = (r: PlanItem) => !dayFilter || r.session.schedule.date === dayFilter;
-  const plan = useMemo(() => (data ? buildLearningPlan(data.results, data.swipes, data.context) : null), [data]);
   const week = useMemo(() => (data ? buildWeek(data.results, data.swipes) : []), [data]);
   // Sessions that fit around your picks come first so the calendar fills fast; clashing ones wait until nothing else
   // fits, and then come as alternatives to your picks.
@@ -144,7 +141,7 @@ export function SwipePage({ event, eventId, answersId }: Props) {
       </section>
     );
   }
-  if (!data || !plan) return <section className="page muted">Building your pre-list for {event?.name ?? "the event"}…</section>;
+  if (!data) return <section className="page muted">Building your pre-list for {event?.name ?? "the event"}…</section>;
 
   const s = current?.session;
   const meta = INTENT_META[tab];
@@ -170,7 +167,7 @@ export function SwipePage({ event, eventId, answersId }: Props) {
   }
 
   return (
-    <section className="page swipe-layout">
+    <section className="page swipe-solo">
       <div className="swipe-main">
         <WeekStrip week={week} currentDate={s?.schedule.date ?? null} selectedDate={dayFilter} onSelect={chooseDay} />
         {fullDay && (
@@ -374,7 +371,6 @@ export function SwipePage({ event, eventId, answersId }: Props) {
                 : ""}
         </p>
       </div>
-      <LearningPlanPanel plan={plan} compact />
       {openClash && current && (
         <SessionModal
           item={openClash}

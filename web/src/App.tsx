@@ -97,7 +97,7 @@ export function App() {
 
       {justSignedIn && <div className="toast">✅ Signed in with your AWS Builder ID.</div>}
 
-      <main>
+      <main className={route === "shortlist" ? "wide" : undefined}>
         {route === "home" && (
           <HomePage
             session={session}

@@ -28,7 +28,7 @@ export function travelMinutes(a: string | null, b: string | null): number {
   return TRAVEL[a]?.[b] ?? TRAVEL[b]?.[a] ?? UNKNOWN_VENUE_MINUTES;
 }
 
-interface Block {
+export interface Block {
   start: number;
   end: number;
   venue: string | null;
@@ -36,7 +36,7 @@ interface Block {
   lunch?: boolean;
 }
 
-function blockOf(item: PlanItem): Block | null {
+export function blockOf(item: PlanItem): Block | null {
   const start = minutesOf(item.session.schedule.startTime);
   if (start === null || !item.session.schedule.date) return null;
   const venue = venueOf(item.session);

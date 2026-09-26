@@ -2,12 +2,15 @@ import { useEffect, useMemo, useState } from "react";
 import { ApiError, api } from "../api";
 import { navigate } from "../App";
 import { LearningPlanPanel } from "../components/LearningPlanPanel";
-import { SessionCode } from "../components/SessionCode";
-import { formatDay, formatTimeRange, overlaps, sessionInterval, venueOf } from "../format";
+import { AgendaGrid, AgendaList } from "../components/AgendaGrid";
+import { SessionModal } from "../components/SessionModal";
+import { buildAgenda } from "../agenda";
+import { formatTimeRange } from "../format";
 import { buildLearningPlan } from "../learningPlan";
 import type { AwsEvent, Decision, FavoritesSyncResult, PlanItem, Schedule, SessionInfo } from "../types";
+import { ALTERNATIVES_PER_PICK } from "../queue";
 import { usePlan } from "../usePlan";
-import { INTENT_META } from "./SwipePage";
+import { buildWeek } from "../week";
 
 interface Props {
   event: AwsEvent | null;
@@ -31,27 +34,15 @@ export function ShortlistPage({ event, eventId, answersId, session, onSignIn }: 
 
   const picked = useMemo(() => {
     if (!data) return [];
-    return data.results
-      .filter((r) => {
-        const d = data.swipes[r.session.id]?.decision;
-        return d === "like" || d === "save";
-      })
-      .sort((a, b) => {
-        const x = sessionInterval(a.session);
-        const y = sessionInterval(b.session);
-        if (!x || !y) return x ? -1 : y ? 1 : 0;
-        return x.day.localeCompare(y.day) || x.start - y.start;
-      });
+    return data.results.filter((r) => {
+      const d = data.swipes[r.session.id]?.decision;
+      return d === "like" || d === "save";
+    });
   }, [data]);
-
-  const days = useMemo(() => {
-    const groups = new Map<string, PlanItem[]>();
-    for (const r of picked) {
-      const day = r.session.schedule.date ?? "";
-      groups.set(day, [...(groups.get(day) ?? []), r]);
-    }
-    return [...groups];
-  }, [picked]);
+  const week = useMemo(() => (data ? buildWeek(data.results, data.swipes) : []), [data]);
+  const agenda = useMemo(() => (data ? buildAgenda(data.results, data.swipes, week) : null), [data, week]);
+  /** A session opened from the agenda: a pick to keep or drop, or an alternative to swap in for `pick`. */
+  const [open, setOpen] = useState<{ item: PlanItem; pick?: PlanItem } | null>(null);
 
   const liked = picked.filter((r) => data?.swipes[r.session.id]?.decision === "like");
   const favorites = new Set(sync?.favorites ?? schedule?.favorites ?? []);
@@ -71,13 +62,17 @@ export function ShortlistPage({ event, eventId, answersId, session, onSignIn }: 
   }
 
   const plan = useMemo(() => (data ? buildLearningPlan(data.results, data.swipes, data.context) : null), [data]);
-  const [highlighted, setHighlighted] = useState<string | null>(null);
 
-  /** Scroll to a session in the list and flash it, so its ❤️ / 🔖 / ❌ controls are at hand. */
-  function focusSession(id: string) {
-    document.getElementById(`slot-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
-    setHighlighted(id);
-    window.setTimeout(() => setHighlighted((h) => (h === id ? null : h)), 2000);
+  async function choose(id: string, decision: Decision) {
+    setOpen(null);
+    await decide(id, decision);
+  }
+
+  /** ❤️ the alternative instead of the pick; the pick stays as a 🔖 backup. */
+  async function swap(alternative: PlanItem, pick: PlanItem) {
+    setOpen(null);
+    await decide(pick.session.id, "save");
+    await decide(alternative.session.id, "like");
   }
 
   if (!answersId || (error instanceof ApiError && error.code === "answers-missing")) {
@@ -93,129 +88,125 @@ export function ShortlistPage({ event, eventId, answersId, session, onSignIn }: 
     );
   }
   if (error) return <section className="page error">{error.message}</section>;
-  if (!data || !plan) return <section className="page muted">Loading your shortlist…</section>;
+  if (!data || !plan || !agenda) return <section className="page muted">Loading your shortlist…</section>;
 
   return (
-    <section className="page">
-      <h1>Your shortlist</h1>
-      <p className="lead">
-        {liked.length} interested · {picked.length - liked.length} maybe. Overlapping sessions are flagged so you can
-        decide before reserving; the agenda builder comes next.
-      </p>
+    <section className="page swipe-layout">
+      <div className="swipe-main">
+        <h1>Your shortlist</h1>
+        <p className="lead">
+          {liked.length} interested · {picked.length - liked.length} maybe. Your week by hour: the session to attend in
+          each slot, with up to {ALTERNATIVES_PER_PICK} alternatives (your 🔖 maybes first). Click a session to swap or
+          drop it.
+        </p>
 
-      <LearningPlanPanel plan={plan} />
-
-      {event?.authenticationRequired && (
-        <div className="panel sync-panel">
-          <div>
-            <h3>Send ❤️ to your official re:Invent favorites</h3>
-            <p className="muted small">
-              Favorites show up in the re:Invent portal and app, ready for when reserved seating opens. Sessions you
-              downgrade here to 🔖 maybe or ❌ are removed from favorites if they were there; favorites you made only in
-              the portal are left alone.
-            </p>
+        {event?.authenticationRequired && (
+          <div className="panel sync-panel">
+            <div>
+              <h3>Send ❤️ to your official re:Invent favorites</h3>
+              <p className="muted small">
+                Favorites show up in the re:Invent portal and app, ready for when reserved seating opens. Sessions you
+                downgrade here to 🔖 maybe or ❌ are removed from favorites if they were there; favorites you made only
+                in the portal are left alone.
+              </p>
+            </div>
+            {canSync ? (
+              <button
+                className="primary"
+                disabled={syncing || (liked.length === 0 && (schedule?.favorites.length ?? 0) === 0)}
+                onClick={runSync}
+              >
+                {syncing ? "Syncing…" : `Sync ${liked.length} to favorites`}
+              </button>
+            ) : (
+              <button className="primary" onClick={onSignIn}>
+                Sign in to sync
+              </button>
+            )}
+            {sync && (
+              <p className="small">
+                ✅ Added {sync.added.length}, removed {sync.removed.length}. The portal now shows{" "}
+                {sync.favorites.length} favorites.
+                {sync.failed.length > 0 && (
+                  <span className="error">
+                    {" "}
+                    {sync.failed.length} refused: {sync.failed.map((f) => `${f.sessionId} (${f.code})`).join(", ")}
+                  </span>
+                )}
+              </p>
+            )}
+            {syncError && <p className="error">{syncError}</p>}
           </div>
-          {canSync ? (
-            <button
-              className="primary"
-              disabled={syncing || (liked.length === 0 && (schedule?.favorites.length ?? 0) === 0)}
-              onClick={runSync}
-            >
-              {syncing ? "Syncing…" : `Sync ${liked.length} to favorites`}
-            </button>
-          ) : (
-            <button className="primary" onClick={onSignIn}>
-              Sign in to sync
-            </button>
-          )}
-          {sync && (
-            <p className="small">
-              ✅ Added {sync.added.length}, removed {sync.removed.length}. The portal now shows{" "}
-              {sync.favorites.length} favorites.
-              {sync.failed.length > 0 && (
-                <span className="error">
-                  {" "}
-                  {sync.failed.length} refused: {sync.failed.map((f) => `${f.sessionId} (${f.code})`).join(", ")}
-                </span>
-              )}
-            </p>
-          )}
-          {syncError && <p className="error">{syncError}</p>}
-        </div>
-      )}
+        )}
 
-      {picked.length === 0 ? (
-        <div className="panel">
-          <p>Nothing here yet. Swipe right (❤️) on sessions you want.</p>
-          <button className="primary" onClick={() => navigate("swipe")}>
-            Start swiping →
+        {picked.length === 0 ? (
+          <div className="panel">
+            <p>Nothing here yet. Swipe right (❤️) on sessions you want.</p>
+            <button className="primary" onClick={() => navigate("swipe")}>
+              Start swiping →
+            </button>
+          </div>
+        ) : (
+          <>
+            <AgendaGrid
+              agenda={agenda}
+              swipes={data.swipes}
+              favorites={favorites}
+              onOpen={(item, pick) => setOpen({ item, pick })}
+            />
+            {agenda.freeMaybes.length > 0 && (
+              <div className="panel">
+                <h3>🔖 Maybes that fit your free time</h3>
+                <AgendaList items={agenda.freeMaybes} onOpen={(item) => setOpen({ item })} />
+              </div>
+            )}
+            {agenda.unscheduled.length > 0 && (
+              <div className="panel">
+                <h3>No time yet</h3>
+                <p className="muted small">
+                  The catalog has not scheduled these yet; they will land in your week once it does.
+                </p>
+                <AgendaList items={agenda.unscheduled} swipes={data.swipes} onOpen={(item) => setOpen({ item })} />
+              </div>
+            )}
+          </>
+        )}
+      </div>
+      <LearningPlanPanel plan={plan} compact />
+      {open && (
+        <SessionModal
+          item={open.item}
+          heading={
+            open.pick
+              ? `Alternative to ${open.pick.session.code} (${formatTimeRange(open.pick.session)})`
+              : data.swipes[open.item.session.id]?.decision === "like"
+                ? "❤️ In your agenda"
+                : "🔖 Maybe"
+          }
+          onClose={() => setOpen(null)}
+        >
+          {open.pick && (
+            <button className="primary" onClick={() => swap(open.item, open.pick!)}>
+              Swap: ❤️ {open.item.session.code} instead of {open.pick.session.code}
+            </button>
+          )}
+          {data.swipes[open.item.session.id]?.decision !== "like" && !open.pick && (
+            <button className="primary" onClick={() => choose(open.item.session.id, "like")}>
+              ❤️ Add to my agenda
+            </button>
+          )}
+          {data.swipes[open.item.session.id]?.decision !== "save" && (
+            <button className="ghost" onClick={() => choose(open.item.session.id, "save")}>
+              🔖 {data.swipes[open.item.session.id]?.decision === "like" ? "Move to maybe" : "Keep as maybe"}
+            </button>
+          )}
+          <button className="ghost" onClick={() => choose(open.item.session.id, "pass")}>
+            ❌ Not for me
           </button>
-        </div>
-      ) : (
-        days.map(([day, items]) => (
-          <div key={day} className="day">
-            <h3>{formatDay(day || null)}</h3>
-            {items.map((r) => {
-              const s = r.session;
-              const decision = data.swipes[s.id]?.decision as Decision;
-              const clashes = items.filter((o) => o !== r && overlaps(o.session, s));
-              return (
-                <div
-                  key={s.id}
-                  id={`slot-${s.id}`}
-                  className={`slot ${clashes.length ? "clash" : ""} ${highlighted === s.id ? "highlight" : ""}`}
-                >
-                  <div className="slot-time">{formatTimeRange(s)}</div>
-                  <div className="slot-body">
-                    <div>
-                      <span className={`badge small intent-${r.intent}`} title={INTENT_META[r.intent].label}>
-                        {INTENT_META[r.intent].icon}
-                      </span>{" "}
-                      <strong>{s.title}</strong>
-                      {r.reservable && (
-                        <span className="pill small" title="Needs a reserved seat">
-                          🎟 reserve
-                        </span>
-                      )}
-                      {favorites.has(s.id) && <span className="pill pill-ok small">★ favorite</span>}
-                    </div>
-                    <div className="muted small">
-                      {s.code} · {s.formatLabel} · {s.levelLabel} · {venueOf(s)} · {r.score}%
-                    </div>
-                    {clashes.length > 0 && (
-                      <div className="small warn">
-                        ⚠️ Overlaps{" "}
-                        {clashes.map((c, i) => (
-                          <span key={c.session.id}>
-                            {i > 0 && ", "}
-                            <SessionCode session={c.session} onOpen={() => focusSession(c.session.id)} />
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <div className="slot-actions">
-                    <button
-                      className={`chip small ${decision === "like" ? "on" : ""}`}
-                      onClick={() => decide(s.id, "like")}
-                    >
-                      ❤️
-                    </button>
-                    <button
-                      className={`chip small ${decision === "save" ? "on" : ""}`}
-                      onClick={() => decide(s.id, "save")}
-                    >
-                      🔖
-                    </button>
-                    <button className="chip small" onClick={() => decide(s.id, "pass")} title="Remove">
-                      ❌
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ))
+          <button className="link" onClick={() => setOpen(null)}>
+            Close
+          </button>
+        </SessionModal>
       )}
     </section>
   );
