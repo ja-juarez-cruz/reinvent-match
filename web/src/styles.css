@@ -1366,3 +1366,13 @@ main {
   align-items: flex-start;
   gap: 0.5rem;
 }
+
+.maybe-fits {
+  margin-top: 0.75rem;
+}
+
+.maybe-fit {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}

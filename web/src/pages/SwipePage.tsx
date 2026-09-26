@@ -65,6 +65,18 @@ export function SwipePage({ event, eventId, answersId }: Props) {
   const current = queue[0];
   /** Other tabs that still have sessions fitting your calendar. */
   const tabsWithFit = TABS.filter((i) => i !== tab && (queues.get(i)?.fit ?? 0) > 0);
+  /** Sessions you marked 🔖 maybe that still fit: the week strip counts them among the ones left. */
+  const maybeFits = useMemo(
+    () =>
+      (data?.results ?? []).filter((r) => {
+        if (data?.swipes[r.session.id]?.decision !== "save") return false;
+        if (dayFilter && r.session.schedule.date !== dayFilter) return false;
+        if (!r.session.schedule.date || !r.session.schedule.startTime) return false;
+        const impact = impactOf(r, week);
+        return impact.clashes.length === 0 && !impact.full && !impact.breaksLunch;
+      }),
+    [data, week, dayFilter],
+  );
 
   useEffect(() => {
     const pending = pendingFullCheck.current;
@@ -219,7 +231,7 @@ export function SwipePage({ event, eventId, answersId }: Props) {
           <div className="panel notice" role="status">
             {tabQueue.stage === "alternatives" ? (
               <p>
-                🔁 <strong>Nothing else in {meta.label} fits your calendar{dayFilter ? ` on ${formatDay(dayFilter)}` : ""}.</strong>{" "}
+                🔁 <strong>No new sessions in {meta.label} fit your calendar{dayFilter ? ` on ${formatDay(dayFilter)}` : ""}.</strong>{" "}
                 Now come alternatives to your picks, up to {ALTERNATIVES_LABEL} each: swap one in, keep both, or keep yours and
                 pass.
               </p>
@@ -241,6 +253,23 @@ export function SwipePage({ event, eventId, answersId }: Props) {
                 </button>
               )}
             </div>
+            {maybeFits.length > 0 && (
+              <div className="maybe-fits">
+                <p className="muted small">
+                  🔖 Still fit from your Maybe list (the week counts them as left):
+                </p>
+                <div className="row">
+                  {maybeFits.map((r) => (
+                    <span key={r.session.id} className="maybe-fit">
+                      <SessionCode session={r.session} /> {formatDay(r.session.schedule.date)} {r.session.schedule.startTime}
+                      <button className="ghost small" onClick={() => void decide(r.session.id, "like")}>
+                        ❤️ Interested
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
         {!current || !s ? (
