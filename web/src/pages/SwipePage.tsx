@@ -5,6 +5,7 @@ import { SessionCode } from "../components/SessionCode";
 import { SessionModal } from "../components/SessionModal";
 import { WeekStrip, explainDay } from "../components/WeekStrip";
 import { formatDay, formatWhen, venueOf } from "../format";
+import { INTENTS, INTENT_META } from "../intents";
 import { CARD_REASONS, type AwsEvent, type Decision, type Intent, type PlanItem, type SwipeLog } from "../types";
 import { usePlan } from "../usePlan";
 import { ALTERNATIVES_PER_PICK, buildQueue } from "../queue";
@@ -17,13 +18,7 @@ interface Props {
   answersId: string | null;
 }
 
-export const INTENT_META: Record<Intent, { label: string; icon: string; hint: string }> = {
-  reinforce: { label: "Reinforce", icon: "💪", hint: "Go deeper on what you already know, at your level or above." },
-  broaden: { label: "Broaden", icon: "🧭", hint: "Take what you know into neighboring topics." },
-  learn: { label: "Learn", icon: "🌱", hint: "New topics, at an entry level that fits your experience." },
-};
-
-const TABS: Intent[] = ["reinforce", "broaden", "learn"];
+const TABS = INTENTS;
 const ALTERNATIVES_LABEL = ["none", "one", "two", "three"][ALTERNATIVES_PER_PICK] ?? String(ALTERNATIVES_PER_PICK);
 const REASON_ICON = { pro: "✅", con: "⚠️", info: "ℹ️" } as const;
 

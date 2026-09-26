@@ -1,5 +1,6 @@
 import type { Agenda, AgendaPick } from "../agenda";
 import { clock, formatDay, formatTimeRange, venueOf } from "../format";
+import { INTENTS, INTENT_META } from "../intents";
 import type { PlanItem, SwipeLog } from "../types";
 
 type OnOpen = (item: PlanItem, pick?: PlanItem) => void;
@@ -17,58 +18,70 @@ export function AgendaGrid({
   onOpen: OnOpen;
 }) {
   return (
-    <div className="agenda-scroll">
-      <table className="agenda">
-        <thead>
-          <tr>
-            <th className="agenda-hour" />
-            {agenda.days.map((d) => (
-              <th key={d.date}>
-                {formatDay(d.date)}
-                <span className="muted small"> · {d.picks.length} ❤️</span>
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {agenda.hours.map((hour) => (
-            <tr key={hour}>
-              <th className="agenda-hour muted small">{clock(hour * 60)}</th>
-              {agenda.days.map((d) => {
-                const from = hour * 60;
-                const to = from + 60;
-                const starting = d.picks.filter((p) => p.start >= from && p.start < to);
-                const continuing = d.picks.filter((p) => p.start < from && p.end > from);
-                const lunch = d.lunchSlot && d.lunchSlot.start >= from && d.lunchSlot.start < to ? d.lunchSlot : null;
-                return (
-                  <td key={d.date}>
-                    {continuing.map((p) => (
-                      <div key={p.item.session.id} className={`agenda-cont intent-${p.item.intent}`}>
-                        ↳ {p.item.session.code} until {clock(p.end)}
-                      </div>
-                    ))}
-                    {lunch && (
-                      <div className="agenda-lunch small">
-                        🍽 Lunch {clock(lunch.start)}–{clock(lunch.end)}
-                      </div>
-                    )}
-                    {starting.map((p) => (
-                      <PickCard
-                        key={p.item.session.id}
-                        pick={p}
-                        swipes={swipes}
-                        favorite={favorites.has(p.item.session.id)}
-                        onOpen={onOpen}
-                      />
-                    ))}
-                  </td>
-                );
-              })}
+    <>
+      <div className="agenda-legend small muted">
+        {INTENTS.map((i) => (
+          <span key={i} className={`legend-item intent-${i}`} title={INTENT_META[i].hint}>
+            <span className="legend-swatch" /> {INTENT_META[i].icon} {INTENT_META[i].label}
+          </span>
+        ))}
+        <span className="legend-item" title="Clashes with another pick, or the same session picked twice">
+          <span className="legend-swatch warn-swatch" /> Needs a decision
+        </span>
+      </div>
+      <div className="agenda-scroll">
+        <table className="agenda">
+          <thead>
+            <tr>
+              <th className="agenda-hour" />
+              {agenda.days.map((d) => (
+                <th key={d.date}>
+                  {formatDay(d.date)}
+                  <span className="muted small"> · {d.picks.length} ❤️</span>
+                </th>
+              ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {agenda.hours.map((hour) => (
+              <tr key={hour}>
+                <th className="agenda-hour muted small">{clock(hour * 60)}</th>
+                {agenda.days.map((d) => {
+                  const from = hour * 60;
+                  const to = from + 60;
+                  const starting = d.picks.filter((p) => p.start >= from && p.start < to);
+                  const continuing = d.picks.filter((p) => p.start < from && p.end > from);
+                  const lunch = d.lunchSlot && d.lunchSlot.start >= from && d.lunchSlot.start < to ? d.lunchSlot : null;
+                  return (
+                    <td key={d.date}>
+                      {continuing.map((p) => (
+                        <div key={p.item.session.id} className={`agenda-cont intent-${p.item.intent}`}>
+                          ↳ {p.item.session.code} until {clock(p.end)}
+                        </div>
+                      ))}
+                      {lunch && (
+                        <div className="agenda-lunch small">
+                          🍽 Lunch {clock(lunch.start)}–{clock(lunch.end)}
+                        </div>
+                      )}
+                      {starting.map((p) => (
+                        <PickCard
+                          key={p.item.session.id}
+                          pick={p}
+                          swipes={swipes}
+                          favorite={favorites.has(p.item.session.id)}
+                          onOpen={onOpen}
+                        />
+                      ))}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }
 
@@ -94,7 +107,8 @@ function PickCard({
         </span>
         <strong className="agenda-title">{s.title}</strong>
         <span className="muted small">
-          {s.code} · {pick.item.score}%{pick.item.reservable ? " · 🎟" : ""}
+          <span title={INTENT_META[pick.item.intent].label}>{INTENT_META[pick.item.intent].icon}</span> {s.code} ·{" "}
+          {pick.item.score}%{pick.item.reservable ? " · 🎟" : ""}
           {favorite ? " · ★" : ""}
         </span>
       </button>

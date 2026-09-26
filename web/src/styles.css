@@ -10,7 +10,7 @@
   --ok: #1a7f4b;
   --warn: #b25e00;
   --danger: #c0392b;
-  --reinforce: #e4572e;
+  --reinforce: #a33ac4;
   --broaden: #0e9f8a;
   --learn: #2f80ed;
   --shadow: 0 1px 2px rgb(16 24 40 / 6%), 0 8px 24px rgb(16 24 40 / 8%);
@@ -31,7 +31,7 @@
     --ok: #4cc38a;
     --warn: #f0a44b;
     --danger: #ff7b6b;
-    --reinforce: #ff8a65;
+    --reinforce: #d08bff;
     --broaden: #3fd2bb;
     --learn: #6aa8ff;
     --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px rgb(0 0 0 / 30%);
@@ -1690,4 +1690,30 @@ main.wide {
 
 a.icon-button {
   text-decoration: none;
+}
+
+.agenda-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: help;
+}
+
+.legend-swatch {
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 3px;
+  background: var(--cat);
+}
+
+.legend-swatch.warn-swatch {
+  background: none;
+  outline: 2px solid var(--warn);
+  outline-offset: -2px;
 }
