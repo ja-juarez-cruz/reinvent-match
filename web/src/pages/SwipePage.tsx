@@ -8,6 +8,7 @@ import { formatDay, formatWhen, venueOf } from "../format";
 import { CARD_REASONS, type AwsEvent, type Decision, type Intent, type PlanItem } from "../types";
 import { usePlan } from "../usePlan";
 import { ALTERNATIVES_PER_PICK, buildQueue } from "../queue";
+import { baseCode, repeatsOf, settledSessions } from "../repeats";
 import { buildWeek, impactOf, nextDay } from "../week";
 
 interface Props {
@@ -49,14 +50,16 @@ export function SwipePage({ event, eventId, answersId }: Props) {
   const week = useMemo(() => (data ? buildWeek(data.results, data.swipes) : []), [data]);
   // Sessions that fit around your picks come first so the calendar fills fast; clashing ones wait until nothing else
   // fits, and then come as alternatives to your picks.
+  const repeats = useMemo(() => repeatsOf(data?.results ?? []), [data]);
+  const settled = useMemo(() => settledSessions(data?.results ?? [], data?.swipes ?? {}), [data]);
   const queues = useMemo(() => {
     const byTab = new Map<Intent, ReturnType<typeof buildQueue>>();
     for (const i of TABS) {
       const items = (byIntent.get(i) ?? []).filter((r) => !dayFilter || r.session.schedule.date === dayFilter);
-      byTab.set(i, buildQueue(items, data?.swipes ?? {}, week, showRest));
+      byTab.set(i, buildQueue(items, data?.swipes ?? {}, week, showRest, settled));
     }
     return byTab;
-  }, [byIntent, data, week, dayFilter, showRest]);
+  }, [byIntent, data, week, dayFilter, showRest, settled]);
   const tabQueue = queues.get(tab)!;
   const queue = tabQueue.queue;
   const current = queue[0];
@@ -207,7 +210,9 @@ export function SwipePage({ event, eventId, answersId }: Props) {
         <div className="swipe-head">
           <div className="tabs">
             {TABS.map((i) => {
-              const left = (byIntent.get(i) ?? []).filter((r) => !data.swipes[r.session.id] && onDay(r)).length;
+              const left = (byIntent.get(i) ?? []).filter(
+                (r) => !data.swipes[r.session.id] && onDay(r) && !settled.has(baseCode(r.session.code)),
+              ).length;
               return (
                 <button key={i} className={`tab ${tab === i ? "active" : ""}`} onClick={() => setTab(i)} title={INTENT_META[i].hint}>
                   {INTENT_META[i].icon} {INTENT_META[i].label}
@@ -317,6 +322,18 @@ export function SwipePage({ event, eventId, answersId }: Props) {
               </span>
               <span>{venueOf(s)}</span>
             </div>
+            {(repeats.get(s.id) ?? []).length > 0 && (
+              <div className="small muted repeats" title="The same session is offered more than once: pick the time that suits you">
+                🔁 Also offered{" "}
+                {(repeats.get(s.id) ?? []).map((r, i) => (
+                  <span key={r.session.id}>
+                    {i > 0 && ", "}
+                    {formatWhen(r.session)} · {venueOf(r.session)}
+                    {data.swipes[r.session.id]?.decision === "save" ? " (🔖 maybe)" : ""}
+                  </span>
+                ))}
+              </div>
+            )}
             {impact && (impact.clashes.length > 0 || impact.full || impact.breaksLunch) && (
               <div className="impact">
                 {impact.clashes.map(({ item, reason }) => (

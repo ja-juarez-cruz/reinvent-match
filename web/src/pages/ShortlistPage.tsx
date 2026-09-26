@@ -9,6 +9,7 @@ import { formatTimeRange } from "../format";
 import { buildLearningPlan } from "../learningPlan";
 import type { AwsEvent, Decision, FavoritesSyncResult, PlanItem, Schedule, SessionInfo } from "../types";
 import { usePlan } from "../usePlan";
+import { distinctSessions } from "../repeats";
 import { buildWeek } from "../week";
 
 interface Props {
@@ -96,7 +97,7 @@ export function ShortlistPage({ event, eventId, answersId, session, onSignIn }: 
           <div>
             <h1>❤️ My Match</h1>
             <p className="muted">
-              {liked.length} ❤️ · {picked.length - liked.length} 🔖 · click a session to swap or drop it
+              {distinctSessions(liked).length} ❤️ · {picked.length - liked.length} 🔖 · click a session to swap or drop it
             </p>
           </div>
           {event?.authenticationRequired &&

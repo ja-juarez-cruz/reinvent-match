@@ -1,4 +1,5 @@
 import { overlaps } from "./format";
+import { distinctSessions } from "./repeats";
 import type { Intent, PlanContext, PlanItem, SwipeLog } from "./types";
 
 export interface PlanEntry {
@@ -36,7 +37,8 @@ function idOf(key: string): string {
  * - broaden: new topics/technologies next to what they know
  */
 export function buildLearningPlan(items: PlanItem[], swipes: SwipeLog, context: PlanContext): LearningPlan {
-  const picked = items.filter((i) => swipes[i.session.id]?.decision === "like");
+  // A session picked at two of its times is still one session.
+  const picked = distinctSessions(items.filter((i) => swipes[i.session.id]?.decision === "like"));
   const known = new Set(context.known);
   const learn = new Set(context.learn);
   const knownTopics = new Set(context.known.filter((k) => kindOf(k) === "domain").map(idOf));

@@ -1,3 +1,4 @@
+import { baseCode } from "./repeats";
 import type { PlanItem, SwipeLog } from "./types";
 import { impactOf, type WeekDay } from "./week";
 
@@ -23,7 +24,14 @@ export interface SwipeQueue {
  * Orders the sessions left to review in a tab. `items` come in plan order (reserved seating first, then score) and
  * keep that order within each stage. Alternatives already reviewed (passed or maybe) use up a pick's slots.
  */
-export function buildQueue(items: PlanItem[], swipes: SwipeLog, week: WeekDay[], showRest = false): SwipeQueue {
+export function buildQueue(
+  items: PlanItem[],
+  swipes: SwipeLog,
+  week: WeekDay[],
+  showRest = false,
+  /** Sessions already ❤️ or ❌ at another time (see ./repeats.ts): their other times get no card. */
+  settled: Set<string> = new Set(),
+): SwipeQueue {
   const fit: PlanItem[] = [];
   /** Fit trivially but take no place in the calendar yet: after the ones that fill it. */
   const unscheduled: PlanItem[] = [];
@@ -34,6 +42,7 @@ export function buildQueue(items: PlanItem[], swipes: SwipeLog, week: WeekDay[],
   for (const item of items) {
     const decision = swipes[item.session.id]?.decision;
     if (decision === "like") continue;
+    if (!decision && settled.has(baseCode(item.session.code))) continue;
     const impact = impactOf(item, week);
     if (!decision && impact.clashes.length === 0 && !impact.full && !impact.breaksLunch) {
       (item.session.schedule.date && item.session.schedule.startTime ? fit : unscheduled).push(item);

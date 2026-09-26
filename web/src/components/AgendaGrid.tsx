@@ -85,7 +85,9 @@ function PickCard({
 }) {
   const s = pick.item.session;
   return (
-    <div className={`agenda-pick intent-${pick.item.intent} ${pick.clashes.length > 0 ? "clash" : ""}`}>
+    <div
+      className={`agenda-pick intent-${pick.item.intent} ${pick.clashes.length + pick.repeats.length > 0 ? "clash" : ""}`}
+    >
       <button className="agenda-pick-main" onClick={() => onOpen(pick.item)} title={`${s.code}: ${s.title}`}>
         <span className="muted small">
           {formatTimeRange(s)} · {venueOf(s)}
@@ -96,6 +98,12 @@ function PickCard({
           {favorite ? " · ★" : ""}
         </span>
       </button>
+      {pick.repeats.map((r) => (
+        <div key={r.session.id} className="small warn">
+          🔁 Same session as {r.session.code} ({formatDay(r.session.schedule.date)} {r.session.schedule.startTime}):
+          keep one
+        </div>
+      ))}
       {pick.clashes.length > 0 && (
         <div className="small warn">⚠️ Clashes with {pick.clashes.map((c) => c.session.code).join(", ")}</div>
       )}

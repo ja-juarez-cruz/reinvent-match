@@ -1,4 +1,5 @@
 import { ALTERNATIVES_PER_PICK } from "./queue";
+import { baseCode } from "./repeats";
 import type { PlanItem, SwipeLog } from "./types";
 import { blockOf, compatible, type WeekDay } from "./week";
 
@@ -12,6 +13,8 @@ export interface AgendaPick {
   moreAlternatives: number;
   /** Other picks it overlaps or cannot be reached from in time. */
   clashes: PlanItem[];
+  /** The same session picked again at another time: keep one. */
+  repeats: PlanItem[];
 }
 
 export interface AgendaDay {
@@ -35,7 +38,12 @@ const DEFAULT_HOURS = { from: 8, to: 18 };
 /** Your week by hour: the session to attend in each slot, with the alternatives to it. */
 export function buildAgenda(items: PlanItem[], swipes: SwipeLog, week: WeekDay[]): Agenda {
   const decision = (item: PlanItem) => swipes[item.session.id]?.decision;
-  const candidates = items.filter((i) => decision(i) !== "like" && decision(i) !== "pass" && blockOf(i));
+  const liked = items.filter((i) => decision(i) === "like");
+  const likedBases = new Set(liked.map((i) => baseCode(i.session.code)));
+  // Another time of a session you already picked is no alternative.
+  const candidates = items.filter(
+    (i) => decision(i) !== "like" && decision(i) !== "pass" && blockOf(i) && !likedBases.has(baseCode(i.session.code)),
+  );
 
   const days = week.map((day) => {
     const dayCandidates = candidates.filter((c) => c.session.schedule.date === day.date);
@@ -60,6 +68,7 @@ export function buildAgenda(items: PlanItem[], swipes: SwipeLog, week: WeekDay[]
           alternatives: rivals.slice(0, ALTERNATIVES_PER_PICK),
           moreAlternatives: Math.max(0, rivals.length - ALTERNATIVES_PER_PICK),
           clashes,
+          repeats: liked.filter((o) => o !== item && baseCode(o.session.code) === baseCode(item.session.code)),
         },
       ];
     });
