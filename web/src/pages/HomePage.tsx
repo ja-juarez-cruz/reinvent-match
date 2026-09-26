@@ -4,6 +4,8 @@ import { navigate } from "../App";
 import type { AwsEvent, CatalogStatus, SessionInfo } from "../types";
 
 interface Props {
+  /** Preferences are saved: the next step is swiping, not About you. */
+  hasProfile: boolean;
   session: SessionInfo | null;
   events: AwsEvent[];
   eventId: string | null;
@@ -24,7 +26,7 @@ function ago(iso: string): string {
   return `${Math.round(minutes / (60 * 24))} days ago`;
 }
 
-export function HomePage({ session, events, eventId, onSelectEvent, onSignIn }: Props) {
+export function HomePage({ hasProfile, session, events, eventId, onSelectEvent, onSignIn }: Props) {
   const [statuses, setStatuses] = useState<Record<string, CatalogStatus>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<{ eventId: string; message: string } | null>(null);
@@ -137,7 +139,7 @@ export function HomePage({ session, events, eventId, onSelectEvent, onSignIn }: 
       </div>
 
       {event &&
-        (!canDownload(event) ? (
+        (!canDownload(event) && !status?.downloaded ? (
           <div className="panel row between">
             <p>🔒 Only registered attendees can see this catalog. Sign in with the Builder ID you registered with.</p>
             <button className="primary" onClick={onSignIn}>
@@ -146,9 +148,15 @@ export function HomePage({ session, events, eventId, onSelectEvent, onSignIn }: 
           </div>
         ) : status?.downloaded ? (
           <div className="row">
-            <button className="primary" onClick={() => navigate("profile")}>
-              Next: about you →
-            </button>
+            {hasProfile ? (
+              <button className="primary" onClick={() => navigate("swipe")}>
+                Start swiping →
+              </button>
+            ) : (
+              <button className="primary" onClick={() => navigate("profile")}>
+                Set up your preferences →
+              </button>
+            )}
             <button className="ghost" onClick={() => navigate("insights")}>
               📊 Explore the catalog
             </button>

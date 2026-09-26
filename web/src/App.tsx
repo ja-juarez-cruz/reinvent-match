@@ -23,9 +23,8 @@ export function navigate(route: Route): void {
 
 const STEPS: { route: Route; label: string }[] = [
   { route: "home", label: "1 · Event" },
-  { route: "profile", label: "2 · About you" },
-  { route: "swipe", label: "3 · Swipe" },
-  { route: "match", label: "4 · ❤️ My Match" },
+  { route: "swipe", label: "2 · Swipe" },
+  { route: "match", label: "3 · ❤️ My Match" },
 ];
 
 export function App() {
@@ -35,6 +34,27 @@ export function App() {
   const [eventId, setEventId] = useStored("rematch.event", "reinvent2026");
   const [answersId, setAnswersId] = useStored("rematch.answers", null);
   const [justSignedIn, setJustSignedIn] = useState(window.location.hash.includes("signed-in"));
+  /** Whether preferences (About you) are saved; null until known. They are asked once, right after the first sign-in. */
+  const [hasProfile, setHasProfile] = useState<boolean | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    api.answers().then(
+      (list) => {
+        const saved = list.find((a) => a.id === answersId) ?? list[0];
+        setHasProfile(!!saved);
+        if (saved && saved.id !== answersId) setAnswersId(saved.id);
+      },
+      () => setHasProfile(false),
+    );
+  }, [answersId, setAnswersId]);
+
+  // First sign-in, or no preferences yet: About you comes before anything else that needs them.
+  useEffect(() => {
+    if (hasProfile === false && (justSignedIn || route === "swipe" || route === "match")) navigate("profile");
+  }, [hasProfile, justSignedIn, route]);
+
+  useEffect(() => setMenuOpen(false), [route]);
 
   const refreshSession = useCallback(() => api.session().then(setSession), []);
 
@@ -85,16 +105,40 @@ export function App() {
         </nav>
         <div className="auth">
           {session?.signedIn ? (
+            <div className="user-menu">
+              <button
+                className={`ghost small ${route === "profile" ? "active" : ""}`}
+                onClick={() => setMenuOpen((o) => !o)}
+                aria-expanded={menuOpen}
+                aria-haspopup="menu"
+              >
+                👤 {session.email?.split("@")[0] ?? "Profile"} ▾
+              </button>
+              {menuOpen && (
+                <div className="menu panel" role="menu">
+                  <span className="muted small">{session.email}</span>
+                  {hasProfile && (
+                    <a href="#/profile" role="menuitem">
+                      ⚙️ Preferences
+                    </a>
+                  )}
+                  <button className="link" role="menuitem" onClick={signOut}>
+                    Sign out
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
             <>
-              <span className="muted small">{session.email ?? "Signed in"}</span>
-              <button className="ghost small" onClick={signOut}>
-                Sign out
+              {hasProfile && (
+                <a href="#/profile" className="icon-button" title="Preferences" aria-label="Preferences">
+                  ⚙️
+                </a>
+              )}
+              <button className="primary small" onClick={signIn}>
+                Sign in with Builder ID
               </button>
             </>
-          ) : (
-            <button className="primary small" onClick={signIn}>
-              Sign in with Builder ID
-            </button>
           )}
         </div>
       </header>
@@ -104,6 +148,7 @@ export function App() {
       <main className={route === "match" ? "wide" : undefined}>
         {route === "home" && (
           <HomePage
+            hasProfile={!!hasProfile}
             session={session}
             events={events}
             eventId={eventId}
@@ -112,7 +157,14 @@ export function App() {
           />
         )}
         {route === "insights" && <InsightsPage event={event} eventId={eventId} />}
-        {route === "profile" && <AboutYouPage eventId={eventId} answersId={answersId} onSaved={setAnswersId} />}
+        {route === "profile" && <AboutYouPage
+            eventId={eventId}
+            answersId={answersId}
+            onSaved={(id) => {
+              setAnswersId(id);
+              setHasProfile(true);
+            }}
+          />}
         {route === "swipe" && <SwipePage event={event} eventId={eventId} answersId={answersId} />}
         {route === "match" && (
           <ShortlistPage event={event} eventId={eventId} answersId={answersId} session={session} onSignIn={signIn} />

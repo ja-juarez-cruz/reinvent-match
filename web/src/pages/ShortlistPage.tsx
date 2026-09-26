@@ -80,7 +80,7 @@ export function ShortlistPage({ event, eventId, answersId, session, onSignIn }: 
         <div className="panel">
           <p>Tell Reinvent:Match about you first, then swipe to build your match.</p>
           <button className="primary" onClick={() => navigate("profile")}>
-            About you →
+            Set up your preferences →
           </button>
         </div>
       </section>

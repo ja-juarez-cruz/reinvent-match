@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { api } from "../api";
+import { ApiError, api } from "../api";
 import { navigate } from "../App";
 import type { Answers, OnboardingOptions, TopicLevel, Vocabulary, VocabularyEntry } from "../types";
 
@@ -32,6 +32,9 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
   /** The platforms step needs an explicit answer: new attendees start with nothing marked as used. */
   const [platformsAnswered, setPlatformsAnswered] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Preferences saved before: this page edits them instead of onboarding. */
+  const [editing, setEditing] = useState(false);
+  const [savedAt, setSavedAt] = useState<number | null>(null);
 
   useEffect(() => {
     api.onboarding().then((o) => {
@@ -43,12 +46,35 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
       if (saved) {
         setAnswers({ ...EMPTY, ...saved.answers, ai: saved.answers.ai ?? {}, ignore: saved.answers.ignore ?? [] });
         setPlatformsAnswered(true);
+        setEditing(true);
       }
     });
   }, [answersId]);
 
   useEffect(() => {
-    if (eventId) api.vocabulary(eventId).then(setVocab, (e: Error) => setError(e.message));
+    if (!eventId) return;
+    // The first time, the catalog may not be on this machine yet: fetch it, then read its topics.
+    api
+      .vocabulary(eventId)
+      .catch((e: unknown) => {
+        if (!(e instanceof ApiError && e.code === "catalog-missing")) throw e;
+        setError("Downloading the catalog…");
+        return api.refreshCatalog(eventId).then(() => api.vocabulary(eventId));
+      })
+      .then(
+        (v) => {
+          setError(null);
+          setVocab(v);
+        },
+        (e: unknown) =>
+          setError(
+            e instanceof ApiError && (e.code === "signin" || e.code === "not-registered")
+              ? "Sign in with your AWS Builder ID to load this event's topics."
+              : e instanceof Error
+                ? e.message
+                : String(e),
+          ),
+      );
   }, [eventId]);
 
   const labels = useMemo(() => {
@@ -79,6 +105,7 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
 
   const topicKeys = answers.topics.map((t) => t.key);
   const allLevelsSet = answers.topics.length > 0 && answers.topics.every((t) => t.level);
+  const complete = allLevelsSet && platformsAnswered && answers.formats.length > 0;
   const canContinue = [answers.topics.length > 0, allLevelsSet, platformsAnswered, true, answers.formats.length > 0][step];
   const setTopicKeys = (keys: string[]) =>
     setAnswers({ ...answers, topics: keys.map((key) => answers.topics.find((t) => t.key === key) ?? { key }) });
@@ -103,7 +130,9 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
       const id = answersId ?? "me";
       await api.saveAnswers(id, { ...answers, topics: answers.topics.map((t) => ({ key: t.key, level: t.level! })) });
       onSaved(id);
-      navigate("swipe");
+      if (editing) setSavedAt(Date.now());
+      else navigate("swipe");
+      setEditing(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -114,8 +143,12 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
   return (
     <section className="page">
       <div>
-        <h1>Tell us about you</h1>
-        <p className="lead">Five quick steps to build your pre-list.</p>
+        <h1>{editing ? "⚙️ Your preferences" : "👋 Welcome! Tell us about you"}</h1>
+        <p className="lead">
+          {editing
+            ? "Changes re-rank your swipes and My Match; your picks are kept."
+            : "Five quick steps, only once. You can change them anytime from ⚙️ Preferences."}
+        </p>
       </div>
 
       <ol className="wizard-steps">
@@ -317,7 +350,19 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
             ← Back
           </button>
         )}
-        {step < STEPS.length - 1 ? (
+        {savedAt && <span className="small">✓ Saved</span>}
+        {editing ? (
+          <>
+            {step < STEPS.length - 1 && (
+              <button className="ghost" disabled={!canContinue} onClick={() => setStep(step + 1)}>
+                Next →
+              </button>
+            )}
+            <button className="primary" disabled={!complete || saving} onClick={finish}>
+              {saving ? "Saving…" : "Save changes"}
+            </button>
+          </>
+        ) : step < STEPS.length - 1 ? (
           <button className="primary" disabled={!canContinue} onClick={() => setStep(step + 1)}>
             Next →
           </button>

@@ -123,7 +123,7 @@ export function SwipePage({ event, eventId, answersId }: Props) {
         <div className="panel">
           <p>Tell Reinvent:Match what you know first; it builds your pre-list from that.</p>
           <button className="primary" onClick={() => navigate("profile")}>
-            About you →
+            Set up your preferences →
           </button>
         </div>
       </section>
