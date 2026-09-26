@@ -118,6 +118,14 @@ function PickCard({
           keep one
         </div>
       ))}
+      {pick.otherTimes.length > 0 && (
+        <div className="small muted" title="The same session at other times">
+          🔁 Also{" "}
+          {pick.otherTimes
+            .map((o) => `${formatDay(o.session.schedule.date)} ${o.session.schedule.startTime}`)
+            .join(", ")}
+        </div>
+      )}
       {pick.clashes.length > 0 && (
         <div className="small warn">⚠️ Clashes with {pick.clashes.map((c) => c.session.code).join(", ")}</div>
       )}

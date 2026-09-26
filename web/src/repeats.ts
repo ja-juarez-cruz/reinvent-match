@@ -60,23 +60,41 @@ export function repeatsOf(items: PlanItem[]): Map<string, PlanItem[]> {
   const repeats = new Map<string, PlanItem[]>();
   for (const group of byKey.values()) {
     if (group.length < 2) continue;
-    for (const item of group) repeats.set(item.session.id, group.filter((o) => o !== item));
+    for (const item of group)
+      repeats.set(
+        item.session.id,
+        group.filter((o) => o !== item),
+      );
   }
   return repeats;
 }
 
+export interface Settled {
+  decision: "like" | "pass";
+  /** The time that carries the decision. */
+  by: PlanItem;
+}
+
 /**
- * Sessions already settled: one of their times is ❤️ or ❌, so every time of them (the ids returned) needs no card
- * of its own. A 🔖 maybe leaves them open, since another time may fit better.
+ * Sessions already settled, by id of every time: one of their times is ❤️ (picked, see `by`) or ❌. A 🔖 maybe
+ * leaves them open, since another time may fit better.
  */
-export function settledSessions(items: PlanItem[], swipes: SwipeLog): Set<string> {
+export function settledSessions(items: PlanItem[], swipes: SwipeLog): Map<string, Settled> {
   const keys = sessionKeys(items);
-  const settledKeys = new Set<string>();
+  const byKey = new Map<string, Settled>();
   for (const item of items) {
     const decision = swipes[item.session.id]?.decision;
-    if (decision === "like" || decision === "pass") settledKeys.add(keys.get(item.session.id)!);
+    if (decision !== "like" && decision !== "pass") continue;
+    const key = keys.get(item.session.id)!;
+    // A pick wins over a pass at another time.
+    if (!byKey.has(key) || decision === "like") byKey.set(key, { decision, by: item });
   }
-  return new Set(items.filter((i) => settledKeys.has(keys.get(i.session.id)!)).map((i) => i.session.id));
+  const settled = new Map<string, Settled>();
+  for (const item of items) {
+    const s = byKey.get(keys.get(item.session.id)!);
+    if (s) settled.set(item.session.id, s);
+  }
+  return settled;
 }
 
 /** One entry per session: when more than one time of a session is ❤️, only the first counts. */

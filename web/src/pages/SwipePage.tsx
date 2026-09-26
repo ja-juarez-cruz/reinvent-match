@@ -318,7 +318,13 @@ export function SwipePage({ event, eventId, answersId }: Props) {
               </span>
               <span>{venueOf(s)}</span>
             </div>
-            {(repeats.get(s.id) ?? []).length > 0 && (
+            {settled.get(s.id)?.decision === "like" && settled.get(s.id)!.by !== current && (
+              <div className="picked-elsewhere small">
+                ✅ Already picked at {formatWhen(settled.get(s.id)!.by.session)} · {venueOf(settled.get(s.id)!.by.session)} (
+                {settled.get(s.id)!.by.session.code}). ❤️ here moves it to this time.
+              </div>
+            )}
+            {(repeats.get(s.id) ?? []).length > 0 && settled.get(s.id)?.decision !== "like" && (
               <div className="small muted repeats" title="The same session is offered more than once: pick the time that suits you">
                 🔁 Also offered{" "}
                 {(repeats.get(s.id) ?? []).map((r, i) => (

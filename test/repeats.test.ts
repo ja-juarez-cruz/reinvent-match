@@ -56,6 +56,24 @@ describe("repeats", () => {
     }
   });
 
+  it("offers another time of a pick as an alternative when it could replace a clashing pick", () => {
+    // Picked SVS335-R on Monday and ARC400 on Tuesday at 14:00; SVS335-R1 is also Tuesday at 14:00.
+    const tuesday = item("ARC400", "14:00", "Venetian", 60, "2026-12-02");
+    const items = [first, second, tuesday];
+    const log = swipes(["SVS335-R", "ARC400"]);
+    const settled = settledSessions(items, log);
+    expect(settled.get(second.session.id)).toMatchObject({ decision: "like", by: first });
+    const q = buildQueue(items, log, buildWeek(items, log), false, settled);
+    expect(q.stage).toBe("alternatives");
+    expect(q.queue.map((i) => i.session.code)).toEqual(["SVS335-R1"]);
+  });
+
+  it("offers My Match the other times of a pick", () => {
+    const log = swipes(["SVS335-R"]);
+    const pick = buildAgenda(all, log, buildWeek(all, log)).days.flatMap((d) => d.picks).find((p) => p.item === first)!;
+    expect(pick.otherTimes.map((i) => i.session.code)).toEqual(["SVS335-R1"]);
+  });
+
   it("keeps the other times open after a 🔖 maybe", () => {
     const log: SwipeLog = { [first.session.id]: { decision: "save", at } };
     expect(settledSessions(all, log).size).toBe(0);

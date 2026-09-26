@@ -15,6 +15,8 @@ export interface AgendaPick {
   clashes: PlanItem[];
   /** The same session picked again at another time: keep one. */
   repeats: PlanItem[];
+  /** Other times the session is offered, to move it if this one gets crowded. */
+  otherTimes: PlanItem[];
 }
 
 export interface AgendaDay {
@@ -70,6 +72,7 @@ export function buildAgenda(items: PlanItem[], swipes: SwipeLog, week: WeekDay[]
           moreAlternatives: Math.max(0, rivals.length - ALTERNATIVES_PER_PICK),
           clashes,
           repeats: (repeats.get(item.session.id) ?? []).filter((o) => decision(o) === "like"),
+          otherTimes: (repeats.get(item.session.id) ?? []).filter((o) => decision(o) !== "like" && blockOf(o)),
         },
       ];
     });

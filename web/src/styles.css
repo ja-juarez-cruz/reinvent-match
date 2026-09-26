@@ -1717,3 +1717,10 @@ a.icon-button {
   outline: 2px solid var(--warn);
   outline-offset: -2px;
 }
+
+.picked-elsewhere {
+  border-radius: 8px;
+  padding: 0.4rem 0.6rem;
+  background: color-mix(in srgb, var(--ok) 12%, var(--surface));
+  color: var(--text);
+}

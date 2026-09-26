@@ -1,3 +1,4 @@
+import type { Settled } from "./repeats";
 import type { PlanItem, SwipeLog } from "./types";
 import { impactOf, type WeekDay } from "./week";
 
@@ -28,8 +29,11 @@ export function buildQueue(
   swipes: SwipeLog,
   week: WeekDay[],
   showRest = false,
-  /** Sessions already ❤️ or ❌ at another time (see ./repeats.ts): their other times get no card. */
-  settled: Set<string> = new Set(),
+  /**
+   * Sessions already ❤️ or ❌ at another time (see ./repeats.ts). Other times of a ❌ never get a card; other times
+   * of a ❤️ skip the fill stage but can come as alternatives, to move the pick and free its slot.
+   */
+  settled: Map<string, Settled> = new Map(),
 ): SwipeQueue {
   const fit: PlanItem[] = [];
   /** Fit trivially but take no place in the calendar yet: after the ones that fill it. */
@@ -41,13 +45,16 @@ export function buildQueue(
   for (const item of items) {
     const decision = swipes[item.session.id]?.decision;
     if (decision === "like") continue;
-    if (!decision && settled.has(item.session.id)) continue;
+    const elsewhere = decision ? undefined : settled.get(item.session.id);
+    if (elsewhere?.decision === "pass") continue;
     const impact = impactOf(item, week);
-    if (!decision && impact.clashes.length === 0 && !impact.full && !impact.breaksLunch) {
+    if (!elsewhere && !decision && impact.clashes.length === 0 && !impact.full && !impact.breaksLunch) {
       (item.session.schedule.date && item.session.schedule.startTime ? fit : unscheduled).push(item);
       continue;
     }
-    const picks = impact.clashes.map((c) => c.item.session.id);
+    const picks = impact.clashes.filter((c) => c.item !== elsewhere?.by).map((c) => c.item.session.id);
+    // Another time of a pick is only worth a card when it could replace something at that time.
+    if (elsewhere && picks.length === 0) continue;
     const isAlternative = picks.some((id) => (slotsUsed.get(id) ?? 0) < ALTERNATIVES_PER_PICK);
     if (isAlternative) for (const id of picks) slotsUsed.set(id, (slotsUsed.get(id) ?? 0) + 1);
     if (decision) continue;
