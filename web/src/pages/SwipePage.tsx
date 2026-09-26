@@ -5,10 +5,10 @@ import { SessionCode } from "../components/SessionCode";
 import { SessionModal } from "../components/SessionModal";
 import { WeekStrip, explainDay } from "../components/WeekStrip";
 import { formatDay, formatWhen, venueOf } from "../format";
-import { CARD_REASONS, type AwsEvent, type Decision, type Intent, type PlanItem } from "../types";
+import { CARD_REASONS, type AwsEvent, type Decision, type Intent, type PlanItem, type SwipeLog } from "../types";
 import { usePlan } from "../usePlan";
 import { ALTERNATIVES_PER_PICK, buildQueue } from "../queue";
-import { baseCode, repeatsOf, settledSessions } from "../repeats";
+import { repeatsOf, seriesOf, settledSessions, type Series } from "../repeats";
 import { buildWeek, impactOf, nextDay } from "../week";
 
 interface Props {
@@ -51,6 +51,7 @@ export function SwipePage({ event, eventId, answersId }: Props) {
   // Sessions that fit around your picks come first so the calendar fills fast; clashing ones wait until nothing else
   // fits, and then come as alternatives to your picks.
   const repeats = useMemo(() => repeatsOf(data?.results ?? []), [data]);
+  const series = useMemo(() => seriesOf(data?.results ?? []), [data]);
   const settled = useMemo(() => settledSessions(data?.results ?? [], data?.swipes ?? {}), [data]);
   const queues = useMemo(() => {
     const byTab = new Map<Intent, ReturnType<typeof buildQueue>>();
@@ -211,7 +212,7 @@ export function SwipePage({ event, eventId, answersId }: Props) {
           <div className="tabs">
             {TABS.map((i) => {
               const left = (byIntent.get(i) ?? []).filter(
-                (r) => !data.swipes[r.session.id] && onDay(r) && !settled.has(baseCode(r.session.code)),
+                (r) => !data.swipes[r.session.id] && onDay(r) && !settled.has(r.session.id),
               ).length;
               return (
                 <button key={i} className={`tab ${tab === i ? "active" : ""}`} onClick={() => setTab(i)} title={INTENT_META[i].hint}>
@@ -334,6 +335,7 @@ export function SwipePage({ event, eventId, answersId }: Props) {
                 ))}
               </div>
             )}
+            {series.get(s.id) && <SeriesNote series={series.get(s.id)!} swipes={data.swipes} />}
             {impact && (impact.clashes.length > 0 || impact.full || impact.breaksLunch) && (
               <div className="impact">
                 {impact.clashes.map(({ item, reason }) => (
@@ -415,5 +417,19 @@ export function SwipePage({ event, eventId, answersId }: Props) {
         </SessionModal>
       )}
     </section>
+  );
+}
+
+/** "One of 4 different re:Architecture Rodeo sessions · you picked GHJ319", so a series is not mistaken for a repeat. */
+function SeriesNote({ series, swipes }: { series: Series; swipes: SwipeLog }) {
+  const picked = series.others.filter((o) => swipes[o.session.id]?.decision === "like");
+  return (
+    <div
+      className="small muted repeats"
+      title={series.others.map((o) => `${o.session.code}: ${o.session.title}`).join("\n")}
+    >
+      🧩 One of {series.others.length + 1} different {series.name} sessions
+      {picked.length > 0 && ` · you picked ${picked.map((o) => o.session.code).join(", ")}`}
+    </div>
   );
 }

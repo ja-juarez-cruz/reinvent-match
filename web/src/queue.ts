@@ -1,4 +1,3 @@
-import { baseCode } from "./repeats";
 import type { PlanItem, SwipeLog } from "./types";
 import { impactOf, type WeekDay } from "./week";
 
@@ -42,7 +41,7 @@ export function buildQueue(
   for (const item of items) {
     const decision = swipes[item.session.id]?.decision;
     if (decision === "like") continue;
-    if (!decision && settled.has(baseCode(item.session.code))) continue;
+    if (!decision && settled.has(item.session.id)) continue;
     const impact = impactOf(item, week);
     if (!decision && impact.clashes.length === 0 && !impact.full && !impact.breaksLunch) {
       (item.session.schedule.date && item.session.schedule.startTime ? fit : unscheduled).push(item);

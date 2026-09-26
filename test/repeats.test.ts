@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { PlanItem, SwipeLog } from "../web/src/types.js";
 import { buildAgenda } from "../web/src/agenda.js";
 import { buildQueue } from "../web/src/queue.js";
-import { baseCode, distinctSessions, repeatsOf, settledSessions } from "../web/src/repeats.js";
+import { baseCode, distinctSessions, repeatsOf, seriesOf, settledSessions } from "../web/src/repeats.js";
 import { buildWeek } from "../web/src/week.js";
 
 function item(id: string, startTime: string, venue: string, durationMin = 60, date = "2026-12-01"): PlanItem {
@@ -68,4 +68,40 @@ describe("repeats", () => {
     expect(pick.repeats.map((i) => i.session.code)).toEqual(["SVS335-R1"]);
     expect(distinctSessions([first, second, other])).toHaveLength(2);
   });
+});
+
+describe("series", () => {
+  const titled = (code: string, title: string) => {
+    const i = item(code, "10:00", "Venetian");
+    i.session.title = title;
+    return i;
+  };
+  const rodeo = [
+    titled("GHJ318", "re:Architecture Rodeo: Designing Agentic AI Applications"),
+    titled("GHJ319", "re:Architecture Rodeo: Architecting AI Governance & Security at Scale"),
+  ];
+  const lookalikes = [titled("AIM249-S", "FinOps for AI: Cost basics"), titled("COP311-R1", "FinOps for AI: Allocation")];
+
+  it("groups different sessions that share a track and a title prefix", () => {
+    const series = seriesOf([...rodeo, ...lookalikes]);
+    expect(series.get(rodeo[0]!.session.id)).toMatchObject({ name: "re:Architecture Rodeo" });
+    expect(series.get(rodeo[0]!.session.id)?.others.map((o) => o.session.code)).toEqual(["GHJ319"]);
+    expect(series.has(lookalikes[0]!.session.id)).toBe(false);
+  });
+});
+
+it("treats a sponsored run with the same track, format and title as the same session", () => {
+  const titled = (code: string, title: string, date = "2026-12-01") => {
+    const i = item(code, "09:00", "Caesars Palace", 180, date);
+    i.session.title = title;
+    return i;
+  };
+  const jam = titled("GHJ311", "AWS Jam: All-in Builder Showdown");
+  const sponsored = titled("GHJ317-S", "AWS Jam: All-in Builder Showdown - brought to you by Example", "2026-12-03");
+  const breakout = titled("AIM216", "Accelerate document processing");
+  breakout.session.format = "breakout";
+  const chalk = titled("AIM355-R", "Accelerate document processing");
+  expect(repeatsOf([jam, sponsored]).get(jam.session.id)?.map((i) => i.session.code)).toEqual(["GHJ317-S"]);
+  expect(seriesOf([jam, sponsored]).size).toBe(0);
+  expect(repeatsOf([breakout, chalk]).size).toBe(0);
 });

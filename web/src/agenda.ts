@@ -1,5 +1,5 @@
 import { ALTERNATIVES_PER_PICK } from "./queue";
-import { baseCode } from "./repeats";
+import { repeatsOf } from "./repeats";
 import type { PlanItem, SwipeLog } from "./types";
 import { blockOf, compatible, type WeekDay } from "./week";
 
@@ -39,10 +39,11 @@ const DEFAULT_HOURS = { from: 8, to: 18 };
 export function buildAgenda(items: PlanItem[], swipes: SwipeLog, week: WeekDay[]): Agenda {
   const decision = (item: PlanItem) => swipes[item.session.id]?.decision;
   const liked = items.filter((i) => decision(i) === "like");
-  const likedBases = new Set(liked.map((i) => baseCode(i.session.code)));
+  const repeats = repeatsOf(items);
+  const pickedElsewhere = new Set(liked.flatMap((i) => (repeats.get(i.session.id) ?? []).map((r) => r.session.id)));
   // Another time of a session you already picked is no alternative.
   const candidates = items.filter(
-    (i) => decision(i) !== "like" && decision(i) !== "pass" && blockOf(i) && !likedBases.has(baseCode(i.session.code)),
+    (i) => decision(i) !== "like" && decision(i) !== "pass" && blockOf(i) && !pickedElsewhere.has(i.session.id),
   );
 
   const days = week.map((day) => {
@@ -68,7 +69,7 @@ export function buildAgenda(items: PlanItem[], swipes: SwipeLog, week: WeekDay[]
           alternatives: rivals.slice(0, ALTERNATIVES_PER_PICK),
           moreAlternatives: Math.max(0, rivals.length - ALTERNATIVES_PER_PICK),
           clashes,
-          repeats: liked.filter((o) => o !== item && baseCode(o.session.code) === baseCode(item.session.code)),
+          repeats: (repeats.get(item.session.id) ?? []).filter((o) => decision(o) === "like"),
         },
       ];
     });
