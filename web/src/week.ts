@@ -165,6 +165,8 @@ export interface Impact {
   /** Picks this session overlaps or cannot be reached from in time, with the reason. */
   clashes: { item: PlanItem; reason: "overlap" | "travel" }[];
   full: boolean;
+  /** Adding it would leave no lunch break in the lunch window. */
+  breaksLunch: boolean;
 }
 
 /** What adding this session would do to its day. */
@@ -180,7 +182,13 @@ export function impactOf(item: PlanItem, week: WeekDay[]): Impact {
       clashes.push({ item: pick, reason: overlap ? "overlap" : "travel" });
     }
   }
-  return { day, clashes, full: day !== undefined && day.remaining <= 0 };
+  let breaksLunch = false;
+  if (day && block && clashes.length === 0) {
+    const picks = [...day.liked.map(blockOf).filter((b): b is Block => b !== null), block];
+    const options = lunchOptions(Math.max(...picks.map((b) => b.end)));
+    breaksLunch = options.length > 0 && !options.some((l) => picks.every((b) => compatible(b, l)));
+  }
+  return { day, clashes, full: day !== undefined && day.remaining <= 0, breaksLunch };
 }
 
 /** The next scheduled day after `date`, if any. */

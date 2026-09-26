@@ -9,6 +9,7 @@ import { formatDay, formatTimeRange, venueOf } from "../format";
 import { buildLearningPlan } from "../learningPlan";
 import { CARD_REASONS, type AwsEvent, type Decision, type Intent, type PlanItem } from "../types";
 import { usePlan } from "../usePlan";
+import { ALTERNATIVES_PER_PICK, buildQueue } from "../queue";
 import { buildWeek, impactOf, nextDay } from "../week";
 
 interface Props {
@@ -24,6 +25,7 @@ export const INTENT_META: Record<Intent, { label: string; icon: string; hint: st
 };
 
 const TABS: Intent[] = ["reinforce", "broaden", "learn"];
+const ALTERNATIVES_LABEL = ["none", "one", "two", "three"][ALTERNATIVES_PER_PICK] ?? String(ALTERNATIVES_PER_PICK);
 const REASON_ICON = { pro: "✅", con: "⚠️", info: "ℹ️" } as const;
 
 export function SwipePage({ event, eventId, answersId }: Props) {
@@ -34,6 +36,8 @@ export function SwipePage({ event, eventId, answersId }: Props) {
   const [fullNotice, setFullNotice] = useState<string | null>(null);
   /** A picked session that clashes with the current card, opened to review or swap. */
   const [openClash, setOpenClash] = useState<PlanItem | null>(null);
+  /** Clashing sessions beyond each pick's alternatives, shown only when asked for. */
+  const [showRest, setShowRest] = useState(false);
   /** Day of the last ❤️ and whether it was already full, to notice the moment it fills up. */
   const pendingFullCheck = useRef<{ date: string; wasFull: boolean } | null>(null);
 
@@ -44,13 +48,23 @@ export function SwipePage({ event, eventId, answersId }: Props) {
   }, [data]);
 
   const onDay = (r: PlanItem) => !dayFilter || r.session.schedule.date === dayFilter;
-  const queue = useMemo(
-    () => (byIntent.get(tab) ?? []).filter((r) => !data?.swipes[r.session.id] && (!dayFilter || r.session.schedule.date === dayFilter)),
-    [byIntent, tab, data, dayFilter],
-  );
-  const current = queue[0];
   const plan = useMemo(() => (data ? buildLearningPlan(data.results, data.swipes, data.context) : null), [data]);
   const week = useMemo(() => (data ? buildWeek(data.results, data.swipes) : []), [data]);
+  // Sessions that fit around your picks come first so the calendar fills fast; clashing ones wait until nothing else
+  // fits, and then come as alternatives to your picks.
+  const queues = useMemo(() => {
+    const byTab = new Map<Intent, ReturnType<typeof buildQueue>>();
+    for (const i of TABS) {
+      const items = (byIntent.get(i) ?? []).filter((r) => !dayFilter || r.session.schedule.date === dayFilter);
+      byTab.set(i, buildQueue(items, data?.swipes ?? {}, week, showRest));
+    }
+    return byTab;
+  }, [byIntent, data, week, dayFilter, showRest]);
+  const tabQueue = queues.get(tab)!;
+  const queue = tabQueue.queue;
+  const current = queue[0];
+  /** Other tabs that still have sessions fitting your calendar. */
+  const tabsWithFit = TABS.filter((i) => i !== tab && (queues.get(i)?.fit ?? 0) > 0);
 
   useEffect(() => {
     const pending = pendingFullCheck.current;
@@ -201,14 +215,44 @@ export function SwipePage({ event, eventId, answersId }: Props) {
           {data.hidden.ignored > 0 && `${data.hidden.ignored} built around platforms you marked as not for you.`}
         </p>
 
-        {!current || !s ? (
-          <div className="panel empty">
-            <p>
-              You've reviewed every session in {meta.label}
-              {dayFilter ? ` on ${formatDay(dayFilter)}` : ""}. Pick another tab{dayFilter ? " or day" : ""}, or check your
-              shortlist.
-            </p>
+        {tabQueue.stage !== "fill" && (tabQueue.alternatives > 0 || tabQueue.rest > 0) && (
+          <div className="panel notice" role="status">
+            {tabQueue.stage === "alternatives" ? (
+              <p>
+                🔁 <strong>Nothing else in {meta.label} fits your calendar{dayFilter ? ` on ${formatDay(dayFilter)}` : ""}.</strong>{" "}
+                Now come alternatives to your picks, up to {ALTERNATIVES_LABEL} each: swap one in, keep both, or keep yours and
+                pass.
+              </p>
+            ) : (
+              <p>
+                ✅ <strong>Your picks have their alternatives.</strong> {tabQueue.rest} more session
+                {tabQueue.rest === 1 ? "" : "s"} in {meta.label} clash with your picks or land on full days.
+              </p>
+            )}
+            <div className="row">
+              {tabsWithFit.map((i) => (
+                <button key={i} className="primary" onClick={() => setTab(i)}>
+                  {queues.get(i)!.fit} still fit in {INTENT_META[i].icon} {INTENT_META[i].label} →
+                </button>
+              ))}
+              {tabQueue.stage === "rest" && tabQueue.rest > 0 && (
+                <button className="ghost" onClick={() => setShowRest((v) => !v)}>
+                  {showRest ? "Hide them" : `Show the other ${tabQueue.rest}`}
+                </button>
+              )}
+            </div>
           </div>
+        )}
+        {!current || !s ? (
+          tabQueue.stage === "rest" && tabQueue.rest > 0 ? null : (
+            <div className="panel empty">
+              <p>
+                You've reviewed every session in {meta.label}
+                {dayFilter ? ` on ${formatDay(dayFilter)}` : ""}. Pick another tab{dayFilter ? " or day" : ""}, or check your
+                shortlist.
+              </p>
+            </div>
+          )
         ) : (
           <article className={`card intent-${current.intent}`} key={s.id}>
             <div className="card-top">
@@ -243,7 +287,7 @@ export function SwipePage({ event, eventId, answersId }: Props) {
               </span>
               <span>{venueOf(s)}</span>
             </div>
-            {impact && (impact.clashes.length > 0 || impact.full) && (
+            {impact && (impact.clashes.length > 0 || impact.full || impact.breaksLunch) && (
               <div className="impact">
                 {impact.clashes.map(({ item, reason }) => (
                   <div key={item.session.id}>
@@ -253,6 +297,7 @@ export function SwipePage({ event, eventId, answersId }: Props) {
                     already in your picks.
                   </div>
                 ))}
+                {impact.breaksLunch && !impact.full && <div>🍽 Leaves no time for lunch with your picks that day.</div>}
                 {impact.full && impact.day && (
                   <div>
                     ⛔ {formatDay(impact.day.date)} is full: {explainDay(impact.day).slice(1, -1).join(" ")}
@@ -291,7 +336,13 @@ export function SwipePage({ event, eventId, answersId }: Props) {
           </article>
         )}
         <p className="muted small center">
-          {queue.length} left in {meta.label}
+          {tabQueue.stage === "fill"
+            ? `${tabQueue.fit} that fit your calendar in ${meta.label}${tabQueue.alternatives + tabQueue.rest > 0 ? ` · ${tabQueue.alternatives + tabQueue.rest} clashing, for later` : ""}`
+            : tabQueue.stage === "alternatives"
+              ? `${tabQueue.alternatives} alternatives left in ${meta.label}`
+              : showRest
+                ? `${queue.length} left in ${meta.label}`
+                : ""}
         </p>
       </div>
       <LearningPlanPanel plan={plan} compact />
