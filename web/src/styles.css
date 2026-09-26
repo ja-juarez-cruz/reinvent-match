@@ -303,7 +303,7 @@ main {
 }
 
 .event-card .pill {
-  margin: 0.3rem 0 0;
+  margin: 0.2rem 0 0;
 }
 
 .event-name {
@@ -1550,4 +1550,115 @@ main.wide {
 
 .match-head p {
   margin: 0.2rem 0 0;
+}
+
+/* Event carousel */
+
+.carousel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.carousel-head h2 {
+  margin: 0;
+}
+
+.carousel {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(240px, 1fr);
+  gap: 0.75rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  padding: 0.25rem 0.1rem 0.5rem;
+}
+
+.carousel::-webkit-scrollbar {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .carousel {
+    grid-auto-columns: calc((100% - 2 * 0.75rem) / 3);
+  }
+}
+
+.carousel .event-card {
+  scroll-snap-align: start;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 0;
+  gap: 0;
+  align-items: stretch;
+}
+
+.event-select {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: var(--radius) var(--radius) 0 0;
+  padding: 0.9rem 1rem 0.6rem;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  flex: 1;
+}
+
+.event-catalog {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border-top: 1px solid var(--border);
+  padding: 0.35rem 0.5rem 0.35rem 1rem;
+}
+
+.event-card .error {
+  margin: 0;
+  padding: 0 1rem 0.6rem;
+}
+
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border-radius: 999px;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.icon-button.refresh.spinning {
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icon-button.refresh.spinning {
+    animation: none;
+    opacity: 0.5;
+  }
+}
+
+.row.between {
+  justify-content: space-between;
+  align-items: center;
+}
+
+.row.between p {
+  margin: 0;
 }
