@@ -165,8 +165,10 @@ export interface Vocabulary {
 export interface PlanItem {
   intent: Intent;
   goalHits: number;
-  /** Needs a reserved seat; listed first within its intent. */
+  /** Needs a reserved seat (a small bonus in the score). */
   reservable: boolean;
+  /** Its level suits the attendee: these lead their tab. Absent in plans saved before it existed. */
+  fitsLevel?: boolean;
   score: number;
   reasons: Reason[];
   session: Session & { format: string };

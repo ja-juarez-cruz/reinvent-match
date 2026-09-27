@@ -1724,3 +1724,49 @@ a.icon-button {
   background: color-mix(in srgb, var(--ok) 12%, var(--surface));
   color: var(--text);
 }
+
+/* My Match: fill my week and reservations */
+
+.match-views {
+  align-items: center;
+}
+
+.fill-week {
+  max-width: 720px;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.fill-day h3 {
+  margin: 0.75rem 0 0.25rem;
+}
+
+.fill-row {
+  display: grid;
+  grid-template-columns: auto 6.5rem 1fr;
+  gap: 0.5rem;
+  align-items: baseline;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.reservation-list {
+  margin: 0.5rem 0 0;
+  padding-left: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.reservation-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.5rem;
+  align-items: start;
+}
+
+.reservation-list li.reserved .reservation-row > div {
+  opacity: 0.55;
+  text-decoration: line-through;
+}

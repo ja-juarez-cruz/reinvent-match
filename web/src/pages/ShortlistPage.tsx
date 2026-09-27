@@ -3,7 +3,11 @@ import { ApiError, api } from "../api";
 import { navigate } from "../App";
 import { LearningPlanPanel } from "../components/LearningPlanPanel";
 import { AgendaGrid, AgendaList } from "../components/AgendaGrid";
+import { FillWeekModal } from "../components/FillWeekModal";
+import { ReservationList } from "../components/ReservationList";
 import { SessionModal } from "../components/SessionModal";
+import { reservationPlan } from "../reservations";
+import { suggestWeek, type Suggestion } from "../suggest";
 import { buildAgenda } from "../agenda";
 import { formatTimeRange } from "../format";
 import { buildLearningPlan } from "../learningPlan";
@@ -43,6 +47,10 @@ export function ShortlistPage({ event, eventId, answersId, session, onSignIn }: 
   const agenda = useMemo(() => (data ? buildAgenda(data.results, data.swipes, week) : null), [data, week]);
   /** A session opened from the agenda: a pick to keep or drop, or an alternative to swap in for `pick`. */
   const [open, setOpen] = useState<{ item: PlanItem; pick?: PlanItem } | null>(null);
+  const [view, setView] = useState<"week" | "reservations">("week");
+  /** Suggestions for the free time, while the fill-my-week dialog is open. */
+  const [suggestions, setSuggestions] = useState<Suggestion[] | null>(null);
+  const reservations = useMemo(() => (data ? reservationPlan(data.results, data.swipes) : []), [data]);
 
   const liked = picked.filter((r) => data?.swipes[r.session.id]?.decision === "like");
   const favorites = new Set(sync?.favorites ?? schedule?.favorites ?? []);
@@ -66,6 +74,11 @@ export function ShortlistPage({ event, eventId, answersId, session, onSignIn }: 
   async function choose(id: string, decision: Decision) {
     setOpen(null);
     await decide(id, decision);
+  }
+
+  async function addSuggestions(ids: string[]) {
+    for (const id of ids) await decide(id, "like");
+    setSuggestions(null);
   }
 
   /** ❤️ the alternative instead of the pick; the pick stays as a 🔖 backup. */
@@ -97,7 +110,8 @@ export function ShortlistPage({ event, eventId, answersId, session, onSignIn }: 
           <div>
             <h1>❤️ My Match</h1>
             <p className="muted">
-              {distinctSessions(liked).length} ❤️ · {picked.length - liked.length} 🔖 · click a session to swap or drop it
+              {distinctSessions(liked).length} ❤️ · {picked.length - liked.length} 🔖 · click a session to swap or drop
+              it
             </p>
           </div>
           {event?.authenticationRequired &&
@@ -111,10 +125,36 @@ export function ShortlistPage({ event, eventId, answersId, session, onSignIn }: 
                 {syncing ? "Syncing…" : `★ Sync ${liked.length} to re:Invent favorites`}
               </button>
             ) : (
-              <button className="primary" onClick={onSignIn} title="Sign in to send your ❤️ to your re:Invent favorites">
+              <button
+                className="primary"
+                onClick={onSignIn}
+                title="Sign in to send your ❤️ to your re:Invent favorites"
+              >
                 Sign in to sync favorites
               </button>
             ))}
+        </div>
+        <div className="row between match-views">
+          <div className="tabs">
+            <button className={`tab ${view === "week" ? "active" : ""}`} onClick={() => setView("week")}>
+              📅 Week
+            </button>
+            <button
+              className={`tab ${view === "reservations" ? "active" : ""}`}
+              onClick={() => setView("reservations")}
+            >
+              🎟 Reservations <span className="count">{reservations.length}</span>
+            </button>
+          </div>
+          {view === "week" && picked.length > 0 && (
+            <button
+              className="ghost"
+              title="Suggest sessions for your free time: your maybes first, then your best matches"
+              onClick={() => setSuggestions(suggestWeek(data.results, data.swipes))}
+            >
+              ✨ Fill my week
+            </button>
+          )}
         </div>
         {(sync || syncError) && (
           <div className="panel sync-panel">
@@ -134,7 +174,9 @@ export function ShortlistPage({ event, eventId, answersId, session, onSignIn }: 
           </div>
         )}
 
-        {picked.length === 0 ? (
+        {view === "reservations" ? (
+          <ReservationList eventId={eventId ?? ""} plan={reservations} />
+        ) : picked.length === 0 ? (
           <div className="panel">
             <p>Nothing here yet. Swipe right (❤️) on sessions you want.</p>
             <button className="primary" onClick={() => navigate("swipe")}>
@@ -168,6 +210,9 @@ export function ShortlistPage({ event, eventId, answersId, session, onSignIn }: 
         )}
       </div>
       <LearningPlanPanel plan={plan} compact />
+      {suggestions && (
+        <FillWeekModal suggestions={suggestions} onAdd={addSuggestions} onClose={() => setSuggestions(null)} />
+      )}
       {open && (
         <SessionModal
           item={open.item}
