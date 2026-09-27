@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ApiError, api } from "../api";
-import { buildIcs, toApiUtc, type BlockKind, type CalendarBlock } from "../calendar";
+import { buildIcs, toApiBlocks, utcOffsetMinutes, type BlockKind, type CalendarBlock } from "../calendar";
 import { clock, formatDay } from "../format";
 import type { PlanItem } from "../types";
 
@@ -39,6 +39,14 @@ export function CalendarModal({
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const chosen = blocks.filter((b) => kinds.has(b.kind));
+  // The event's own time zone (GetEvent), in case the list the page started from was stale.
+  const [eventOffset, setEventOffset] = useState(offset);
+  useEffect(() => {
+    api.event(eventId).then(
+      (e) => setEventOffset(utcOffsetMinutes(e.startDate)),
+      () => undefined,
+    );
+  }, [eventId]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -59,16 +67,7 @@ export function CalendarModal({
     setError(null);
     setResult(null);
     try {
-      const r = await api.syncPersonalTime(
-        eventId,
-        chosen.map((b) => ({
-          startDateTime: toApiUtc(b.date, b.start, offset),
-          endDateTime: toApiUtc(b.date, b.end, offset),
-          title: b.title,
-          description: b.description,
-          ...(b.location ? { location: b.location } : {}),
-        })),
-      );
+      const r = await api.syncPersonalTime(eventId, toApiBlocks(chosen, eventOffset));
       setResult(
         `✓ Added ${r.created}, moved ${r.updated}, removed ${r.deleted}, kept ${r.kept}.` +
           (r.failed.length ? ` ${r.failed.length} refused: ${r.failed.map((f) => f.message).join("; ")}` : ""),
@@ -87,7 +86,12 @@ export function CalendarModal({
   }
 
   function download() {
-    const ics = buildIcs({ calendarName: `${eventName} · Reinvent:Match`, sessions, blocks: chosen, offset });
+    const ics = buildIcs({
+      calendarName: `${eventName} · Reinvent:Match`,
+      sessions,
+      blocks: chosen,
+      offset: eventOffset,
+    });
     const url = URL.createObjectURL(new Blob([ics], { type: "text/calendar;charset=utf-8" }));
     const a = document.createElement("a");
     a.href = url;

@@ -45,6 +45,13 @@ export const api = {
   login: () => call<{ authorizeUrl: string }>("POST", "/api/auth/login"),
   logout: () => call<SessionInfo>("POST", "/api/auth/logout"),
   events: () => call<AwsEvent[]>("GET", "/api/events"),
+  event: (eventId: string) => call<AwsEvent>("GET", `/api/events/${enc(eventId)}`),
+  seats: (eventId: string, sessionIds: string[]) =>
+    call<Record<string, { isReservable: boolean; seatAvailability: string | null }>>(
+      "POST",
+      `/api/sessions/${enc(eventId)}/seats`,
+      { sessionIds },
+    ),
   catalog: (eventId: string) => call<CatalogStatus>("GET", `/api/catalog/${enc(eventId)}`),
   refreshCatalog: (eventId: string) => call<CatalogStatus>("POST", `/api/catalog/${enc(eventId)}/refresh`),
   report: (eventId: string) => call<CatalogReport>("GET", `/api/report/${enc(eventId)}`),

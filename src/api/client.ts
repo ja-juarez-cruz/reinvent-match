@@ -59,6 +59,14 @@ export class EventsClient {
     return res.event;
   }
 
+  /** One session, fresh: for reservable sessions it carries seatAvailability (available … unavailable). */
+  async getSession(eventId: string, sessionId: string): Promise<Session> {
+    const res = await this.get<{ session: Session }>(
+      `/v1/events/${encodeURIComponent(eventId)}/sessions/${encodeURIComponent(sessionId)}`,
+    );
+    return res.session;
+  }
+
   async getSchedule(eventId: string): Promise<Schedule> {
     const res = await this.get<{ schedule: Schedule }>(`/v1/events/${encodeURIComponent(eventId)}/schedule`);
     return res.schedule;

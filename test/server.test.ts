@@ -187,3 +187,17 @@ describe("onboarding from favorites", () => {
     vi.restoreAllMocks();
   });
 });
+
+describe("seats and event", () => {
+  it("checks seat bands one session at a time and reads one event", async () => {
+    const get = vi
+      .spyOn(client, "getSession")
+      .mockImplementation(async (_e, id) => ({ sessionId: id, isReservable: true, seatAvailability: id === "A" ? "limited" : "unavailable" }) as never);
+    const seats = await (await write("/api/sessions/reinvent2026/seats", "POST", { sessionIds: ["A", "B"] })).json();
+    expect(seats).toEqual({ A: { isReservable: true, seatAvailability: "limited" }, B: { isReservable: true, seatAvailability: "unavailable" } });
+    expect(get).toHaveBeenCalledTimes(2);
+    vi.spyOn(client, "getEvent").mockResolvedValue({ eventId: "reinvent2026", startDate: "2026-11-30T00:00:00.000-08:00" } as never);
+    expect((await (await fetch(`${base}/api/events/reinvent2026`)).json()).startDate).toMatch(/-08:00$/);
+    vi.restoreAllMocks();
+  });
+});

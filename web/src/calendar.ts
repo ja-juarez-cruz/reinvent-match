@@ -87,6 +87,52 @@ export function toApiUtc(date: string, minutes: number, offset: number): string 
   return toDate(date, minutes, offset).toISOString().slice(0, 16) + ":00";
 }
 
+export interface ApiBlock {
+  startDateTime: string;
+  endDateTime: string;
+  title: string;
+  description: string;
+  location?: string;
+}
+
+/**
+ * Text the Events API stores as sent. Observed on re:Invent 2026: a title with an emoji outside the Basic Multilingual
+ * Plane (🍽, 🚶) is refused with 400 "could not be applied", and "&" cuts the text short ("Free: Expo & booths" was
+ * saved as "Free: Expo"). So those emoji are dropped and "&" becomes "and".
+ */
+export function apiText(text: string): string {
+  return [...text]
+    .filter((ch) => ch.codePointAt(0)! <= 0xffff && !/[\uFE0E\uFE0F\u200D]/.test(ch))
+    .join("")
+    .replace(/\s*&\s*/g, " and ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Blocks as personal time entries: UTC, cleaned text, and split at midnight UTC, since a block crossing it was
+ * refused (16:00 in Las Vegas in December). Both parts keep 5-minute steps, as midnight is on one.
+ */
+export function toApiBlocks(blocks: CalendarBlock[], offset: number): ApiBlock[] {
+  const out: ApiBlock[] = [];
+  for (const b of blocks) {
+    const start = toDate(b.date, b.start, offset);
+    const end = toDate(b.date, b.end, offset);
+    const midnight = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate() + 1));
+    const parts = end > midnight && midnight > start ? [[start, midnight], [midnight, end]] : [[start, end]];
+    for (const [from, to] of parts) {
+      out.push({
+        startDateTime: from!.toISOString().slice(0, 16) + ":00",
+        endDateTime: to!.toISOString().slice(0, 16) + ":00",
+        title: apiText(b.title),
+        description: apiText(b.description),
+        ...(b.location ? { location: apiText(b.location) } : {}),
+      });
+    }
+  }
+  return out;
+}
+
 /** `YYYYMMDDTHHMMSSZ`, the iCalendar UTC form. */
 function toIcsUtc(d: Date): string {
   return d

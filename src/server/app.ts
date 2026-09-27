@@ -116,6 +116,21 @@ export function createApp(ctx: AppContext) {
       },
     ],
     ["GET", /^\/api\/events$/, async () => ctx.client.listEvents()],
+    ["GET", /^\/api\/events\/([^/]+)$/, async (_req, _url, [eventId]) => ctx.client.getEvent(eventId!)],
+    [
+      "POST",
+      /^\/api\/sessions\/([^/]+)\/seats$/,
+      async (req, _url, [eventId]) => {
+        // Fresh seat bands for a few sessions, one GetSession each, in order: a reservation list, not the catalog.
+        const { sessionIds } = seatsBody.parse(await readBody(req));
+        const seats: Record<string, { isReservable: boolean; seatAvailability: string | null }> = {};
+        for (const id of sessionIds) {
+          const s = await ctx.client.getSession(eventId!, id);
+          seats[id] = { isReservable: !!s.isReservable, seatAvailability: s.seatAvailability ?? null };
+        }
+        return seats;
+      },
+    ],
     [
       "GET",
       /^\/api\/catalog\/([^/]+)$/,
@@ -374,6 +389,9 @@ export function createApp(ctx: AppContext) {
     }
   };
 }
+
+/** Sessions to check seats for: a reservation list stays well under the per-minute quota. */
+const seatsBody = z.object({ sessionIds: z.array(z.string().min(1).max(128)).min(1).max(30) });
 
 /** Portal favorites to make ❤️, and ❤️ picks no longer favorites to move to 🔖. */
 const importBody = z.object({

@@ -20,9 +20,9 @@ Four equally weighted criteria (25% each):
 | Operation | Reinvent:Match feature | Status |
 |---|---|---|
 | `ListEvents` | `reinvent-match events`: choose an event | ✅ |
-| `GetEvent` | Event timezone and dates for the agenda | ⬜ |
+| `GetEvent` | 📅 Calendar reads the event's own time zone to write personal time and the .ics in UTC | ✅ |
 | `ListSessions` | Full catalog download and cache | ✅ |
-| `GetSession` | Refresh seat availability for shortlisted sessions before reserving | ⬜ |
+| `GetSession` | 🎟 Reservations → ↻ Check seats: fresh seat band (available, limited, very limited, full) for each session still to book | ✅ |
 | `GetSchedule` | `reinvent-match schedule`; My Match shows current favorites and reservations; every sync re-reads it; Import from re:Invent brings portal favorites back as picks | ✅ |
 | `AssociateFavorites` | ❤️ swipe → favorite (batches of 10, `alreadyFavorited` treated as done) | ✅ |
 | `DisassociateFavorite` | ❌ on a previously favorited session → remove favorite | ✅ |

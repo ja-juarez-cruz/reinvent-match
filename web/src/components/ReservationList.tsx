@@ -6,6 +6,15 @@ import type { PlanItem } from "../types";
 import { useStored } from "../useStored";
 
 /** Why the event refused a seat, in words (unknown codes read as a generic refusal). */
+/** Seat bands from GetSession, in words. */
+const SEATS: Record<string, string> = {
+  available: "🟢 Seats available",
+  limited: "🟡 Limited seats",
+  veryLimited: "🟠 Very few seats",
+  unavailable: "⛔ Full",
+  walkUp: "🚶 Walk-up only",
+};
+
 const REFUSALS: Record<string, string> = {
   sessionFull: "Full",
   scheduleConflict: "Clashes with another reservation",
@@ -37,6 +46,8 @@ export function ReservationList({ eventId, plan, reservedOfficially, onReservedC
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refused, setRefused] = useState<Record<string, string>>({});
+  const [seats, setSeats] = useState<Record<string, { isReservable: boolean; seatAvailability: string | null }>>({});
+  const [checking, setChecking] = useState(false);
   const ticked = new Set<string>(safeParse(stored));
   const official = new Set(reservedOfficially ?? []);
   const signedIn = reservedOfficially !== null;
@@ -80,6 +91,24 @@ export function ReservationList({ eventId, plan, reservedOfficially, onReservedC
   async function reserveBackup(from: PlanItem, backup: PlanItem) {
     const result = await reserve([backup.session.id]);
     if (result?.reserved.includes(backup.session.id)) await onSwap(from, backup);
+  }
+
+  /** Fresh seat bands for the sessions still to book (GetSession, up to 30 at a time). */
+  async function checkSeats() {
+    setChecking(true);
+    setError(null);
+    try {
+      setSeats(
+        await api.seats(
+          eventId,
+          pending.slice(0, 30).map((r) => r.item.session.id),
+        ),
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setChecking(false);
+    }
   }
 
   async function cancel(id: string) {
@@ -150,6 +179,16 @@ export function ReservationList({ eventId, plan, reservedOfficially, onReservedC
             Sign in to reserve from here
           </button>
         )}
+        {signedIn && pending.length > 0 && (
+          <button
+            className="ghost small"
+            disabled={checking}
+            onClick={checkSeats}
+            title="How full each session still to book is"
+          >
+            {checking ? "Checking…" : "↻ Check seats"}
+          </button>
+        )}
         <button className="ghost small" onClick={copy}>
           {copied ? "✓ Copied" : "Copy list"}
         </button>
@@ -181,6 +220,13 @@ export function ReservationList({ eventId, plan, reservedOfficially, onReservedC
                     {onlyTime ? " · ⚠️ only time offered" : ""}
                     {isOfficial ? " · ✓ reserved" : ""}
                   </div>
+                  {seats[s.id] && !isOfficial && (
+                    <div className="small">
+                      {seats[s.id]!.isReservable
+                        ? (SEATS[seats[s.id]!.seatAvailability ?? ""] ?? "Reservable")
+                        : "Not open for reservations yet"}
+                    </div>
+                  )}
                   {refusal && <div className="small warn">⚠️ {REFUSALS[refusal] ?? `Refused (${refusal})`}</div>}
                   {backups.length > 0 && !isOfficial && (
                     <div className="small">
