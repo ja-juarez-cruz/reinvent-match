@@ -634,3 +634,57 @@ describe("persona review, round three", () => {
     expect(plan.results.find((r) => r.session.code === "API306")?.reasons[0]?.text ?? "").not.toMatch(/Covers MCP/);
   });
 });
+
+describe("persona review, round four", () => {
+  const talk = (code: string, title: string, level: string, type = "Chalk talk", extra: Record<string, unknown> = {}) =>
+    session({ sessionId: code, abbreviation: code, title, type, level, ...extra });
+  const everyFormat = ["workshop", "builders", "chalk", "code", "lab", "breakout", "lightning", "exam"];
+
+  it("leads Learn with AI sessions about the attendee's strongest topic when AI is new", () => {
+    const bridge = talk("AIM327", "Secure AI the same way you secure everything else", "300 – Advanced", "Chalk talk", {
+      topics: ["Artificial Intelligence"],
+      areasOfInterest: ["Generative AI"],
+    });
+    const mention = talk("IND317", "Industry story with a touch of AI", "300 – Advanced", "Chalk talk", {
+      topics: ["Industry Solutions", "Artificial Intelligence"],
+      areasOfInterest: ["Generative AI"],
+    });
+    const plan = buildPlan(
+      [mention, bridge],
+      answers({ topics: [{ key: "domain:security", level: "advanced" }, { key: "domain:ai", level: "new" }], ai: { llm: 1 }, formats: everyFormat }),
+    );
+    expect(plan.results.filter((r) => r.intent === "learn")[0]?.session.code).toBe("AIM327");
+  });
+
+  it("files an Amazon engineering story under its catalog topic, a leadership one under Leadership", () => {
+    const plan = buildPlan(
+      [
+        talk("AMZ302", "Zero-trust by design: how Bee protects personal data", "300 – Advanced", "Breakout session", { topics: ["Security & Identity"] }),
+        talk("AMZ301", "How Amazon leaders build a culture of invention", "300 – Advanced", "Breakout session"),
+      ],
+      answers({ topics: [{ key: "domain:leadership", level: "intermediate" }, { key: "domain:security", level: "intermediate" }], formats: everyFormat }),
+    );
+    const topicOf = (code: string) => plan.results.find((r) => r.session.code === code)!.keys[0];
+    expect(topicOf("AMZ302")).toBe("domain:security");
+    expect(topicOf("AMZ301")).toBe("domain:leadership");
+  });
+
+  it("does not read post-quantum cryptography as quantum computing", () => {
+    const plan = buildPlan(
+      [talk("GHJ203", "Post-Quantum Cryptography Tabletop Experience", "200 – Intermediate", "Gamified learning", { topics: ["Security & Identity"] })],
+      answers({ topics: [{ key: "domain:security", level: "basic" }, { key: "domain:compute", level: "basic" }], formats: everyFormat }),
+    );
+    expect(plan.results[0]!.keys).not.toContain("domain:compute");
+  });
+
+  it("keeps a thin session out of a weaker topic's slot", () => {
+    const strong = (i: number) =>
+      talk(`ANT30${i}`, `Streaming analytics with Apache Iceberg ${i}`, "300 – Advanced", "Chalk talk", { topics: ["Analytics"] });
+    const thin = talk("DAT313", "Oracle Database@AWS", "300 – Advanced", "Chalk talk", { topics: ["Databases"] });
+    const plan = buildPlan(
+      [strong(1), strong(2), strong(3), strong(4), thin],
+      answers({ topics: [{ key: "domain:analytics", level: "advanced" }, { key: "domain:databases", level: "intermediate" }], formats: everyFormat }),
+    );
+    expect(plan.results.filter((r) => r.intent === "reinforce").at(-1)?.session.code).toBe("DAT313");
+  });
+});

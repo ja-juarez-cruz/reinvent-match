@@ -112,9 +112,11 @@ export function requiresReservation(session: NormalizedSession, catalogFlagsRese
 const COVERAGE_TARGET = 6;
 const IGNORED_MENTION_FACTOR = 0.8;
 const SPONSORED_FACTOR = 0.7;
-const DEEP_AI_BONUS = 0.08;
-/** A card this far below its topic's best lead card does not take that topic's slot. */
-const WEAK_CARD_GAP = 0.15;
+const DEEP_AI_BONUS = 0.12;
+const AI_BRIDGE_BONUS = 0.25;
+/** A card this far below the band's best, or touching this few of the attendee's tags, takes no weaker topic's slot. */
+const WEAK_CARD_GAP = 0.12;
+const WEAK_CARD_HITS = 2;
 /** Seats run out: a small lift, so a reservable session wins a close call without burying better walk-ins. */
 const RESERVABLE_BONUS = 0.03;
 
@@ -436,6 +438,10 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers, keep:
   /** Scores before the 100% cap, so bonuses still separate sessions that max out. */
   const rankScore = new Map<string, number>();
   const rank = (r: PlanItem) => rankScore.get(r.session.id) ?? r.score / 100;
+  // The attendee's strongest topics, recognized in a title by their keywords.
+  const strongestDomains = DOMAINS.filter((d) => topicProficiency.get(d.id) === strongest && strongest > 0);
+  const strongestTopicInTitle = (normalizedTitle: string) =>
+    strongestDomains.some((d) => (d.titleKeywords ?? []).some((k) => textContains(normalizedTitle, k)));
   const deepAiPersona =
     aiTopic?.level === "advanced" && ((answers.ai.training ?? 0) >= 2 || (answers.ai.infra ?? 0) >= 2);
   /** The picked topic each Reinforce session goes deeper on, to share the first cards among topics. */
@@ -578,7 +584,13 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers, keep:
     // How many of the attendee's tags (known and to learn) the session touches; separates sessions that max out
     // every other component.
     const goalHits = new Set([...knownHits, ...learnHits]).size;
-    const coverage = Math.min(1, goalHits / COVERAGE_TARGET);
+    const deepAi =
+      deepAiPersona &&
+      tags.aiSubtopics.some((t) => t === "ml-training" || t === "ai-infra") &&
+      (tags.learningStyle === "hands-on" || (level !== null && level >= 3));
+    // A deep AI session names few of the attendee's tags (a training workshop is "just" SageMaker), which says
+    // nothing about how much it serves them.
+    const coverage = Math.max(deepAi ? 0.5 : 0, Math.min(1, goalHits / COVERAGE_TARGET));
     let score =
       weights.relevance * relevance +
       weights.level * levelFit +
@@ -587,12 +599,11 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers, keep:
       weights.coverage * coverage;
     if (session.isCustomerStory) score += 0.02;
     // Someone who trains and serves models wants the deep ones: training or inference, hands-on or 400+.
-    if (
-      deepAiPersona &&
-      tags.aiSubtopics.some((t) => t === "ml-training" || t === "ai-infra") &&
-      (tags.learningStyle === "hands-on" || (level !== null && level >= 3))
-    ) {
-      score += DEEP_AI_BONUS;
+    if (deepAi) score += DEEP_AI_BONUS;
+    // Learning AI from a strong topic: an AI session about that topic ("Secure AI the way you secure everything
+    // else") is the bridge, and should lead Learn over sessions that only mention AI.
+    if (intent === "learn" && aiTopic?.level === "new" && AI_IN_TITLE.test(session.title) && strongestTopicInTitle(title)) {
+      score += AI_BRIDGE_BONUS;
     }
     // Sponsored sessions are partners pitching; they never lead and weigh less.
     if (session.isSponsored) score *= SPONSORED_FACTOR;
@@ -687,22 +698,26 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers, keep:
   );
   // Reinforce deals its right-level cards topic by topic, so the sessions that touch many topics at once (resilience,
   // operations) cannot crowd out the attendee's own topics. Stronger topics get more cards per round (Advanced 3,
-  // Intermediate 2, Basic 1) and deal first. A repeat of a session already dealt, or a card far below its topic's
-  // best, takes no slot: it follows the dealt cards.
+  // Intermediate 2, Basic 1) and deal first. A repeat of a session already dealt, or a weak card in a weaker topic,
+  // takes no slot: it follows the dealt cards.
   const TOPIC_WEIGHT: Record<string, number> = { advanced: 3, intermediate: 2, basic: 1 };
   const weightOf = (topic: string) => TOPIC_WEIGHT[answers.topics.find((t) => t.key === topic)?.level ?? ""] ?? 1;
   const band = results.filter((r) => r.intent === "reinforce" && r.fitsLevel);
   if (band.length > 0) {
     const start = results.indexOf(band[0]!);
     const topicOf = (r: PlanItem) => reinforceTopic.get(r.session.id) ?? "";
-    const best = new Map<string, number>();
-    for (const r of band) if (!best.has(topicOf(r))) best.set(topicOf(r), rank(r));
+    const bandBest = rank(band[0]!);
+    const strongestWeight = Math.max(...band.map((r) => weightOf(topicOf(r))));
+    // The strongest topics always deal their cards. A weaker topic's slot is not filled with a card far below the
+    // band's best, or with one that touches only a couple of the attendee's tags (an Oracle session in Databases).
+    const weak = (r: PlanItem) =>
+      weightOf(topicOf(r)) < strongestWeight && (rank(r) < bandBest - WEAK_CARD_GAP || r.goalHits <= WEAK_CARD_HITS);
     const seen = new Set<string>();
     const dealt: PlanItem[] = [];
     const held: PlanItem[] = [];
     for (const r of band) {
       const base = r.session.code.replace(/-R\d*$/, "");
-      (seen.has(base) || rank(r) < best.get(topicOf(r))! - WEAK_CARD_GAP ? held : dealt).push(r);
+      (seen.has(base) || weak(r) ? held : dealt).push(r);
       seen.add(base);
     }
     results.splice(

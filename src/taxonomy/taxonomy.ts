@@ -50,7 +50,8 @@ export const DOMAINS: TagDefinition[] = [
     label: "Compute, HPC & Quantum",
     topics: ["Compute"],
     services: ["EC2", "Graviton", "Batch", "Parallel Computing Service", "ParallelCluster", "Braket", "EC2 Linux"],
-    titleKeywords: ["HPC", "Graviton", "EC2", "GPU", "GPUs", "quantum", "instances"],
+    // "quantum computing", not the post-quantum cryptography of security sessions.
+    titleKeywords: ["HPC", "Graviton", "EC2", "GPU", "GPUs", "quantum computing", "quantum computers", "Braket", "instances"],
   },
   {
     id: "databases",
@@ -132,7 +133,7 @@ export const DOMAINS: TagDefinition[] = [
       "Digital Sovereignty",
     ],
     services: ["IAM", "KMS", "GuardDuty", "Security Hub", "WAF", "Cognito", "Security Agent", "STS", "Macie", "Inspector", "Secrets Manager", "Verified Access"],
-    titleKeywords: ["security", "secure", "zero trust", "identity", "compliance", "threat", "threats", "IAM", "permissions", "encryption"],
+    titleKeywords: ["security", "secure", "securing", "zero trust", "identity", "compliance", "threat", "threats", "IAM", "permissions", "encryption", "post-quantum", "govern", "governance", "governed", "guardrail", "guardrails", "trust"],
   },
   {
     id: "observability",
@@ -216,7 +217,7 @@ export const DOMAINS: TagDefinition[] = [
 ];
 
 /** AWS tracks encoded in the session code prefix, with the domain each one is primarily about. */
-export const TRACKS: Record<string, { label: string; domain?: string }> = {
+export const TRACKS: Record<string, { label: string; domain?: string; onlyWhenTitleMatches?: boolean }> = {
   AIM: { label: "AI/ML", domain: "ai" },
   SEC: { label: "Security", domain: "security" },
   IND: { label: "Industries", domain: "industry" },
@@ -242,7 +243,8 @@ export const TRACKS: Record<string, { label: string; domain?: string }> = {
   OPN: { label: "Open Source", domain: "devtools" },
   API: { label: "Application Integration", domain: "integration" },
   SNR: { label: "Senior leaders", domain: "leadership" },
-  AMZ: { label: "Amazon stories", domain: "leadership" },
+  // Amazon stories are leadership lessons or engineering case studies (zero trust at Bee): only the first are leadership.
+  AMZ: { label: "Amazon stories", domain: "leadership", onlyWhenTitleMatches: true },
 };
 
 export const AI_SUBTOPICS: TagDefinition[] = [

@@ -52,6 +52,10 @@ function prepare(s: NormalizedSession): Prepared {
 // Rule label lists are normalized once, not per session.
 const normalizedRules = new WeakMap<Rule, { topics: string[]; areas: string[]; services: string[][] }>();
 
+function titleMatches(rule: Rule | undefined, p: Prepared): boolean {
+  return (rule?.titleKeywords ?? []).some((k) => textContains(p.title, k));
+}
+
 function matches(rule: Rule, p: Prepared): boolean {
   let n = normalizedRules.get(rule);
   if (!n) {
@@ -141,8 +145,12 @@ export function tagSession(s: NormalizedSession, knownServices: Map<string, Text
 
   const matchedDomains = DOMAINS.filter((d) => matches(d, p)).map((d) => d.id);
   if (s.industries.length > 0 && !matchedDomains.includes("industry")) matchedDomains.push("industry");
+  const trackDomain =
+    track?.domain && (!track.onlyWhenTitleMatches || titleMatches(DOMAINS.find((d) => d.id === track.domain), p))
+      ? track.domain
+      : undefined;
   const primaryDomain =
-    track?.domain ??
+    trackDomain ??
     s.topics.map((t) => DOMAIN_BY_TOPIC.get(normalizeText(t))).find((d) => d !== undefined) ??
     matchedDomains[0] ??
     "other";
