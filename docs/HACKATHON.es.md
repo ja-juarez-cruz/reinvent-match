@@ -12,7 +12,7 @@ Cuatro criterios con el mismo peso (25% cada uno):
 |---|---|
 | **Creatividad y novedad de la integración** | Match persona ↔ sesión en lugar de un buscador. Categorías explicadas (Deep Dive, Growth, Foundation, Discovery, Skip), *irreemplazabilidad* de los formatos presenciales, learning paths a lo largo de la semana y costo de oportunidad de cada elección. Un servidor MCP local que **se combina con** el MCP oficial `awsevents`: el asistente usa el nuestro para decidir y el oficial para actuar. |
 | **Utilidad para asistentes de re:Invent** | Pensado para el 47% que va por primera vez: convierte 2,000+ sesiones en ~15 con razones, evita sesiones demasiado básicas o avanzadas, llena la semana con los horarios reales y los traslados entre venues, y lleva la agenda al portal oficial (hoy favoritos y reservas; después, tiempo personal). También sirve para los Summits. |
-| **Profundidad técnica y uso del API** | Hoy usa 7 de las 12 operaciones y las otras 5 están planeadas (tabla abajo); apunta a las dos interfaces (REST en la app, MCP a su lado). Maneja OAuth PKCE con refresh y revocación, paginación, cuotas por asistente, fallas parciales por sesión, el `409` antes de que se abra la escritura y el tiempo personal que solo acepta UTC. |
+| **Profundidad técnica y uso del API** | Hoy usa 7 de las 12 operaciones y las otras 5 están planeadas (tabla abajo); apunta a las dos interfaces (REST en la app, MCP a su lado). Maneja OAuth PKCE con refresh y revocación, paginación, cuotas por asistente, fallas parciales por sesión, el `409` antes de que se abra la escritura y el tiempo personal que la app lee como hora local aunque la referencia dice UTC. |
 | **Calidad del proyecto en Builder Center** | Publicación con el problema, el método, el diagrama de arquitectura, un video demo y la agenda real del autor antes y después de re:Invent como caso de uso. |
 
 ## Cobertura del API
@@ -20,7 +20,7 @@ Cuatro criterios con el mismo peso (25% cada uno):
 | Operación | Función en Reinvent:Match | Estado |
 |---|---|---|
 | `ListEvents` | `reinvent-match events`: elegir el evento | ✅ |
-| `GetEvent` | 📅 Calendar lee la zona horaria del evento para escribir el tiempo personal y el .ics en UTC | ✅ |
+| `GetEvent` | 📅 Calendar lee la zona horaria del evento para escribir el .ics en UTC | ✅ |
 | `ListSessions` | Descarga y caché del catálogo completo | ✅ |
 | `GetSession` | 🎟 Reservations → ↻ Check seats: disponibilidad al momento (disponible, limitada, muy limitada, llena) de cada sesión por reservar | ✅ |
 | `GetSchedule` | `reinvent-match schedule`; My Match muestra los favoritos y reservas actuales; cada sincronización lo vuelve a leer; Import from re:Invent trae de vuelta como elegidas los favoritos del portal | ✅ |

@@ -12,7 +12,7 @@ Four equally weighted criteria (25% each):
 |---|---|
 | **Creativity and novelty of the integration** | Person ↔ session matching instead of search. Explainable categories (Deep Dive, Growth, Foundation, Discovery, Skip), *irreplaceability* of in-person formats, learning paths across the week, opportunity cost of every choice. A local MCP server that **composes with** the official `awsevents` MCP server: the assistant uses ours to decide and theirs to act. |
 | **Utility for re:Invent attendees** | Built for the 47% who are first-timers: turns 2,000+ sessions into ~15 with reasons, avoids sessions that are too basic or too advanced, fills the week around real schedules and walks between venues, and gets the agenda into the official portal (favorites and reservations today, personal time next). Works with Summits too. |
-| **Technical depth and use of the API surface** | Uses 7 of the 12 operations today, with the other 5 planned (table below), and aims at both surfaces (REST in the app, MCP alongside it). Handles OAuth PKCE with refresh and revocation, pagination, per-attendee quotas, per-session partial failures, the `409` before write access opens, and UTC-only personal time. |
+| **Technical depth and use of the API surface** | Uses 7 of the 12 operations today, with the other 5 planned (table below), and aims at both surfaces (REST in the app, MCP alongside it). Handles OAuth PKCE with refresh and revocation, pagination, per-attendee quotas, per-session partial failures, the `409` before write access opens, and personal time the app reads as local time although the reference says UTC. |
 | **Quality of the Builder Center project** | Write-up with the problem, the method, the architecture diagram, a demo video and the author's own before/after re:Invent agenda as a real case. |
 
 ## API surface coverage
@@ -20,7 +20,7 @@ Four equally weighted criteria (25% each):
 | Operation | Reinvent:Match feature | Status |
 |---|---|---|
 | `ListEvents` | `reinvent-match events`: choose an event | ✅ |
-| `GetEvent` | 📅 Calendar reads the event's own time zone to write personal time and the .ics in UTC | ✅ |
+| `GetEvent` | 📅 Calendar reads the event's own time zone to write the .ics in UTC | ✅ |
 | `ListSessions` | Full catalog download and cache | ✅ |
 | `GetSession` | 🎟 Reservations → ↻ Check seats: fresh seat band (available, limited, very limited, full) for each session still to book | ✅ |
 | `GetSchedule` | `reinvent-match schedule`; My Match shows current favorites and reservations; every sync re-reads it; Import from re:Invent brings portal favorites back as picks | ✅ |
