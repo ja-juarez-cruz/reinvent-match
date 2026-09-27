@@ -11,8 +11,8 @@ Four equally weighted criteria (25% each):
 | Criterion | How Reinvent:Match addresses it |
 |---|---|
 | **Creativity and novelty of the integration** | Person ↔ session matching instead of search. Explainable categories (Deep Dive, Growth, Foundation, Discovery, Skip), *irreplaceability* of in-person formats, learning paths across the week, opportunity cost of every choice. A local MCP server that **composes with** the official `awsevents` MCP server: the assistant uses ours to decide and theirs to act. |
-| **Utility for re:Invent attendees** | Built for the 47% who are first-timers: turns 2,000+ sessions into ~15 with reasons, avoids sessions that are too basic or too advanced, and gets the agenda into the official portal (favorites, personal time, reservations). Works with Summits too. |
-| **Technical depth and use of the API surface** | Uses all 12 operations (table below) and both surfaces (REST in the app, MCP alongside it). Handles OAuth PKCE with refresh and revocation, pagination, per-attendee quotas, per-session partial failures, the `409` before write access opens, and UTC-only personal time. |
+| **Utility for re:Invent attendees** | Built for the 47% who are first-timers: turns 2,000+ sessions into ~15 with reasons, avoids sessions that are too basic or too advanced, fills the week around real schedules and walks between venues, and gets the agenda into the official portal (favorites and reservations today, personal time next). Works with Summits too. |
+| **Technical depth and use of the API surface** | Uses 7 of the 12 operations today, with the other 5 planned (table below), and aims at both surfaces (REST in the app, MCP alongside it). Handles OAuth PKCE with refresh and revocation, pagination, per-attendee quotas, per-session partial failures, the `409` before write access opens, and UTC-only personal time. |
 | **Quality of the Builder Center project** | Write-up with the problem, the method, the architecture diagram, a demo video and the author's own before/after re:Invent agenda as a real case. |
 
 ## API surface coverage
@@ -41,14 +41,14 @@ Goal: **the tool is complete before reserved seating opens on October 6**, so th
 Reserved seating opens on **October 6** in the portal, but write access through the API (reserve/cancel) only opens on **October 8**. The plan for opening day accounts for that gap:
 
 - **By October 5:** favorites are already synced to the official portal, and Reinvent:Match produces a *reservation plan*: the conflict-free agenda ordered by value × scarcity, with a backup for every slot. On October 6 the attendee reserves in the portal following that order, starting with the sessions most likely to fill up.
-- **From October 8:** `reinvent-match reserve` reserves whatever is still missing through the API, falls back to the pre-approved backup when a session is full (`sessionFull`), reports clashes (`scheduleConflict` + `conflictsWith`), and a watcher polls seat availability for full sessions within the quotas.
+- **From October 8:** My Match → 🎟 Reservations → **Reserve N in this order** reserves whatever is still missing through the API, offers the backup when a session is full (`sessionFull`) and reports clashes (`scheduleConflict` + `conflictsWith`). Next: a watcher that polls seat availability for full sessions within the quotas.
 
 | Dates | Milestone |
 |---|---|
 | Sep 24 | ✅ Match engine against public catalogs, concept docs, Builder ID sign-in |
-| Sep 25 – 27 | `reinvent2026` catalog with the author's own profile; calibrate rules and weights on real data |
-| Sep 28 – Oct 1 | Swipe (terminal) with ❤️/❌ synced to favorites; `GetSchedule` import |
-| Oct 2 – 4 | Agenda builder (conflicts, travel between venues, opportunity cost, backups), personal time, reservation plan |
+| Sep 25 – 27 | ✅ Rules and weights calibrated with seven test personas; `reinvent2026` with the author's own profile still to do |
+| Sep 28 – Oct 1 | ✅ Swipe (web) with ❤️ synced to favorites; import from the portal (`GetSchedule`) |
+| Oct 2 – 4 | ✅ My Match (clashes, travel between venues, free time, backups), Fill my week, reservation plan, booking through the API · ⬜ personal time |
 | **Oct 5** | Tool complete for opening day; dry run end to end |
 | Oct 6 | Reserve in the portal following the plan |
 | Oct 8 | `reinvent-match reserve` live against the API (first real test of write access) |
@@ -59,9 +59,9 @@ Reserved seating opens on **October 6** in the portal, but write access through 
 ## Submission checklist
 
 - [ ] Public repository (GitHub) with working code
-- [ ] README: setup, dependencies, how to run (English + Spanish)
+- [x] README: setup, dependencies, how to run (English + Spanish)
 - [ ] Builder Center project: what, why, how it uses the API and MCP server
 - [ ] Architecture diagram
 - [ ] Demo video (≤ 3 min): profile → swipe → agenda → official portal
-- [ ] No re:Invent catalog data committed (it is not public; tests use public Summit catalogs only)
+- [x] No re:Invent catalog data committed (it is not public; tests use public Summit catalogs only)
 - [ ] Unofficial project disclaimer; trademark review of the name

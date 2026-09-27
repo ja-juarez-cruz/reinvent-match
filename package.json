@@ -19,7 +19,8 @@
   "files": [
     "dist",
     "README.md",
-    "README.es.md"
+    "README.es.md",
+    "LICENSE"
   ],
   "engines": {
     "node": ">=20"
@@ -48,5 +49,14 @@
     "typescript": "^5.9.3",
     "vite": "^7.3.6",
     "vitest": "^3.2.7"
+  },
+  "author": "JA Juarez",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ja-juarez-cruz/reinvent-match.git"
+  },
+  "homepage": "https://github.com/ja-juarez-cruz/reinvent-match#readme",
+  "bugs": {
+    "url": "https://github.com/ja-juarez-cruz/reinvent-match/issues"
   }
 }

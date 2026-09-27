@@ -98,7 +98,7 @@ web/            React UI served by the local server
 src/
 ├── server/     local HTTP server: UI, /api for the UI, sign-in callback
 ├── store/      profiles and swipes in ~/.rematch
-├── sync/       favorites sync (AssociateFavorites / DisassociateFavorite)
+├── sync/       favorites sync and import, reservations (AssociateFavorites / DisassociateFavorite, ReserveSessions / CancelReservation)
 ├── auth/       Builder ID sign-in (OAuth PKCE), token storage and refresh
 ├── api/        AWS Events API client and types
 ├── catalog/    session normalization and local cache
@@ -117,9 +117,13 @@ src/
 
 - [x] Match engine against public catalogs
 - [x] Builder ID sign-in (OAuth PKCE on `127.0.0.1:8484`)
+- [x] Local web app: About you, swipe, My Match, learning plan
+- [x] Recommendations reviewed with seven test personas
+- [x] Two-way favorites: ❤️ → official favorites, and import what changed in the portal or the AWS Events app
+- [x] Your week: clashes, travel between venues, lunch, free time, ✨ Fill my week
+- [x] Reservation plan and booking through the API, with backups for full sessions
 - [ ] `reinvent2026` catalog calibrated with a real profile
-- [x] Local web app: profile editor, swipe, My Match
-- [x] Swipe ❤️ → official favorites
-- [ ] Agenda: conflicts, travel between venues, opportunity cost, personal time
-- [ ] Reservations with explicit confirmation (from October 8, 2026)
-- [ ] Local swipe UI and MCP server
+- [ ] First live reservations against the API (write access opens October 8, 2026)
+- [ ] Personal time for travel between venues (Create / Update / DeletePersonalTime)
+- [ ] Seat watcher for full sessions (GetSession)
+- [ ] MCP server alongside the official `awsevents` server

@@ -103,9 +103,13 @@ npm publish       # antes corre typecheck, tests y build (prepublishOnly)
 
 - [x] Motor de match con catálogos públicos
 - [x] Inicio de sesión con Builder ID (OAuth PKCE en `127.0.0.1:8484`)
+- [x] App web local: Sobre ti, swipe, My Match, plan de aprendizaje
+- [x] Recomendaciones revisadas con siete perfiles de prueba
+- [x] Favoritos en ambos sentidos: ❤️ → favoritos oficiales, e importar lo que cambió en el portal o la app AWS Events
+- [x] Tu semana: choques, traslados entre venues, comida, tiempo libre, ✨ Fill my week
+- [x] Plan de reserva y reservas por el API, con respaldos para las sesiones llenas
 - [ ] Catálogo `reinvent2026` calibrado con un perfil real
-- [x] App web local: editor de perfil, swipe, My Match
-- [x] Swipe ❤️ → favoritos oficiales
-- [ ] Agenda: conflictos, traslados entre venues, costo de oportunidad, tiempo personal
-- [ ] Reservas con confirmación explícita (desde el 8 de octubre de 2026)
-- [ ] UI de swipe local y servidor MCP
+- [ ] Primeras reservas reales contra el API (la escritura abre el 8 de octubre de 2026)
+- [ ] Tiempo personal para los traslados entre venues (Create / Update / DeletePersonalTime)
+- [ ] Vigilante de asientos para sesiones llenas (GetSession)
+- [ ] Servidor MCP junto al servidor oficial `awsevents`
