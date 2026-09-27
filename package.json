@@ -1,6 +1,6 @@
 {
   "name": "reinvent-match",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Reinvent:Match - find the AWS re:Invent sessions that fit you: what you know, what you want to learn, your level and your week. Runs locally with your AWS Builder ID. Unofficial community project.",
   "keywords": [
     "aws",
