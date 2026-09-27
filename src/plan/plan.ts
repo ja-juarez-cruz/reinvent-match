@@ -52,7 +52,17 @@ export interface PlanSession {
 }
 
 /** What a reason is about, so views can show only the ones they need (the swipe card keeps match, skills and ai). */
-export type ReasonAbout = "match" | "level" | "related" | "skills" | "format" | "context" | "ai" | "platform" | "reservation";
+export type ReasonAbout =
+  | "match"
+  | "level"
+  | "related"
+  | "skills"
+  | "format"
+  | "context"
+  | "ai"
+  | "platform"
+  | "reservation"
+  | "affinity";
 
 export interface PlanReason extends Reason {
   about: ReasonAbout;
@@ -113,6 +123,13 @@ const COVERAGE_TARGET = 6;
 const IGNORED_MENTION_FACTOR = 0.8;
 const SPONSORED_FACTOR = 0.7;
 const DEEP_AI_BONUS = 0.12;
+/** Each ❤️ pick sharing a specific technology with a session lifts it this much, up to AFFINITY_CAP. */
+const AFFINITY_PER_PICK = 0.03;
+const AFFINITY_CAP = 0.09;
+/** A technology in more than this share of the catalog says nothing about what the attendee likes. */
+const AFFINITY_MAX_SHARE = 0.05;
+/** Distinct ❤️ sessions a technology must appear in before it lifts others. */
+const AFFINITY_MIN_PICKS = 2;
 const AI_BRIDGE_BONUS = 0.25;
 /** A card this far below the band's best, or touching this few of the attendee's tags, takes no weaker topic's slot. */
 const WEAK_CARD_GAP = 0.12;
@@ -360,9 +377,37 @@ function hitStrength(key: string, primaryDomain: string): number {
 /**
  * @param keep sessions the attendee already picked (❤️ or 🔖): no rule hides them and no list cap drops them, so a
  *   pick never vanishes from their plan, wherever it was made.
+ * @param liked the ❤️ picks: the specific technologies they share lift similar sessions (see AFFINITY_PER_PICK).
  */
-export function buildPlan(sessions: NormalizedSession[], answers: Answers, keep: ReadonlySet<string> = new Set()): Plan {
+export function buildPlan(
+  sessions: NormalizedSession[],
+  answers: Answers,
+  keep: ReadonlySet<string> = new Set(),
+  liked: ReadonlySet<string> = new Set(),
+): Plan {
   const tagged = tagAll(sessions);
+  // What the ❤️ picks say that the preferences do not: specific technologies (Amazon ECS, not Amazon S3, which
+  // a twelfth of the catalog mentions) outside the attendee's stronger topics. Picking ECS sessions while Containers
+  // is Basic is news; picking Step Functions sessions with Serverless at Intermediate is not.
+  const techCount = new Map<string, number>();
+  for (const { tags } of tagged) for (const t of tags.technologies) techCount.set(t, (techCount.get(t) ?? 0) + 1);
+  const techDomainEarly = technologyDomains(tagged);
+  const strongerTopics = new Set(
+    answers.topics.filter((t) => t.level === "intermediate" || t.level === "advanced").map((t) => t.key.slice(t.key.indexOf(":") + 1)),
+  );
+  const specific = (tech: string) =>
+    (techCount.get(tech) ?? 0) <= tagged.length * AFFINITY_MAX_SHARE && !strongerTopics.has(techDomainEarly[tech] ?? "");
+  const likedByTech = new Map<string, NormalizedSession[]>();
+  for (const { session, tags } of tagged) {
+    if (!liked.has(session.id)) continue;
+    for (const t of tags.technologies.filter(specific)) likedByTech.set(t, [...(likedByTech.get(t) ?? []), session]);
+  }
+  // One pick is a choice; two picks sharing a technology are a pattern worth following.
+  for (const [tech, picks] of likedByTech) {
+    if (new Set(picks.map((p) => p.code.replace(/-R\d*$/, ""))).size < AFFINITY_MIN_PICKS) likedByTech.delete(tech);
+  }
+  const sameSession = (a: NormalizedSession, b: NormalizedSession) =>
+    a.code.replace(/-R\d*$/, "") === b.code.replace(/-R\d*$/, "");
   const techDomain = technologyDomains(tagged);
   const relations = topicRelations(tagged, technologyDomainInfo(tagged));
   const ignored = new Set(answers.ignore);
@@ -442,6 +487,8 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers, keep:
 
   const hidden = { format: 0, tooBasic: 0, tooAdvanced: 0, aiNotReady: 0, ignored: 0, other: 0 };
   const exploring = new Set<string>();
+  /** Sessions sharing a specific technology with a ❤️ pick: they always take a slot in Reinforce's first cards. */
+  const likeYourPicks = new Set<string>();
   /** Scores before the 100% cap, so bonuses still separate sessions that max out. */
   const rankScore = new Map<string, number>();
   const rank = (r: PlanItem) => rankScore.get(r.session.id) ?? r.score / 100;
@@ -637,6 +684,17 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers, keep:
 
     const reservable = requiresReservation(session, catalogFlagsReservations);
     if (reservable) score += RESERVABLE_BONUS;
+    // Sessions like the ones the attendee ❤️: same specific technology, other picks (a pick does not lift itself).
+    const alike = liked.has(session.id)
+      ? []
+      : [...new Set(tags.technologies.filter(specific).flatMap((t) => likedByTech.get(t) ?? []))].filter(
+          (pick) => !sameSession(pick, session),
+        );
+    const sharedTechs = tags.technologies.filter((t) => likedByTech.has(t) && specific(t));
+    if (alike.length > 0) {
+      score += Math.min(AFFINITY_CAP, AFFINITY_PER_PICK * alike.length);
+      likeYourPicks.add(session.id);
+    }
     rankScore.set(session.id, score);
     if (intent === "reinforce" && deciding) {
       reinforceTopic.set(session.id, sourceOf(deciding, tags.primaryDomain, tags.domains) ?? `domain:${tags.primaryDomain}`);
@@ -667,6 +725,15 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers, keep:
           sourceOf: (key) => sourceOf(key, tags.primaryDomain, tags.domains),
         }),
         ...aiReasons(readiness),
+        ...(alike.length > 0
+          ? [
+              {
+                about: "affinity" as const,
+                kind: "pro" as const,
+                text: `Like ${alike.slice(0, 2).map((s) => s.code).join(" and ")}, which you ❤️: ${sharedTechs.slice(0, 2).join(", ")}.`,
+              },
+            ]
+          : []),
         ...ignoredMentions.map((p) => ({
           about: "platform" as const,
           kind: "con" as const,
@@ -725,7 +792,9 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers, keep:
     // The strongest topics always deal their cards. A weaker topic's slot is not filled with a card far below the
     // band's best, or with one that touches only a couple of the attendee's tags (an Oracle session in Databases).
     const weak = (r: PlanItem) =>
-      weightOf(topicOf(r)) < strongestWeight && (rank(r) < bandBest - WEAK_CARD_GAP || r.goalHits <= WEAK_CARD_HITS);
+      !likeYourPicks.has(r.session.id) &&
+      weightOf(topicOf(r)) < strongestWeight &&
+      (rank(r) < bandBest - WEAK_CARD_GAP || r.goalHits <= WEAK_CARD_HITS);
     const seen = new Set<string>();
     const dealt: PlanItem[] = [];
     const held: PlanItem[] = [];

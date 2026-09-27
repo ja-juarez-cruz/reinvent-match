@@ -16,6 +16,7 @@ import { loadCatalog, saveCatalog } from "../catalog/cache.js";
 import { normalizeSession, type NormalizedSession } from "../catalog/normalize.js";
 import { matchSessions } from "../match/engine.js";
 import { AI_FAMILIARITY, AI_PREREQUISITES, FORMAT_CHOICES, FORMAT_GROUPS, MAX_TOPICS, TOPIC_LEVELS } from "../plan/answers.js";
+import { inferAnswers } from "../plan/infer.js";
 import { buildPlan, buildVocabulary } from "../plan/plan.js";
 import { TEMPLATES } from "../profile/templates.js";
 import { getAnswers, listAnswers, saveAnswers } from "../store/answers.js";
@@ -199,7 +200,8 @@ export function createApp(ctx: AppContext) {
         if (!answers) throw new HttpError(404, "answers-missing", `No answers saved as ${id}.`);
         const [{ sessions, fetchedAt }, swipes] = await Promise.all([sessionsFor(eventId!), loadSwipes(eventId!)]);
         const picked = new Set(Object.keys(swipes).filter((id) => swipes[id]?.decision !== "pass"));
-        return { fetchedAt, answers, ...buildPlan(sessions, answers, picked), swipes };
+        const liked = new Set(Object.keys(swipes).filter((id) => swipes[id]?.decision === "like"));
+        return { fetchedAt, answers, ...buildPlan(sessions, answers, picked, liked), swipes };
       },
     ],
     ["GET", /^\/api\/templates$/, async () => TEMPLATES],
@@ -247,6 +249,17 @@ export function createApp(ctx: AppContext) {
       "POST",
       /^\/api\/favorites\/([^/]+)\/sync$/,
       async (_req, _url, [eventId]) => syncFavorites(ctx.client, eventId!, await loadSwipes(eventId!)),
+    ],
+    [
+      "GET",
+      /^\/api\/onboarding\/([^/]+)\/from-favorites$/,
+      async (_req, _url, [eventId]) => {
+        const [schedule, { sessions }] = await Promise.all([ctx.client.getSchedule(eventId!), sessionsFor(eventId!)]);
+        const ids = new Set(schedule.favorites);
+        const favorites = sessions.filter((s) => ids.has(s.id));
+        const draft = inferAnswers(favorites);
+        return { favorites: favorites.map((s) => s.id), ...(draft ?? { answers: null, basis: [] }) };
+      },
     ],
     [
       "GET",

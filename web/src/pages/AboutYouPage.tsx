@@ -35,6 +35,16 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
   /** Preferences saved before: this page edits them instead of onboarding. */
   const [editing, setEditing] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
+  /** Saved answers have been looked up, so we know whether this is a first visit. */
+  const [loaded, setLoaded] = useState(false);
+  /** First visit with favorites in AWS Events: a draft of the answers built from them. */
+  const [fromFavorites, setFromFavorites] = useState<{
+    favorites: string[];
+    answers: Answers;
+    basis: { key: string; favorites: number }[];
+  } | null>(null);
+  /** The favorites the draft came from, added as ❤️ when the answers are saved. */
+  const [usedFavorites, setUsedFavorites] = useState<string[] | null>(null);
 
   useEffect(() => {
     api.onboarding().then((o) => {
@@ -48,8 +58,27 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
         setPlatformsAnswered(true);
         setEditing(true);
       }
+      setLoaded(true);
     });
   }, [answersId]);
+
+  // A first visit by someone who already picked favorites in the AWS Events app: offer to start from them.
+  useEffect(() => {
+    if (!eventId || !loaded || editing) return;
+    api.fromFavorites(eventId).then(
+      (draft) =>
+        setFromFavorites(draft.answers && draft.favorites.length > 0 ? { ...draft, answers: draft.answers } : null),
+      () => setFromFavorites(null), // not signed in, or no catalog yet: nothing to offer
+    );
+  }, [eventId, loaded, editing]);
+
+  function startFromFavorites() {
+    if (!fromFavorites) return;
+    setAnswers({ ...EMPTY, ...fromFavorites.answers });
+    setPlatformsAnswered(true);
+    setUsedFavorites(fromFavorites.favorites);
+    setStep(0);
+  }
 
   useEffect(() => {
     if (!eventId) return;
@@ -106,7 +135,9 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
   const topicKeys = answers.topics.map((t) => t.key);
   const allLevelsSet = answers.topics.length > 0 && answers.topics.every((t) => t.level);
   const complete = allLevelsSet && platformsAnswered && answers.formats.length > 0;
-  const canContinue = [answers.topics.length > 0, allLevelsSet, platformsAnswered, true, answers.formats.length > 0][step];
+  const canContinue = [answers.topics.length > 0, allLevelsSet, platformsAnswered, true, answers.formats.length > 0][
+    step
+  ];
   const setTopicKeys = (keys: string[]) =>
     setAnswers({ ...answers, topics: keys.map((key) => answers.topics.find((t) => t.key === key) ?? { key }) });
   const setTopicLevel = (key: string, level: TopicLevel) =>
@@ -118,10 +149,11 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
     setPlatformsAnswered(true);
     setAnswers({ ...answers, ignore: platformIds.filter((id) => !used.includes(id)) });
   };
-  const leftOut = new Set(
-    vocab.platforms.filter((p) => !usedPlatforms.includes(p.id)).flatMap((p) => p.sessionIds),
-  ).size;
-  const aiShare = Math.round((100 * (vocab.domains.find((d) => d.key === "domain:ai")?.count ?? 0)) / Math.max(vocab.total, 1));
+  const leftOut = new Set(vocab.platforms.filter((p) => !usedPlatforms.includes(p.id)).flatMap((p) => p.sessionIds))
+    .size;
+  const aiShare = Math.round(
+    (100 * (vocab.domains.find((d) => d.key === "domain:ai")?.count ?? 0)) / Math.max(vocab.total, 1),
+  );
 
   async function finish() {
     setSaving(true);
@@ -131,7 +163,11 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
       await api.saveAnswers(id, { ...answers, topics: answers.topics.map((t) => ({ key: t.key, level: t.level! })) });
       onSaved(id);
       if (editing) setSavedAt(Date.now());
-      else navigate("swipe");
+      else if (usedFavorites && eventId) {
+        // The favorites the answers came from become the first ❤️ picks.
+        await api.applyFavoritesImport(eventId, usedFavorites, []);
+        navigate("match");
+      } else navigate("swipe");
       setEditing(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -150,6 +186,31 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
             : "Five quick steps, only once. You can change them anytime from ⚙️ Preferences."}
         </p>
       </div>
+
+      {!editing && fromFavorites && !usedFavorites && (
+        <div className="panel notice">
+          <p>
+            ⭐ <strong>You already have {fromFavorites.favorites.length} favorites in AWS Events.</strong> Start from
+            them: your topics, levels, formats and platforms are filled in from those sessions, and they become your
+            first ❤️ picks. You review every step before saving.
+          </p>
+          <div className="row">
+            <button className="primary" onClick={startFromFavorites}>
+              ⭐ Use my {fromFavorites.favorites.length} favorites
+            </button>
+            <button className="link" onClick={() => setFromFavorites(null)}>
+              Start from scratch
+            </button>
+          </div>
+        </div>
+      )}
+      {!editing && usedFavorites && fromFavorites && (
+        <p className="muted small">
+          ⭐ Filled from your {usedFavorites.length} favorites:{" "}
+          {fromFavorites.basis.map((b) => `${labels.get(b.key) ?? b.key} (${b.favorites})`).join(", ")}. Check each
+          step; the AI background is yours to fill.
+        </p>
+      )}
 
       <ol className="wizard-steps">
         {STEPS.map((label, i) => (
@@ -188,7 +249,11 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
                     </div>
                     <div className="segmented">
                       {TOPIC_LEVEL_OPTIONS.map((o) => (
-                        <button key={o.id} className={t.level === o.id ? "on" : ""} onClick={() => setTopicLevel(t.key, o.id)}>
+                        <button
+                          key={o.id}
+                          className={t.level === o.id ? "on" : ""}
+                          onClick={() => setTopicLevel(t.key, o.id)}
+                        >
                           {o.label}
                         </button>
                       ))}
@@ -240,8 +305,8 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
               AI background <span className="muted small">(optional)</span>
             </h2>
             <div className="callout">
-              <strong>{aiShare}% of the sessions involve AI.</strong> Tell us what you know so every AI session you pick is
-              one you can get the most out of.
+              <strong>{aiShare}% of the sessions involve AI.</strong> Tell us what you know so every AI session you pick
+              is one you can get the most out of.
             </div>
             <div className="ai-grid">
               {options.aiPrerequisites.map((p) => (
@@ -276,7 +341,10 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
             <h2>Which formats do you want?</h2>
             <p className="muted">Only these formats go into your pre-list.</p>
             <div className="row">
-              <button className="ghost small" onClick={() => setAnswers({ ...answers, formats: options.formats.map((f) => f.id) })}>
+              <button
+                className="ghost small"
+                onClick={() => setAnswers({ ...answers, formats: options.formats.map((f) => f.id) })}
+              >
                 Select all
               </button>
               <button className="ghost small" onClick={() => setAnswers({ ...answers, formats: [] })}>
@@ -354,11 +422,7 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
             Next →
           </button>
         ) : (
-          <button
-            className="primary"
-            disabled={!canContinue || saving || !allLevelsSet}
-            onClick={finish}
-          >
+          <button className="primary" disabled={!canContinue || saving || !allLevelsSet} onClick={finish}>
             {saving ? "Building…" : "Build my pre-list →"}
           </button>
         )}

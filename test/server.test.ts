@@ -175,3 +175,15 @@ describe("favorites import", () => {
     vi.restoreAllMocks();
   });
 });
+
+describe("onboarding from favorites", () => {
+  it("drafts preferences from the portal's favorites", async () => {
+    const plan = await (await fetch(`${base}/api/match/Summit-Dubai-2026?profile=me`)).json();
+    const ids = plan.results.slice(0, 3).map((r: { session: { id: string } }) => r.session.id);
+    vi.spyOn(client, "getSchedule").mockResolvedValue({ reserved: [], favorites: ids, personalTime: [] });
+    const draft = await (await fetch(`${base}/api/onboarding/Summit-Dubai-2026/from-favorites`)).json();
+    expect(draft.favorites).toHaveLength(3);
+    expect(draft.answers.topics.length).toBeGreaterThan(0);
+    vi.restoreAllMocks();
+  });
+});

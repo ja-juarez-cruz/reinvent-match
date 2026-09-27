@@ -688,3 +688,28 @@ describe("persona review, round four", () => {
     expect(plan.results.filter((r) => r.intent === "reinforce").at(-1)?.session.code).toBe("DAT313");
   });
 });
+
+describe("learning from picks", () => {
+  const talk = (code: string, title: string, services: string[], level = "300 – Advanced") =>
+    session({ sessionId: code, abbreviation: code, title, type: "Chalk talk", level, topics: ["Containers"], services });
+  // A catalog big enough that three ECS sessions are a specific technology (under 5%).
+  const filler = Array.from({ length: 80 }, (_, i) => talk(`CMP${300 + i}`, `Compute talk ${i}`, [`Service ${i}`]));
+  const picked = talk("CON318", "Resilient deployment pipelines with Amazon ECS", ["Amazon Elastic Container Service (Amazon ECS)"]);
+  const alike = talk("CON202", "Launch a container app with Amazon ECS", ["Amazon Elastic Container Service (Amazon ECS)"], "200 – Intermediate");
+  const other = talk("CON301", "Kubernetes networking", ["Amazon Elastic Kubernetes Service (Amazon EKS)"], "200 – Intermediate");
+  const opts = answers({ topics: [{ key: "domain:containers", level: "basic" }], formats: ["chalk"] });
+
+  it("lifts sessions sharing a specific technology with two ❤️ picks, and says so", () => {
+    const without = buildPlan([...filler, picked, talk("CON320", "Blue/green deployments on Amazon ECS", ["Amazon Elastic Container Service (Amazon ECS)"]), alike, other], opts);
+    const second = talk("CON320", "Blue/green deployments on Amazon ECS", ["Amazon Elastic Container Service (Amazon ECS)"]);
+    const withPick = buildPlan([...filler, picked, second, alike, other], opts, new Set(["CON318", "CON320"]), new Set(["CON318", "CON320"]));
+    const score = (plan: typeof without, code: string) => plan.results.find((r) => r.session.code === code)!.score;
+    expect(score(withPick, "CON202")).toBeGreaterThan(score(without, "CON202"));
+    expect(score(withPick, "CON301")).toBe(score(without, "CON301"));
+    const reason = withPick.results.find((r) => r.session.code === "CON202")!.reasons.find((r) => r.about === "affinity");
+    expect(reason?.text).toMatch(/Like CON318 and CON320, which you ❤️: Amazon ECS/);
+    // A single pick is not a pattern yet.
+    const onePick = buildPlan([...filler, picked, alike, other], opts, new Set(["CON318"]), new Set(["CON318"]));
+    expect(onePick.results.find((r) => r.session.code === "CON202")!.reasons.some((r) => r.about === "affinity")).toBe(false);
+  });
+});

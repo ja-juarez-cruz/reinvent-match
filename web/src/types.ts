@@ -25,7 +25,7 @@ export interface Reason {
 }
 
 /** The only reasons a session card shows: why it matches, the skills it builds and AI readiness. */
-export const CARD_REASONS = new Set(["match", "skills", "ai"]);
+export const CARD_REASONS = new Set(["match", "affinity", "skills", "ai"]);
 
 export interface Session {
   id: string;
