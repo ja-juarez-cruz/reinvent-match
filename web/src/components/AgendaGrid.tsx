@@ -4,6 +4,8 @@ import { INTENT_META } from "../intents";
 import type { Decision, PlanItem, SwipeLog } from "../types";
 
 type OnOpen = (item: PlanItem, pick?: PlanItem) => void;
+/** Opens the resolver for two sessions in view that clash. */
+type OnClash = (a: PlanItem, b: PlanItem) => void;
 
 /** The marks the agenda can show, as filters. */
 export const AGENDA_FILTERS: { decision: Decision; icon: string; label: string; hint: string }[] = [
@@ -23,6 +25,7 @@ export function AgendaGrid({
   counts,
   onToggle,
   onOpen,
+  onClash,
 }: {
   agenda: Agenda;
   swipes: SwipeLog;
@@ -32,6 +35,7 @@ export function AgendaGrid({
   counts: Record<Decision, number>;
   onToggle: (decision: Decision) => void;
   onOpen: OnOpen;
+  onClash: OnClash;
 }) {
   return (
     <>
@@ -106,6 +110,7 @@ export function AgendaGrid({
                               swipes={swipes}
                               favorite={favorites.has(p.item.session.id)}
                               onOpen={onOpen}
+                              onClash={onClash}
                             />
                           ),
                         })),
@@ -145,11 +150,13 @@ function PickCard({
   swipes,
   favorite,
   onOpen,
+  onClash,
 }: {
   pick: AgendaPick;
   swipes: SwipeLog;
   favorite: boolean;
   onOpen: OnOpen;
+  onClash: OnClash;
 }) {
   const s = pick.item.session;
   return (
@@ -185,7 +192,21 @@ function PickCard({
         </div>
       )}
       {pick.clashes.length > 0 && (
-        <div className="small warn">⚠️ Clashes with {pick.clashes.map((c) => c.session.code).join(", ")}</div>
+        <div className="small warn">
+          ⚠️ Clashes with{" "}
+          {pick.clashes.map((c, i) => (
+            <span key={c.session.id}>
+              {i > 0 && ", "}
+              <button
+                className="link small clash-link"
+                onClick={() => onClash(pick.item, c)}
+                title="Resolve this clash"
+              >
+                {c.session.code}
+              </button>
+            </span>
+          ))}
+        </div>
       )}
       {pick.alternatives.length > 0 && (
         // Collapsed by default: the week reads cleaner, and alternatives are one click away.

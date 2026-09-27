@@ -3,6 +3,7 @@ import { ApiError, api } from "../api";
 import { navigate } from "../App";
 import { LearningPlanPanel } from "../components/LearningPlanPanel";
 import { AgendaGrid, AgendaList } from "../components/AgendaGrid";
+import { ClashModal } from "../components/ClashModal";
 import { FillWeekModal } from "../components/FillWeekModal";
 import { ImportFavoritesModal } from "../components/ImportFavoritesModal";
 import { ReservationList } from "../components/ReservationList";
@@ -22,8 +23,8 @@ import type {
   SessionInfo,
 } from "../types";
 import { usePlan } from "../usePlan";
-import { distinctSessions } from "../repeats";
-import { buildWeek } from "../week";
+import { distinctSessions, repeatsOf } from "../repeats";
+import { buildWeek, impactOf } from "../week";
 
 interface Props {
   event: AwsEvent | null;
@@ -79,6 +80,9 @@ export function ShortlistPage({ event, eventId, answersId, session, onSignIn }: 
   /** The difference with the portal's favorites, while the import dialog is open. */
   const [importPreview, setImportPreview] = useState<FavoritesImportPreview | null>(null);
   const [importing, setImporting] = useState(false);
+  /** Two sessions in view that clash, while the resolver is open. */
+  const [clash, setClash] = useState<{ a: PlanItem; b: PlanItem } | null>(null);
+  const repeats = useMemo(() => repeatsOf(data?.results ?? []), [data]);
   const reservations = useMemo(() => (data ? reservationPlan(data.results, data.swipes) : []), [data]);
 
   const liked = picked.filter((r) => data?.swipes[r.session.id]?.decision === "like");
@@ -129,6 +133,22 @@ export function ShortlistPage({ event, eventId, answersId, session, onSignIn }: 
   async function addSuggestions(ids: string[]) {
     for (const id of ids) await decide(id, "like");
     setSuggestions(null);
+  }
+
+  /** Keeps one side of a clash as ❤️; the other becomes a 🔖 backup, or is dropped if it already was one. */
+  async function keepSide(keep: PlanItem, drop: PlanItem) {
+    setClash(null);
+    const dropDecision = data?.swipes[drop.session.id]?.decision === "like" ? "save" : "pass";
+    await decide(drop.session.id, dropDecision);
+    if (data?.swipes[keep.session.id]?.decision !== "like") await decide(keep.session.id, "like");
+  }
+
+  /** Moves a session to another time it is offered (❤️ there clears this time, see usePlan). */
+  async function moveTo(from: PlanItem, to: PlanItem) {
+    setClash(null);
+    const wasMaybe = data?.swipes[from.session.id]?.decision === "save";
+    await decide(to.session.id, wasMaybe ? "save" : "like");
+    if (wasMaybe) await decide(from.session.id, null);
   }
 
   /** Clears a decision: the session goes back to the swipe queue. */
@@ -271,6 +291,7 @@ export function ShortlistPage({ event, eventId, answersId, session, onSignIn }: 
               counts={counts}
               onToggle={toggleShow}
               onOpen={(item, pick) => setOpen({ item, pick })}
+              onClash={(a, b) => setClash({ a, b })}
             />
             {agenda.freeMaybes.length > 0 && (
               <div className="panel">
@@ -291,6 +312,26 @@ export function ShortlistPage({ event, eventId, answersId, session, onSignIn }: 
         )}
       </div>
       <LearningPlanPanel plan={plan} compact />
+      {clash && (
+        <ClashModal
+          a={clash.a}
+          b={clash.b}
+          swipes={data.swipes}
+          otherTimes={(item) =>
+            (repeats.get(item.session.id) ?? []).filter(
+              (o) => o.session.schedule.date && data.swipes[o.session.id]?.decision !== "pass",
+            )
+          }
+          clashesAt={(to, from) =>
+            impactOf(to, week)
+              .clashes.map((c) => c.item)
+              .filter((c) => c.session.id !== from.session.id)
+          }
+          onKeep={keepSide}
+          onMove={moveTo}
+          onClose={() => setClash(null)}
+        />
+      )}
       {importPreview && (
         <ImportFavoritesModal preview={importPreview} onApply={applyImport} onClose={() => setImportPreview(null)} />
       )}

@@ -1795,3 +1795,29 @@ a.icon-button {
   outline: 1px dashed var(--muted);
   outline-offset: -1px;
 }
+
+/* Clash resolver */
+
+.clash-modal {
+  max-width: 760px;
+}
+
+.clash-sides {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0.75rem;
+}
+
+.clash-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4rem;
+  box-shadow: none;
+}
+
+.clash-link {
+  color: var(--warn);
+  text-decoration: underline;
+  padding: 0;
+}
