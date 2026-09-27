@@ -73,7 +73,9 @@ function matches(rule: Rule, p: Prepared): boolean {
 
 /** "Amazon Elastic Kubernetes Service (Amazon EKS)" → "Amazon EKS"; names without a short form stay as they are. */
 export function technologyLabel(service: string): string {
-  return service.match(/\(([^)]+)\)\s*$/)?.[1]?.trim() ?? service;
+  const short = service.match(/\(([^)]+)\)\s*$/)?.[1]?.trim();
+  // "AWS GovCloud (US)" is a region qualifier, not a short name.
+  return short && short.length >= 3 ? short : service;
 }
 
 const DOMAIN_BY_TOPIC = new Map(
@@ -85,15 +87,43 @@ const DOMAIN_BY_TOPIC = new Map(
  * aliases ("Step Functions", "SageMaker AI"), and single-word aliases only when they cannot be an ordinary word, that
  * is acronyms and CamelCase names (EKS, S3, SageMaker, DynamoDB), never "connect", "glue" or "lambda".
  */
-export function textAliases(label: string): string[] {
-  const aliases = new Set([label]);
+export interface TextAlias {
+  text: string;
+  /** Acronyms match only in capitals: "EKS", never the "eks" or "us" in ordinary words. */
+  caseSensitive: boolean;
+}
+
+export function textAliases(label: string): TextAlias[] {
+  const aliases = new Map<string, TextAlias>([[label.toLowerCase(), { text: label, caseSensitive: false }]]);
   const short = label.replace(/^(Amazon|AWS)\s+/, "");
   for (const alias of [short, ...aliasesOf(label)]) {
     const original = label.match(new RegExp(escape(alias), "i"))?.[0] ?? alias;
-    const distinctive = /\s/.test(alias.trim()) || /[A-Z].*[A-Z]|\d/.test(original);
-    if (alias.length >= 2 && distinctive) aliases.add(alias);
+    const multiWord = /\s/.test(alias.trim());
+    const acronym = /^[A-Z0-9]{2,}$/.test(original);
+    const camelCase = /[a-z][A-Z]|[A-Z][a-z]+[A-Z]/.test(original) || /\d/.test(original);
+    if (alias.length >= 2 && (multiWord || acronym || camelCase) && !aliases.has(original.toLowerCase())) {
+      aliases.set(original.toLowerCase(), { text: original, caseSensitive: acronym });
+    }
   }
-  return [...aliases];
+  return [...aliases.values()];
+}
+
+/**
+ * Services named in a text, longest names first, each occurrence claimed once: "Amazon Bedrock AgentCore" is
+ * AgentCore, not also Bedrock.
+ */
+export function servicesInText(raw: string, knownServices: Map<string, TextAlias[]>): string[] {
+  const candidates = [...knownServices].flatMap(([label, aliases]) => aliases.map((alias) => ({ label, alias })));
+  candidates.sort((a, b) => b.alias.text.length - a.alias.text.length);
+  let text = raw;
+  const found = new Set<string>();
+  for (const { label, alias } of candidates) {
+    const pattern = new RegExp(`(^|[^A-Za-z0-9])${escape(alias.text).replace(/\\?[-\s]+/g, "[-\\s]?")}(?=$|[^A-Za-z0-9])`, alias.caseSensitive ? "g" : "gi");
+    if (!pattern.test(text)) continue;
+    found.add(label);
+    text = text.replace(pattern, "$1 ");
+  }
+  return [...found];
 }
 
 function escape(text: string): string {
@@ -104,7 +134,7 @@ function escape(text: string): string {
  * @param knownServices service labels found anywhere in the catalog (see technologyLabel), recognized in the title and
  *   abstract of sessions that list no services, or not all of them: many AI sessions name SageMaker only in the text.
  */
-export function tagSession(s: NormalizedSession, knownServices: Map<string, string[]> = new Map()): SessionTags {
+export function tagSession(s: NormalizedSession, knownServices: Map<string, TextAlias[]> = new Map()): SessionTags {
   const p = prepare(s);
   const prefix = s.code.match(/^[A-Z]+/)?.[0] ?? "";
   const track = TRACKS[prefix];
@@ -122,7 +152,7 @@ export function tagSession(s: NormalizedSession, knownServices: Map<string, stri
 
   const technologies = [
     ...s.services.map(technologyLabel),
-    ...[...knownServices].filter(([, aliases]) => aliases.some((a) => textContains(p.text, a))).map(([label]) => label),
+    ...servicesInText(`${s.title}\n${s.abstract}`, knownServices),
     ...EXTRA_TECHNOLOGIES.filter((t) => t.keywords.some((k) => textContains(p.text, k))).map((t) => t.label),
   ];
 

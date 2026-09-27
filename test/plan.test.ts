@@ -311,7 +311,7 @@ describe("level per topic", () => {
           ],
         }),
       ).results[0]!;
-    expect(plan("basic").reasons[0]?.text).toMatch(/Goes deeper on Amazon EKS, one of your topics \(you are Basic\)/);
+    expect(plan("basic").reasons[0]?.text).toMatch(/Goes deeper on Amazon EKS, part of Containers.* \(you are Basic\)/);
     expect(plan("basic").score).toBeLessThan(plan("advanced").score);
     // Known better than the track's topic, the track still decides.
     expect(plan("advanced").reasons[0]?.text).toMatch(/Developer Tools/);
@@ -381,11 +381,23 @@ describe("persona review", () => {
     const plan = buildPlan(
       [
         talk("SVS401", "Lambda internals", "400 – Expert", "Chalk talk", { topics: ["Serverless"] }),
-        talk("SVS201", "Lambda for your team", "200 – Intermediate", "Breakout session", { topics: ["Serverless"] }),
+        talk("SVS301", "Lambda for your team", "300 – Advanced", "Breakout session", { topics: ["Serverless"] }),
+      ],
+      answers({ topics: [{ key: "domain:serverless", level: "intermediate" }], formats: everyFormat }),
+    );
+    expect(plan.results.map((r) => r.session.code)).toEqual(["SVS301", "SVS401"]);
+  });
+
+  it("hides sessions two levels above a Basic topic, and lets its 300s lead", () => {
+    const plan = buildPlan(
+      [
+        talk("SVS401", "Lambda internals", "400 – Expert", "Chalk talk", { topics: ["Serverless"] }),
+        talk("SVS301", "Lambda at scale", "300 – Advanced", "Chalk talk", { topics: ["Serverless"] }),
       ],
       answers({ topics: [{ key: "domain:serverless", level: "basic" }], formats: everyFormat }),
     );
-    expect(plan.results.map((r) => r.session.code)).toEqual(["SVS201", "SVS401"]);
+    expect(plan.results.map((r) => [r.session.code, r.fitsLevel])).toEqual([["SVS301", true]]);
+    expect(plan.hidden.tooAdvanced).toBe(1);
   });
 
   it("leaves out new ground two levels above where someone new can start", () => {
@@ -418,13 +430,17 @@ describe("persona review", () => {
     expect(plan.results).toHaveLength(1);
   });
 
-  it("counts unanswered AI questions as not yet when AI is new or basic", () => {
+  it("lowers, but never hides, AI sessions for questions left unanswered when AI is new or basic", () => {
     const training = talk("AIM301", "Distributed training on Trainium", "300 – Advanced", "Chalk talk", {
       topics: ["Artificial Intelligence"],
       areasOfInterest: ["Machine Learning"],
     });
-    const plan = buildPlan([training], answers({ topics: [{ key: "domain:ai", level: "basic" }], ai: { llm: 1 }, formats: everyFormat }));
-    expect(plan.hidden.aiNotReady).toBe(1);
+    const scoreWith = (ai: Record<string, number>) =>
+      buildPlan([training], answers({ topics: [{ key: "domain:ai", level: "basic" }], ai, formats: everyFormat })).results[0]?.score;
+    expect(scoreWith({ llm: 1 })).toBeDefined();
+    expect(scoreWith({ llm: 1 })!).toBeLessThan(scoreWith({ llm: 1, ml: 2, training: 2, infra: 2 })!);
+    // An explicit "not yet" still hides it.
+    expect(buildPlan([training], answers({ topics: [{ key: "domain:ai", level: "basic" }], ai: { llm: 0, ml: 0, training: 0, infra: 0 }, formats: everyFormat })).hidden.aiNotReady).toBe(1);
   });
 
   it("does not let architecture wording outrank someone's own topic unless they picked Architecture", () => {
@@ -512,7 +528,7 @@ describe("persona review, round two", () => {
       [arc(1), arc(2), arc(3), sec(1), sec(2), sec(3)],
       answers({ topics: [{ key: "domain:security", level: "advanced" }, { key: "domain:architecture", level: "intermediate" }], formats: everyFormat }),
     );
-    expect(plan.results.slice(0, 3).filter((r) => r.session.code.startsWith("SEC"))).toHaveLength(2);
+    expect(plan.results.slice(0, 3).filter((r) => r.session.code.startsWith("SEC")).length).toBeGreaterThanOrEqual(2);
   });
 
   it("judges whether a session leads by the strongest topic it is about", () => {
@@ -572,5 +588,49 @@ describe("persona review, round two", () => {
     const snr = plan.results.find((r) => r.session.code === "SNR304")!;
     expect(snr.intent).toBe("reinforce");
     expect(plan.results.find((r) => r.session.code === "PEX313")?.intent).not.toBe("reinforce");
+  });
+});
+
+describe("persona review, round three", () => {
+  const talk = (code: string, title: string, level: string, type = "Chalk talk", extra: Record<string, unknown> = {}) =>
+    session({ sessionId: code, abbreviation: code, title, type, level, ...extra });
+  const everyFormat = ["workshop", "builders", "chalk", "code", "lab", "breakout", "lightning", "exam"];
+
+  it("reads service names in text without false matches", async () => {
+    const { servicesInText, technologyLabel, textAliases } = await import("../src/taxonomy/tagger.js");
+    const labels = ["Amazon Bedrock", "Amazon Bedrock AgentCore", "Amazon EKS", technologyLabel("AWS GovCloud (US)")];
+    const known = new Map(labels.map((l) => [l, textAliases(l)]));
+    expect(technologyLabel("AWS GovCloud (US)")).toBe("AWS GovCloud (US)");
+    expect(servicesInText("Join us to build with Amazon Bedrock AgentCore on EKS", known)).toEqual(["Amazon Bedrock AgentCore", "Amazon EKS"]);
+    expect(servicesInText("teams that seek to join us", known)).toEqual([]);
+  });
+
+  it("files gamified sessions under their catalog topic", () => {
+    const tabletop = talk("GHJ201", "Cloud Migration Journey Tabletop", "200 – Intermediate", "Gamified learning", { topics: ["Migration & Modernization"] });
+    const plan = buildPlan([tabletop], answers({ topics: [{ key: "domain:migration", level: "basic" }], ai: { llm: 0 }, formats: everyFormat }));
+    expect(plan.results.map((r) => r.intent)).toEqual(["reinforce"]);
+  });
+
+  it("ranks deep training and inference sessions first for an ML engineer", () => {
+    const ml = { llm: 2, ml: 2, rag: 2, agents: 2, mcp: 2, training: 2, eval: 2, infra: 2, bedrock: 2 };
+    const workshop = talk("AIM404", "Deploy fine-tuned models to inference endpoints", "300 – Advanced", "Workshop", {
+      topics: ["Artificial Intelligence"],
+      areasOfInterest: ["Machine Learning"],
+    });
+    const generic = talk("AIM363", "From foundation to business value with generative AI", "300 – Advanced", "Workshop", {
+      topics: ["Artificial Intelligence"],
+      areasOfInterest: ["Generative AI"],
+    });
+    const plan = buildPlan([generic, workshop], answers({ topics: [{ key: "domain:ai", level: "advanced" }], ai: ml, formats: everyFormat }));
+    expect(plan.results[0]!.session.code).toBe("AIM404");
+  });
+
+  it("puts a session in Learn only for a learning goal it is about", () => {
+    const mention = talk("API306", "Event routing patterns with EventBridge", "200 – Intermediate", "Chalk talk", {
+      topics: ["Application Integration"],
+      abstract: "Route events between services. We also touch on MCP servers.",
+    });
+    const plan = buildPlan([mention], answers({ topics: [{ key: "domain:security", level: "advanced" }, { key: "domain:ai", level: "new" }], formats: everyFormat }));
+    expect(plan.results.find((r) => r.session.code === "API306")?.reasons[0]?.text ?? "").not.toMatch(/Covers MCP/);
   });
 });

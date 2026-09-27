@@ -237,7 +237,8 @@ export const TRACKS: Record<string, { label: string; domain?: string }> = {
   HMC: { label: "Hybrid & Multicloud", domain: "hybrid" },
   PEX: { label: "Partner Experience", domain: "partners" },
   INV: { label: "Innovation talks (500)" },
-  GHJ: { label: "AI League (gamified)", domain: "ai" },
+  // Gamified sessions span every topic (AI League, security tabletops, migration journeys): the catalog topic decides.
+  GHJ: { label: "Gamified learning" },
   OPN: { label: "Open Source", domain: "devtools" },
   API: { label: "Application Integration", domain: "integration" },
   SNR: { label: "Senior leaders", domain: "leadership" },
@@ -255,7 +256,7 @@ export const AI_SUBTOPICS: TagDefinition[] = [
   { id: "generative-ai", label: "Generative AI & LLMs", areas: ["Generative AI"], titleKeywords: ["generative", "GenAI", "LLM", "LLMs", "foundation model", "foundation models", "Nova", "prompt"] },
   { id: "rag", label: "RAG, search & knowledge", titleKeywords: ["RAG", "retrieval", "vector", "knowledge base", "knowledge bases", "semantic", "embeddings", "search"] },
   { id: "mcp", label: "MCP & tool integration", textKeywords: ["MCP", "Model Context Protocol"] },
-  { id: "ml-training", label: "ML training & MLOps", areas: ["Machine Learning"], services: ["SageMaker", "SageMaker AI"], titleKeywords: ["training", "fine-tuning", "fine-tune", "MLOps", "reinforcement", "RLVR", "model customization"] },
+  { id: "ml-training", label: "ML training & MLOps", areas: ["Machine Learning"], services: ["SageMaker", "SageMaker AI"], titleKeywords: ["training", "fine-tuning", "fine-tune", "fine-tuned", "MLOps", "reinforcement", "RLVR", "model customization"] },
   { id: "ai-infra", label: "AI infrastructure & inference", services: ["Trainium", "Inferentia"], titleKeywords: ["inference", "Trainium", "Inferentia", "GPU", "GPUs", "accelerated"] },
   { id: "ai-dev", label: "AI for developers", services: ["Kiro", "Q"], titleKeywords: ["Kiro", "coding agent", "coding agents", "AI-native development", "AI-assisted", "spec-driven", "vibe"] },
   { id: "responsible-ai", label: "Responsible AI, evaluation & safety", areas: ["Responsible AI"], titleKeywords: ["evaluation", "evaluate", "evals", "guardrails", "safety", "trust", "responsible", "hallucination", "hallucinations"] },
