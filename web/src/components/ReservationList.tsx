@@ -1,11 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ApiError, api } from "../api";
 import { formatWhen, venueOf } from "../format";
 import type { Reservation } from "../reservations";
 import type { PlanItem } from "../types";
 import { useStored } from "../useStored";
 
-/** Why the event refused a seat, in words (unknown codes read as a generic refusal). */
 /** Seat bands from GetSession, in words. */
 const SEATS: Record<string, string> = {
   available: "🟢 Seats available",
@@ -15,6 +14,14 @@ const SEATS: Record<string, string> = {
   walkUp: "🚶 Walk-up only",
 };
 
+type Seats = Record<string, { isReservable: boolean; seatAvailability: string | null }>;
+
+/** Whether a seat can be booked now: reservations are open for it and it is neither full nor walk-up only. */
+function bookable(seat: Seats[string] | undefined): boolean {
+  return !!seat?.isReservable && seat.seatAvailability !== "unavailable" && seat.seatAvailability !== "walkUp";
+}
+
+/** Why the event refused a seat, in words (unknown codes read as a generic refusal). */
 const REFUSALS: Record<string, string> = {
   sessionFull: "Full",
   scheduleConflict: "Clashes with another reservation",
@@ -46,12 +53,22 @@ export function ReservationList({ eventId, plan, reservedOfficially, onReservedC
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refused, setRefused] = useState<Record<string, string>>({});
-  const [seats, setSeats] = useState<Record<string, { isReservable: boolean; seatAvailability: string | null }>>({});
+  const [seats, setSeats] = useState<Seats>({});
   const [checking, setChecking] = useState(false);
   const ticked = new Set<string>(safeParse(stored));
   const official = new Set(reservedOfficially ?? []);
   const signedIn = reservedOfficially !== null;
   const pending = plan.filter((r) => !official.has(r.item.session.id));
+  // Only what can be booked right now, in the plan's order: the count on the button is what a click would reserve.
+  const bookableIds = pending.map((r) => r.item.session.id).filter((id) => bookable(seats[id]));
+  const checked = pending.some((r) => seats[r.item.session.id]);
+  const pendingKey = pending.map((r) => r.item.session.id).join(",");
+
+  // Seats are checked as soon as the list opens, so the button never offers what cannot be booked.
+  useEffect(() => {
+    if (signedIn && pendingKey) void checkSeats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signedIn, eventId]);
 
   const toggle = (id: string) => {
     const next = new Set(ticked);
@@ -93,17 +110,15 @@ export function ReservationList({ eventId, plan, reservedOfficially, onReservedC
     if (result?.reserved.includes(backup.session.id)) await onSwap(from, backup);
   }
 
-  /** Fresh seat bands for the sessions still to book (GetSession, up to 30 at a time). */
+  /** Fresh seat bands for the sessions still to book (GetSession, 30 per request). */
   async function checkSeats() {
     setChecking(true);
     setError(null);
     try {
-      setSeats(
-        await api.seats(
-          eventId,
-          pending.slice(0, 30).map((r) => r.item.session.id),
-        ),
-      );
+      const ids = pending.map((r) => r.item.session.id);
+      const next: Seats = {};
+      for (let i = 0; i < ids.length; i += 30) Object.assign(next, await api.seats(eventId, ids.slice(i, i + 30)));
+      setSeats(next);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -146,6 +161,7 @@ export function ReservationList({ eventId, plan, reservedOfficially, onReservedC
   }
 
   const done = plan.filter((r) => official.has(r.item.session.id) || ticked.has(r.item.session.id)).length;
+  const notOpen = checked && bookableIds.length === 0 && pending.every((r) => !seats[r.item.session.id]?.isReservable);
   return (
     <div className="panel reservations">
       <p className="muted small">
@@ -158,20 +174,27 @@ export function ReservationList({ eventId, plan, reservedOfficially, onReservedC
           pending.length > 0 &&
           (confirming === "all" ? (
             <>
-              <button
-                className="primary"
-                disabled={busy}
-                onClick={() => reserve(pending.map((r) => r.item.session.id))}
-              >
-                {busy ? "Reserving…" : `Confirm: reserve ${pending.length} session${pending.length === 1 ? "" : "s"}`}
+              <button className="primary" disabled={busy} onClick={() => reserve(bookableIds)}>
+                {busy ? "Reserving…" : `Confirm: reserve ${plural(bookableIds.length)}`}
               </button>
               <button className="link" onClick={() => setConfirming(null)}>
                 Cancel
               </button>
             </>
           ) : (
-            <button className="primary" disabled={busy} onClick={() => setConfirming("all")}>
-              🎟 Reserve {pending.length} in this order
+            <button
+              className="primary"
+              disabled={busy || checking || bookableIds.length === 0}
+              onClick={() => setConfirming("all")}
+              title="Only sessions with seats you can book now"
+            >
+              {checking && !checked
+                ? "Checking seats…"
+                : bookableIds.length > 0
+                  ? `🎟 Reserve ${bookableIds.length} in this order`
+                  : notOpen
+                    ? "🎟 Reservations not open yet"
+                    : "🎟 Nothing to reserve now"}
             </button>
           ))
         ) : (
@@ -194,11 +217,19 @@ export function ReservationList({ eventId, plan, reservedOfficially, onReservedC
         </button>
       </div>
       {error && <p className="error small">{error}</p>}
+      <div className="reservation-head muted small" aria-hidden="true">
+        <span />
+        <span>Session</span>
+        <span>Seats</span>
+        <span />
+      </div>
       <ol className="reservation-list">
         {plan.map(({ item, onlyTime, backups }) => {
           const s = item.session;
           const isOfficial = official.has(s.id);
           const refusal = refused[s.id];
+          const seat = seats[s.id];
+          const full = refusal === "sessionFull" || seat?.seatAvailability === "unavailable";
           return (
             <li key={s.id} className={isOfficial || ticked.has(s.id) ? "reserved" : ""}>
               <div className="reservation-row">
@@ -211,31 +242,22 @@ export function ReservationList({ eventId, plan, reservedOfficially, onReservedC
                     <input type="checkbox" checked={ticked.has(s.id)} onChange={() => toggle(s.id)} />
                   </label>
                 )}
-                <div>
+                <div className="reservation-info">
                   <div>
                     <strong className="code">{s.code}</strong> {s.title}
                   </div>
                   <div className="muted small">
                     {formatWhen(s)} · {venueOf(s)} · {s.formatLabel ?? s.format}
                     {onlyTime ? " · ⚠️ only time offered" : ""}
-                    {isOfficial ? " · ✓ reserved" : ""}
                   </div>
-                  {seats[s.id] && !isOfficial && (
-                    <div className="small">
-                      {seats[s.id]!.isReservable
-                        ? (SEATS[seats[s.id]!.seatAvailability ?? ""] ?? "Reservable")
-                        : "Not open for reservations yet"}
-                    </div>
-                  )}
-                  {refusal && <div className="small warn">⚠️ {REFUSALS[refusal] ?? `Refused (${refusal})`}</div>}
                   {backups.length > 0 && !isOfficial && (
                     <div className="small">
-                      If full:{" "}
+                      {full ? "Full, try:" : "If full:"}{" "}
                       {backups.map((b, i) => (
                         <span key={b.session.id}>
                           {i > 0 && " · "}
                           {b.session.code} ({formatWhen(b.session)})
-                          {signedIn && refusal && (
+                          {signedIn && full && (
                             <button className="link small" disabled={busy} onClick={() => reserveBackup(item, b)}>
                               Reserve instead
                             </button>
@@ -244,21 +266,54 @@ export function ReservationList({ eventId, plan, reservedOfficially, onReservedC
                       ))}
                     </div>
                   )}
-                  {isOfficial &&
-                    (confirming === s.id ? (
-                      <span className="small">
+                </div>
+                <div className="reservation-status small">
+                  {isOfficial ? (
+                    <span className="ok">✓ Reserved</span>
+                  ) : refusal ? (
+                    <span className="warn">⚠️ {REFUSALS[refusal] ?? `Refused (${refusal})`}</span>
+                  ) : seat ? (
+                    seat.isReservable ? (
+                      (SEATS[seat.seatAvailability ?? ""] ?? "Reservable")
+                    ) : (
+                      <span className="muted">⏳ Not open yet</span>
+                    )
+                  ) : (
+                    <span className="muted">{checking ? "…" : "—"}</span>
+                  )}
+                </div>
+                <div className="reservation-action">
+                  {isOfficial ? (
+                    confirming === s.id ? (
+                      <>
                         <button className="link small" disabled={busy} onClick={() => cancel(s.id)}>
-                          Confirm: cancel this reservation
-                        </button>{" "}
+                          Confirm cancel
+                        </button>
                         <button className="link small" onClick={() => setConfirming(null)}>
                           Keep it
                         </button>
-                      </span>
+                      </>
                     ) : (
                       <button className="link small" onClick={() => setConfirming(s.id)}>
-                        Cancel reservation
+                        Cancel
                       </button>
-                    ))}
+                    )
+                  ) : signedIn && bookable(seat) ? (
+                    confirming === `reserve:${s.id}` ? (
+                      <>
+                        <button className="primary small" disabled={busy} onClick={() => reserve([s.id])}>
+                          Confirm
+                        </button>
+                        <button className="link small" onClick={() => setConfirming(null)}>
+                          Not now
+                        </button>
+                      </>
+                    ) : (
+                      <button className="ghost small" disabled={busy} onClick={() => setConfirming(`reserve:${s.id}`)}>
+                        🎟 Reserve
+                      </button>
+                    )
+                  ) : null}
                 </div>
               </div>
             </li>
@@ -267,6 +322,10 @@ export function ReservationList({ eventId, plan, reservedOfficially, onReservedC
       </ol>
     </div>
   );
+}
+
+function plural(n: number): string {
+  return `${n} session${n === 1 ? "" : "s"}`;
 }
 
 function safeParse(value: string | null): string[] {

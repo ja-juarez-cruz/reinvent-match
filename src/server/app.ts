@@ -27,6 +27,7 @@ import { DECISIONS, loadSwipes, recordSwipe, type Decision } from "../store/swip
 import { planImport, syncFavorites } from "../sync/favorites.js";
 import { syncPersonalTime } from "../sync/personalTime.js";
 import { cancelAndReload, reserveInOrder } from "../sync/reservations.js";
+import { DemoSeats } from "./demo.js";
 
 /** Mutating requests must carry this header. Browsers cannot send it cross-origin without a CORS preflight,
  * which this server never approves, so other websites cannot drive the local API. */
@@ -68,6 +69,8 @@ export function createApp(ctx: AppContext) {
   const pendingSignIns = new Map<string, PendingSignIn>();
   const normalized = new Map<string, { fetchedAt: string; sessions: NormalizedSession[] }>();
   const allowedHosts = new Set([`127.0.0.1:${ctx.port}`, `localhost:${ctx.port}`]);
+  // Made-up seats and reservations for trying the Reservations view (see ./demo.ts).
+  const demo = process.env.REMATCH_DEMO_SEATS ? new DemoSeats() : null;
 
   async function sessionsFor(eventId: string): Promise<{ fetchedAt: string; sessions: NormalizedSession[] }> {
     const catalog = await loadCatalog(eventId);
@@ -123,6 +126,7 @@ export function createApp(ctx: AppContext) {
       async (req, _url, [eventId]) => {
         // Fresh seat bands for a few sessions, one GetSession each, in order: a reservation list, not the catalog.
         const { sessionIds } = seatsBody.parse(await readBody(req));
+        if (demo) return demo.seats(sessionIds);
         const seats: Record<string, { isReservable: boolean; seatAvailability: string | null }> = {};
         for (const id of sessionIds) {
           const s = await ctx.client.getSession(eventId!, id);
@@ -326,6 +330,7 @@ export function createApp(ctx: AppContext) {
       /^\/api\/reservations\/([^/]+)$/,
       async (req, _url, [eventId]) => {
         const { sessionIds } = reserveBody.parse(await readBody(req));
+        if (demo) return demo.reserve(sessionIds);
         return withReservationErrors(() => reserveInOrder(ctx.client, eventId!, sessionIds));
       },
     ],
@@ -333,7 +338,9 @@ export function createApp(ctx: AppContext) {
       "DELETE",
       /^\/api\/reservations\/([^/]+)\/([^/]+)$/,
       async (_req, _url, [eventId, sessionId]) =>
-        withReservationErrors(async () => ({ schedule: await cancelAndReload(ctx.client, eventId!, sessionId!) })),
+        demo
+          ? { schedule: demo.cancel(sessionId!) }
+          : withReservationErrors(async () => ({ schedule: await cancelAndReload(ctx.client, eventId!, sessionId!) })),
     ],
   ];
 

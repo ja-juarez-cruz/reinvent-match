@@ -142,6 +142,10 @@ select {
   color: var(--warn);
 }
 
+.ok {
+  color: var(--ok);
+}
+
 .center {
   text-align: center;
 }
@@ -1763,14 +1767,48 @@ a.icon-button {
   gap: 0.6rem;
 }
 
-.reservation-row {
+.reservation-row,
+.reservation-head {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: 1.1rem minmax(0, 1fr) 9.5rem 7.5rem;
   gap: 0.5rem;
   align-items: start;
 }
 
-.reservation-list li.reserved .reservation-row > div {
+.reservation-head {
+  margin: 0.75rem 0 0 1.5rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.reservation-status {
+  white-space: nowrap;
+}
+
+.reservation-action {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  justify-content: flex-end;
+}
+
+@media (max-width: 640px) {
+  .reservation-head {
+    display: none;
+  }
+
+  .reservation-row {
+    grid-template-columns: 1.1rem minmax(0, 1fr);
+  }
+
+  .reservation-status,
+  .reservation-action {
+    grid-column: 2;
+    justify-content: flex-start;
+  }
+}
+
+.reservation-list li.reserved .reservation-info {
   opacity: 0.55;
   text-decoration: line-through;
 }

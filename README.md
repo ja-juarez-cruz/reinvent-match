@@ -118,6 +118,14 @@ src/
 └── cli.ts
 ```
 
+To try the Reservations view before reserved seating opens, start the app with made-up seats. Every seat band shows up
+in turn, and reserving or cancelling works in memory, without calling the Events API. Point `REMATCH_HOME` at a copy
+of `~/.rematch` so your own data stays untouched:
+
+```bash
+REMATCH_HOME=/tmp/rematch-demo REMATCH_DEMO_SEATS=1 npx tsx src/cli.ts ui
+```
+
 ## Reviewing recommendations with personas
 
 `test/personas/` holds test personas (presales, principal architect, complete beginner, data engineer, security specialist, engineering manager, ML engineer), each with its onboarding answers and what a reviewer should expect to see. `npm run personas` builds, for each one, the pre-list, what is hidden and why, the first cards of every tab with their reasons, a week filled the way the app fills it, and automatic red flags, into `~/.rematch/reports/personas-<event>.html` (outside the repository, since it holds catalog data). Hand a persona's section to someone with that profile, or to a review agent, and ask what is wrong for them, what is missing and which reasons don't hold; confirmed findings become tests.
