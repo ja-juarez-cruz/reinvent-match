@@ -188,8 +188,12 @@ function PickCard({
         <div className="small warn">⚠️ Clashes with {pick.clashes.map((c) => c.session.code).join(", ")}</div>
       )}
       {pick.alternatives.length > 0 && (
-        <div className="agenda-alts">
-          <span className="muted small">Alternatives</span>
+        // Collapsed by default: the week reads cleaner, and alternatives are one click away.
+        <details className="agenda-alts">
+          <summary className="muted small">
+            ↔ Alternatives ({pick.alternatives.length + pick.moreAlternatives})
+            {pick.alternatives.some((a) => swipes[a.session.id]?.decision === "save") ? " · 🔖 incl. a maybe" : ""}
+          </summary>
           {pick.alternatives.map((a) => (
             <button
               key={a.session.id}
@@ -205,7 +209,7 @@ function PickCard({
             </button>
           ))}
           {pick.moreAlternatives > 0 && <span className="muted small">+{pick.moreAlternatives} more at that time</span>}
-        </div>
+        </details>
       )}
     </div>
   );

@@ -1459,11 +1459,19 @@ main {
 }
 
 .agenda-alts {
+  border-top: 1px dashed var(--border);
+  padding-top: 0.3rem;
+}
+
+.agenda-alts summary {
+  cursor: pointer;
+  list-style-position: inside;
+}
+
+.agenda-alts[open] {
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
-  border-top: 1px dashed var(--border);
-  padding-top: 0.3rem;
 }
 
 .agenda-alt {
