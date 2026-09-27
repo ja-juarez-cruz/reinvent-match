@@ -25,6 +25,7 @@ import { PLATFORMS } from "../taxonomy/taxonomy.js";
 import { getProfile, listProfiles, saveProfile } from "../store/profiles.js";
 import { DECISIONS, loadSwipes, recordSwipe, type Decision } from "../store/swipes.js";
 import { planImport, syncFavorites } from "../sync/favorites.js";
+import { syncPersonalTime } from "../sync/personalTime.js";
 import { cancelAndReload, reserveInOrder } from "../sync/reservations.js";
 
 /** Mutating requests must carry this header. Browsers cannot send it cross-origin without a CORS preflight,
@@ -299,6 +300,14 @@ export function createApp(ctx: AppContext) {
     ],
     [
       "POST",
+      /^\/api\/personal-time\/([^/]+)\/sync$/,
+      async (req, _url, [eventId]) => {
+        const { blocks } = personalTimeBody.parse(await readBody(req));
+        return syncPersonalTime(ctx.client, eventId!, blocks);
+      },
+    ],
+    [
+      "POST",
       /^\/api\/reservations\/([^/]+)$/,
       async (req, _url, [eventId]) => {
         const { sessionIds } = reserveBody.parse(await readBody(req));
@@ -370,6 +379,22 @@ export function createApp(ctx: AppContext) {
 const importBody = z.object({
   like: z.array(z.string().min(1).max(128)).max(200),
   downgrade: z.array(z.string().min(1).max(128)).max(200),
+});
+
+/** Blocks of the attendee's own time, as the Events API wants them: UTC, to the minute, 5-minute steps. */
+const utcMinute = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:00$/, "UTC time as YYYY-MM-DDTHH:MM:00");
+const personalTimeBody = z.object({
+  blocks: z
+    .array(
+      z.object({
+        startDateTime: utcMinute,
+        endDateTime: utcMinute,
+        title: z.string().min(1).max(128),
+        description: z.string().min(1).max(250),
+        location: z.string().min(1).max(255).optional(),
+      }),
+    )
+    .max(100),
 });
 
 /** Session IDs to reserve, in booking order. */

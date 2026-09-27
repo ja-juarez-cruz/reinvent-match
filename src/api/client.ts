@@ -1,4 +1,12 @@
-import type { AwsEvent, BulkResult, ListEventsResponse, ListSessionsResponse, Schedule, Session } from "./types.js";
+import type {
+  AwsEvent,
+  BulkResult,
+  ListEventsResponse,
+  ListSessionsResponse,
+  PersonalTimeInput,
+  Schedule,
+  Session,
+} from "./types.js";
 
 export const DEFAULT_BASE_URL = "https://api.awsevents.com";
 
@@ -94,6 +102,28 @@ export class EventsClient {
     );
   }
 
+  /** Adds a personal time entry: times in UTC, `YYYY-MM-DDTHH:MM:00`, lasting a multiple of 5 minutes. */
+  async createPersonalTime(eventId: string, input: PersonalTimeInput): Promise<void> {
+    await this.request<unknown>("POST", `/v1/events/${encodeURIComponent(eventId)}/personal-time`, input);
+  }
+
+  /** Replaces a personal time entry: every field is required, and an optional one left out is cleared. */
+  async updatePersonalTime(eventId: string, personalTimeId: string, input: PersonalTimeInput): Promise<void> {
+    await this.request<unknown>(
+      "PUT",
+      `/v1/events/${encodeURIComponent(eventId)}/personal-time/${encodeURIComponent(personalTimeId)}`,
+      input,
+    );
+  }
+
+  /** Removes a personal time entry. Removing one that is already gone succeeds, so a retry is safe. */
+  async deletePersonalTime(eventId: string, personalTimeId: string): Promise<void> {
+    await this.request<unknown>(
+      "DELETE",
+      `/v1/events/${encodeURIComponent(eventId)}/personal-time/${encodeURIComponent(personalTimeId)}`,
+    );
+  }
+
   /** Walks every page of an event's catalog. The API returns at most 250 sessions per page. */
   async listAllSessions(
     eventId: string,
@@ -120,7 +150,7 @@ export class EventsClient {
     return this.request<T>("GET", path);
   }
 
-  private async request<T>(method: "GET" | "POST" | "DELETE", path: string, body?: unknown): Promise<T> {
+  private async request<T>(method: "GET" | "POST" | "PUT" | "DELETE", path: string, body?: unknown): Promise<T> {
     let token = await this.options.getAccessToken?.();
     let refreshed = false;
 

@@ -26,9 +26,9 @@ Four equally weighted criteria (25% each):
 | `GetSchedule` | `reinvent-match schedule`; My Match shows current favorites and reservations; every sync re-reads it; Import from re:Invent brings portal favorites back as picks | ✅ |
 | `AssociateFavorites` | ❤️ swipe → favorite (batches of 10, `alreadyFavorited` treated as done) | ✅ |
 | `DisassociateFavorite` | ❌ on a previously favorited session → remove favorite | ✅ |
-| `CreatePersonalTime` | Travel buffers between venues, Expo, meals, Ask the Experts | ⬜ |
-| `UpdatePersonalTime` | Move buffers when the agenda changes | ⬜ |
-| `DeletePersonalTime` | Remove buffers Reinvent:Match created that are no longer needed | ⬜ |
+| `CreatePersonalTime` | My Match → 📅 Calendar: lunch, walks between venues and free time around the picks, as personal time | ✅ |
+| `UpdatePersonalTime` | Re-syncing moves a block that changed time (same kind, same day) in place | ✅ |
+| `DeletePersonalTime` | Re-syncing removes the blocks Reinvent:Match added that no longer apply; the attendee's own are never touched | ✅ |
 | `ReserveSessions` | My Match → Reservations: books the ❤️ sessions in priority order, ten at a time, and a backup when one is full (live from October 8) | ✅ |
 | `CancelReservation` | Cancel a reservation from the Reservations view, with an inline confirmation | ✅ |
 
@@ -58,7 +58,7 @@ Reserved seating opens on **October 6** in the portal, but write access through 
 
 ## Submission checklist
 
-- [ ] Public repository (GitHub) with working code
+- [x] Public repository (GitHub) with working code
 - [x] README: setup, dependencies, how to run (English + Spanish)
 - [ ] Builder Center project: what, why, how it uses the API and MCP server
 - [ ] Architecture diagram

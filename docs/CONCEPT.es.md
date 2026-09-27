@@ -174,6 +174,8 @@ match = 0.30·alineación_objetivos     (Grow 1.0 · Explore 0.8 · Know 0.6, ×
 
 Los pesos se pueden cambiar por perfil (`weights`) y son un punto de partida para calibrar, no una verdad.
 
+> Esta fórmula es la del motor `match` de la línea de comandos. La app web calcula con las respuestas del onboarding: ver [SCORING.es.md](SCORING.es.md).
+
 ### 5.5 Explicación
 
 Cada componente genera sus propias razones, así el porcentaje nunca aparece sin contexto:

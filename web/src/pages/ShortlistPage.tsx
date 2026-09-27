@@ -3,7 +3,9 @@ import { ApiError, api } from "../api";
 import { navigate } from "../App";
 import { LearningPlanPanel } from "../components/LearningPlanPanel";
 import { AgendaGrid, AgendaList } from "../components/AgendaGrid";
+import { CalendarModal } from "../components/CalendarModal";
 import { ClashModal } from "../components/ClashModal";
+import { planBlocks, utcOffsetMinutes } from "../calendar";
 import { FillWeekModal } from "../components/FillWeekModal";
 import { ImportFavoritesModal } from "../components/ImportFavoritesModal";
 import { ReservationList } from "../components/ReservationList";
@@ -80,6 +82,7 @@ export function ShortlistPage({ event, eventId, answersId, session, onSignIn }: 
   /** The difference with the portal's favorites, while the import dialog is open. */
   const [importPreview, setImportPreview] = useState<FavoritesImportPreview | null>(null);
   const [importing, setImporting] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
   /** Two sessions in view that clash, while the resolver is open. */
   const [clash, setClash] = useState<{ a: PlanItem; b: PlanItem } | null>(null);
   const repeats = useMemo(() => repeatsOf(data?.results ?? []), [data]);
@@ -233,13 +236,22 @@ export function ShortlistPage({ event, eventId, answersId, session, onSignIn }: 
             </button>
           </div>
           {view === "week" && picked.length > 0 && (
-            <button
-              className="ghost"
-              title="Suggest sessions for your free time: your maybes first, then your best matches"
-              onClick={() => setSuggestions(suggestWeek(data.results, data.swipes))}
-            >
-              ✨ Fill my week
-            </button>
+            <div className="row">
+              <button
+                className="ghost"
+                title="Lunch, walks and free time as personal time on your re:Invent schedule, or an .ics for any calendar"
+                onClick={() => setCalendarOpen(true)}
+              >
+                📅 Calendar
+              </button>
+              <button
+                className="ghost"
+                title="Suggest sessions for your free time: your maybes first, then your best matches"
+                onClick={() => setSuggestions(suggestWeek(data.results, data.swipes))}
+              >
+                ✨ Fill my week
+              </button>
+            </div>
           )}
         </div>
         {(sync || syncError) && (
@@ -312,6 +324,19 @@ export function ShortlistPage({ event, eventId, answersId, session, onSignIn }: 
         )}
       </div>
       <LearningPlanPanel plan={plan} compact />
+      {calendarOpen && eventId && (
+        <CalendarModal
+          eventId={eventId}
+          eventName={event?.name ?? eventId}
+          offset={utcOffsetMinutes(event?.startDate)}
+          sessions={liked}
+          // Blocks come from the picks alone, whatever the calendar filters show.
+          blocks={planBlocks(buildAgenda(data.results, data.swipes, week))}
+          signedIn={canSync}
+          onSignIn={onSignIn}
+          onClose={() => setCalendarOpen(false)}
+        />
+      )}
       {clash && (
         <ClashModal
           a={clash.a}

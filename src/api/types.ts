@@ -73,6 +73,17 @@ export interface ListSessionsResponse {
   nextToken?: string;
 }
 
+/** A block of the attendee's own time: UTC `YYYY-MM-DDTHH:MM:00`, 5-minute steps. */
+export interface PersonalTimeInput {
+  startDateTime: string;
+  endDateTime: string;
+  /** 1-128 characters. */
+  title: string;
+  /** 1-250 characters. */
+  description: string;
+  location?: string;
+}
+
 export interface PersonalTime {
   personalTimeId: string;
   startDateTime: string;

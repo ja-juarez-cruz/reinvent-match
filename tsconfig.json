@@ -21,6 +21,7 @@
     "test/queue.test.ts",
     "test/agenda.test.ts",
     "test/repeats.test.ts",
-    "test/suggest.test.ts"
+    "test/suggest.test.ts",
+    "test/calendar.test.ts"
   ]
 }

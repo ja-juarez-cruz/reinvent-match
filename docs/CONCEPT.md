@@ -172,6 +172,8 @@ match = 0.30·goal_alignment     (Grow 1.0 · Explore 0.8 · Know 0.6, × streng
 
 Weights can be overridden per profile (`weights`). They are a starting point to calibrate, not ground truth.
 
+> This formula is the command-line `match` engine. The web app scores with the onboarding answers instead: see [SCORING.md](SCORING.md).
+
 ### 5.5 Explanations
 
 Each component produces its own reasons, so a percentage never appears without context. Real output against the Summit Dubai 2026 catalog:

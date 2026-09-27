@@ -26,9 +26,9 @@ Cuatro criterios con el mismo peso (25% cada uno):
 | `GetSchedule` | `reinvent-match schedule`; My Match muestra los favoritos y reservas actuales; cada sincronización lo vuelve a leer; Import from re:Invent trae de vuelta como elegidas los favoritos del portal | ✅ |
 | `AssociateFavorites` | ❤️ en el swipe → favorito (lotes de 10; `alreadyFavorited` cuenta como hecho) | ✅ |
 | `DisassociateFavorite` | ❌ sobre una sesión que ya era favorita → se quita | ✅ |
-| `CreatePersonalTime` | Tiempo de traslado entre venues, Expo, comidas, Ask the Experts | ⬜ |
-| `UpdatePersonalTime` | Mover esos bloques cuando cambia la agenda | ⬜ |
-| `DeletePersonalTime` | Quitar bloques creados por Reinvent:Match que ya no hacen falta | ⬜ |
+| `CreatePersonalTime` | My Match → 📅 Calendar: comida, traslados entre venues y tiempo libre alrededor de tus elegidas, como tiempo personal | ✅ |
+| `UpdatePersonalTime` | Al volver a sincronizar, un bloque que cambió de hora (mismo tipo, mismo día) se mueve en su lugar | ✅ |
+| `DeletePersonalTime` | Al volver a sincronizar se quitan los bloques de Reinvent:Match que ya no aplican; los tuyos nunca se tocan | ✅ |
 | `ReserveSessions` | My Match → Reservations: reserva las ❤️ en orden de prioridad, de diez en diez, y un respaldo cuando una está llena (activo desde el 8 de octubre) | ✅ |
 | `CancelReservation` | Cancelar una reserva desde la vista Reservations, con confirmación en la página | ✅ |
 
@@ -58,7 +58,7 @@ La reserva abre el **6 de octubre** en el portal, pero la escritura por API (res
 
 ## Checklist de entrega
 
-- [ ] Repositorio público (GitHub) con código funcionando
+- [x] Repositorio público (GitHub) con código funcionando
 - [x] README: instalación, dependencias, cómo correrlo (inglés + español)
 - [ ] Proyecto en Builder Center: qué es, por qué, cómo usa el API y el servidor MCP
 - [ ] Diagrama de arquitectura

@@ -67,6 +67,17 @@ export const api = {
   favoritesImport: (eventId: string) => call<FavoritesImportPreview>("GET", `/api/favorites/${enc(eventId)}/import`),
   applyFavoritesImport: (eventId: string, like: string[], downgrade: string[]) =>
     call<SwipeLog>("POST", `/api/favorites/${enc(eventId)}/import`, { like, downgrade }),
+  syncPersonalTime: (
+    eventId: string,
+    blocks: { startDateTime: string; endDateTime: string; title: string; description: string; location?: string }[],
+  ) =>
+    call<{
+      created: number;
+      updated: number;
+      deleted: number;
+      kept: number;
+      failed: { title: string; message: string }[];
+    }>("POST", `/api/personal-time/${enc(eventId)}/sync`, { blocks }),
   reserve: (eventId: string, sessionIds: string[]) =>
     call<ReservationResult>("POST", `/api/reservations/${enc(eventId)}`, { sessionIds }),
   cancelReservation: (eventId: string, sessionId: string) =>

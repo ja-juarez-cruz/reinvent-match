@@ -1829,3 +1829,10 @@ a.icon-button {
 .agenda-walk.tight {
   border-color: var(--warn);
 }
+
+.calendar-blocks {
+  margin: 0.5rem 0;
+  padding-left: 1rem;
+  max-height: 40vh;
+  overflow-y: auto;
+}
