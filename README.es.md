@@ -29,11 +29,17 @@ El diseño completo está en [docs/CONCEPT.es.md](docs/CONCEPT.es.md). Se constr
 
 ## Inicio rápido
 
-Requiere Node.js 20+.
+**Con Node.js 20+:**
 
 ```bash
 npx reinvent-match
 ```
+
+**Sin Node:** descarga la versión para tu sistema desde el [último release](https://github.com/ja-juarez-cruz/reinvent-match/releases/latest) (macOS Apple silicon o Intel, Windows, Linux x64 o ARM), descomprímela y ábrela. Todavía no están firmadas, así que la primera vez:
+
+- **macOS:** clic derecho sobre el archivo → **Abrir** → **Abrir** (o corre una vez `xattr -d com.apple.quarantine reinvent-match-macos-*` en la Terminal).
+- **Windows:** en "Windows protegió tu PC", haz clic en **Más información** → **Ejecutar de todas formas**.
+- **Linux:** `chmod +x reinvent-match-linux-*` y ejecútalo.
 
 Eso descarga el paquete de npm y abre Reinvent:Match en tu navegador. Desde un clon de este repositorio:
 

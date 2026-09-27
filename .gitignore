@@ -2,3 +2,4 @@ node_modules/
 dist/
 .rematch/
 /my-profile.json
+build/

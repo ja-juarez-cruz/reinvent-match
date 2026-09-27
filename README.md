@@ -27,13 +27,21 @@ The full design is in [docs/CONCEPT.md](docs/CONCEPT.md). Built for the AWS Even
 
 ## Quick start
 
-Requires Node.js 20+.
+**With Node.js 20+:**
 
 ```bash
 npx reinvent-match
 ```
 
-That downloads the package from npm and opens Reinvent:Match in your browser. From a clone of this repository instead:
+That downloads the package from npm and opens Reinvent:Match in your browser.
+
+**Without Node:** download the build for your system from the [latest release](https://github.com/ja-juarez-cruz/reinvent-match/releases/latest) (macOS Apple silicon or Intel, Windows, Linux x64 or ARM), unzip it and run it. The builds are not code-signed yet, so the first time:
+
+- **macOS:** right-click the file → **Open** → **Open** (or run `xattr -d com.apple.quarantine reinvent-match-macos-*` once in Terminal).
+- **Windows:** on "Windows protected your PC", click **More info** → **Run anyway**.
+- **Linux:** `chmod +x reinvent-match-linux-*` and run it.
+
+From a clone of this repository instead:
 
 ```bash
 npm install
