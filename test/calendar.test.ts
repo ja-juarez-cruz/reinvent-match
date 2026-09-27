@@ -90,9 +90,12 @@ describe("personal time for the Events API", () => {
       -480,
     );
     expect(blocks.map((b) => [b.startDateTime, b.endDateTime])).toEqual([
-      ["2026-11-30T23:30:00", "2026-12-01T00:00:00"],
+      ["2026-11-30T23:30:00", "2026-11-30T23:55:00"],
       ["2026-12-01T00:00:00", "2026-12-01T00:20:00"],
     ]);
+    // Ending exactly at midnight UTC is refused too: it ends at 23:55.
+    const toMidnight = toApiBlocks([{ kind: "free", date: "2026-11-30", start: 15 * 60, end: 16 * 60, title: "Free", description: "x" }], -480);
+    expect(toMidnight.map((b) => [b.startDateTime, b.endDateTime])).toEqual([["2026-11-30T23:00:00", "2026-11-30T23:55:00"]]);
     const single = toApiBlocks([{ kind: "lunch", date: "2026-12-01", start: 12 * 60, end: 13 * 60, title: "🍽 Lunch", description: "Lunch" }], -480);
     expect(single).toEqual([{ startDateTime: "2026-12-01T20:00:00", endDateTime: "2026-12-01T21:00:00", title: "Lunch", description: "Lunch" }]);
   });

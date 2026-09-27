@@ -110,8 +110,9 @@ export function apiText(text: string): string {
 }
 
 /**
- * Blocks as personal time entries: UTC, cleaned text, and split at midnight UTC, since a block crossing it was
- * refused (16:00 in Las Vegas in December). Both parts keep 5-minute steps, as midnight is on one.
+ * Blocks as personal time entries: UTC, cleaned text, and never past the UTC day they start on. Observed: a block
+ * crossing midnight UTC (16:00 in Las Vegas in December) is refused, and so is one ending at 00:00 of the next day.
+ * Such a block is split: up to 23:55 UTC, then from 00:00. Both parts keep 5-minute steps.
  */
 export function toApiBlocks(blocks: CalendarBlock[], offset: number): ApiBlock[] {
   const out: ApiBlock[] = [];
@@ -119,7 +120,14 @@ export function toApiBlocks(blocks: CalendarBlock[], offset: number): ApiBlock[]
     const start = toDate(b.date, b.start, offset);
     const end = toDate(b.date, b.end, offset);
     const midnight = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate() + 1));
-    const parts = end > midnight && midnight > start ? [[start, midnight], [midnight, end]] : [[start, end]];
+    const lastSlot = new Date(midnight.getTime() - 5 * 60_000);
+    const parts =
+      end <= midnight && end.getTime() !== midnight.getTime()
+        ? [[start, end]]
+        : [
+            ...(lastSlot > start ? [[start, lastSlot]] : []),
+            ...(end > midnight ? [[midnight, end]] : []),
+          ];
     for (const [from, to] of parts) {
       out.push({
         startDateTime: from!.toISOString().slice(0, 16) + ":00",

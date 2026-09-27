@@ -83,7 +83,7 @@ export const api = {
       updated: number;
       deleted: number;
       kept: number;
-      failed: { title: string; message: string }[];
+      failed: { title: string; startDateTime: string; message: string }[];
     }>("POST", `/api/personal-time/${enc(eventId)}/sync`, { blocks }),
   reserve: (eventId: string, sessionIds: string[]) =>
     call<ReservationResult>("POST", `/api/reservations/${enc(eventId)}`, { sessionIds }),

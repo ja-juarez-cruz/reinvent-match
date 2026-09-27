@@ -70,7 +70,9 @@ export function CalendarModal({
       const r = await api.syncPersonalTime(eventId, toApiBlocks(chosen, eventOffset));
       setResult(
         `✓ Added ${r.created}, moved ${r.updated}, removed ${r.deleted}, kept ${r.kept}.` +
-          (r.failed.length ? ` ${r.failed.length} refused: ${r.failed.map((f) => f.message).join("; ")}` : ""),
+          (r.failed.length
+            ? ` ${r.failed.length} refused: ${r.failed.map((f) => `${f.title} (${f.startDateTime.replace("T", " ").slice(0, 16)} UTC)`).join(", ")}.`
+            : ""),
       );
     } catch (e) {
       setError(
