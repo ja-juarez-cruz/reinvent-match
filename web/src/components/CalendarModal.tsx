@@ -67,7 +67,7 @@ export function CalendarModal({
     setError(null);
     setResult(null);
     try {
-      const r = await api.syncPersonalTime(eventId, toApiBlocks(chosen, eventOffset));
+      const r = await api.syncPersonalTime(eventId, toApiBlocks(chosen));
       setResult(
         `✓ Added ${r.created}, moved ${r.updated}, removed ${r.deleted}, kept ${r.kept}.` +
           (r.failed.length

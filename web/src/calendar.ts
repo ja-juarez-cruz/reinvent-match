@@ -1,5 +1,5 @@
 import type { Agenda } from "./agenda";
-import { formatTimeRange, minutesOf, venueOf } from "./format";
+import { clock, formatTimeRange, minutesOf, venueOf } from "./format";
 import type { PlanItem } from "./types";
 
 export type BlockKind = "lunch" | "walk" | "free";
@@ -82,11 +82,6 @@ function toDate(date: string, minutes: number, offset: number): Date {
   return new Date(Date.UTC(y, mo - 1, d, 0, minutes - offset));
 }
 
-/** `YYYY-MM-DDTHH:MM:00` in UTC, the form the Events API wants for personal time. */
-export function toApiUtc(date: string, minutes: number, offset: number): string {
-  return toDate(date, minutes, offset).toISOString().slice(0, 16) + ":00";
-}
-
 export interface ApiBlock {
   startDateTime: string;
   endDateTime: string;
@@ -110,35 +105,23 @@ export function apiText(text: string): string {
 }
 
 /**
- * Blocks as personal time entries: UTC, cleaned text, and never past the UTC day they start on. Observed: a block
- * crossing midnight UTC (16:00 in Las Vegas in December) is refused, and so is one ending at 00:00 of the next day.
- * Such a block is split: up to 23:55 UTC, then from 00:00. Both parts keep 5-minute steps.
+ * Blocks as personal time entries, in the event's local time. The API documentation says UTC, but the AWS Events app
+ * shows the value as local time: a walk sent as 17:50 (9:50 in Las Vegas, in UTC) appeared at 5:50 pm. So the local
+ * time is sent as is. A block may not run past the end of its day (one ending at 00:00 of the next day was refused
+ * too), so it ends at 23:55 at the latest. Text is cleaned (see apiText).
  */
-export function toApiBlocks(blocks: CalendarBlock[], offset: number): ApiBlock[] {
-  const out: ApiBlock[] = [];
-  for (const b of blocks) {
-    const start = toDate(b.date, b.start, offset);
-    const end = toDate(b.date, b.end, offset);
-    const midnight = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate() + 1));
-    const lastSlot = new Date(midnight.getTime() - 5 * 60_000);
-    const parts =
-      end <= midnight && end.getTime() !== midnight.getTime()
-        ? [[start, end]]
-        : [
-            ...(lastSlot > start ? [[start, lastSlot]] : []),
-            ...(end > midnight ? [[midnight, end]] : []),
-          ];
-    for (const [from, to] of parts) {
-      out.push({
-        startDateTime: from!.toISOString().slice(0, 16) + ":00",
-        endDateTime: to!.toISOString().slice(0, 16) + ":00",
-        title: apiText(b.title),
-        description: apiText(b.description),
-        ...(b.location ? { location: apiText(b.location) } : {}),
-      });
-    }
-  }
-  return out;
+export function toApiBlocks(blocks: CalendarBlock[]): ApiBlock[] {
+  const LAST_SLOT = 24 * 60 - 5;
+  return blocks
+    .map((b) => ({ ...b, end: Math.min(b.end, LAST_SLOT) }))
+    .filter((b) => b.end > b.start)
+    .map((b) => ({
+      startDateTime: `${b.date}T${clock(b.start)}:00`,
+      endDateTime: `${b.date}T${clock(b.end)}:00`,
+      title: apiText(b.title),
+      description: apiText(b.description),
+      ...(b.location ? { location: apiText(b.location) } : {}),
+    }));
 }
 
 /** `YYYYMMDDTHHMMSSZ`, the iCalendar UTC form. */

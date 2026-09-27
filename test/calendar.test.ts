@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { PlanItem, SwipeLog } from "../web/src/types.js";
 import { buildAgenda } from "../web/src/agenda.js";
-import { apiText, buildIcs, planBlocks, toApiBlocks, toApiUtc, utcOffsetMinutes } from "../web/src/calendar.js";
+import { apiText, buildIcs, planBlocks, toApiBlocks, utcOffsetMinutes } from "../web/src/calendar.js";
 import { buildWeek } from "../web/src/week.js";
 
 function item(id: string, startTime: string, venue: string, durationMin = 60, date = "2026-12-01"): PlanItem {
@@ -48,10 +48,8 @@ describe("calendar", () => {
   const log = swipes(["M", "N", "F"]);
   const agenda = buildAgenda(all, log, buildWeek(all, log));
 
-  it("converts the event's local time to the UTC the Events API wants", () => {
+  it("reads the event's UTC offset, used for the .ics", () => {
     expect(utcOffsetMinutes("2026-12-04T23:59:00.000-08:00")).toBe(-480);
-    expect(toApiUtc("2026-12-01", 12 * 60, -480)).toBe("2026-12-01T20:00:00");
-    expect(toApiUtc("2026-12-01", 17 * 60 + 30, -480)).toBe("2026-12-02T01:30:00");
   });
 
   it("plans lunch, walks between venues and free time around the picks, in 5-minute steps", () => {
@@ -84,19 +82,20 @@ describe("personal time for the Events API", () => {
     expect(apiText("☕ Free: Expo & booths")).toBe("☕ Free: Expo and booths");
   });
 
-  it("splits a block crossing midnight UTC (16:00 in Las Vegas) in two", () => {
-    const blocks = toApiBlocks(
-      [{ kind: "free", date: "2026-11-30", start: 15 * 60 + 30, end: 16 * 60 + 20, title: "☕ Free time", description: "Expo" }],
-      -480,
-    );
-    expect(blocks.map((b) => [b.startDateTime, b.endDateTime])).toEqual([
-      ["2026-11-30T23:30:00", "2026-11-30T23:55:00"],
-      ["2026-12-01T00:00:00", "2026-12-01T00:20:00"],
+  it("sends personal time in the event's local time, as the AWS Events app shows it", () => {
+    const blocks = toApiBlocks([
+      { kind: "walk", date: "2026-11-30", start: 9 * 60 + 50, end: 10 * 60 + 30, title: "🚶 Walk to MGM Grand", description: "Walk", location: "MGM Grand" },
+      { kind: "lunch", date: "2026-11-30", start: 13 * 60, end: 14 * 60, title: "🍽 Lunch", description: "Lunch" },
     ]);
-    // Ending exactly at midnight UTC is refused too: it ends at 23:55.
-    const toMidnight = toApiBlocks([{ kind: "free", date: "2026-11-30", start: 15 * 60, end: 16 * 60, title: "Free", description: "x" }], -480);
-    expect(toMidnight.map((b) => [b.startDateTime, b.endDateTime])).toEqual([["2026-11-30T23:00:00", "2026-11-30T23:55:00"]]);
-    const single = toApiBlocks([{ kind: "lunch", date: "2026-12-01", start: 12 * 60, end: 13 * 60, title: "🍽 Lunch", description: "Lunch" }], -480);
-    expect(single).toEqual([{ startDateTime: "2026-12-01T20:00:00", endDateTime: "2026-12-01T21:00:00", title: "Lunch", description: "Lunch" }]);
+    expect(blocks.map((b) => [b.startDateTime, b.endDateTime, b.title])).toEqual([
+      ["2026-11-30T09:50:00", "2026-11-30T10:30:00", "Walk to MGM Grand"],
+      ["2026-11-30T13:00:00", "2026-11-30T14:00:00", "Lunch"],
+    ]);
   });
+
+  it("never runs a block past the end of its day", () => {
+    const late = toApiBlocks([{ kind: "free", date: "2026-11-30", start: 23 * 60, end: 24 * 60, title: "Free", description: "x" }]);
+    expect(late.map((b) => [b.startDateTime, b.endDateTime])).toEqual([["2026-11-30T23:00:00", "2026-11-30T23:55:00"]]);
+  });
+
 });

@@ -26,7 +26,7 @@ Four equally weighted criteria (25% each):
 | `GetSchedule` | `reinvent-match schedule`; My Match shows current favorites and reservations; every sync re-reads it; Import from re:Invent brings portal favorites back as picks | ✅ |
 | `AssociateFavorites` | ❤️ swipe → favorite (batches of 10, `alreadyFavorited` treated as done) | ✅ |
 | `DisassociateFavorite` | ❌ on a previously favorited session → remove favorite | ✅ |
-| `CreatePersonalTime` | My Match → 📅 Calendar: lunch, walks between venues and free time around the picks, as personal time | ✅ |
+| `CreatePersonalTime` | My Match → 📅 Calendar: lunch, walks between venues and free time around the picks, as personal time. Sent in the event's local time: the API reference says UTC, but the AWS Events app shows the value as local time | ✅ |
 | `UpdatePersonalTime` | Re-syncing moves a block that changed time (same kind, same day) in place | ✅ |
 | `DeletePersonalTime` | Re-syncing removes the blocks Reinvent:Match added that no longer apply; the attendee's own are never touched | ✅ |
 | `ReserveSessions` | My Match → Reservations: books the ❤️ sessions in priority order, ten at a time, and a backup when one is full (live from October 8) | ✅ |
