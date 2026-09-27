@@ -7,12 +7,17 @@ export function usePlan(eventId: string | null, answersId: string | null) {
   const [data, setData] = useState<PlanResponse | null>(null);
   const [error, setError] = useState<ApiError | Error | null>(null);
 
+  const [version, setVersion] = useState(0);
   useEffect(() => {
-    setData(null);
     setError(null);
-    if (!eventId || !answersId) return;
+    if (!eventId || !answersId) {
+      setData(null);
+      return;
+    }
     api.plan(eventId, answersId).then(setData, setError);
-  }, [eventId, answersId]);
+  }, [eventId, answersId, version]);
+  /** Fetches the plan again, after decisions made elsewhere (an import from the portal) changed what it shows. */
+  const reload = useCallback(() => setVersion((v) => v + 1), []);
 
   // Other times of each session, to keep one decision per session (see decide).
   const repeats = useMemo(() => repeatsOf(data?.results ?? []), [data?.results]);
@@ -52,5 +57,5 @@ export function usePlan(eventId: string | null, answersId: string | null) {
     [decideOne],
   );
 
-  return { data, error, decide };
+  return { data, error, decide, reload };
 }

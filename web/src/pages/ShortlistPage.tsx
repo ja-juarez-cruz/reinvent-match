@@ -4,6 +4,7 @@ import { navigate } from "../App";
 import { LearningPlanPanel } from "../components/LearningPlanPanel";
 import { AgendaGrid, AgendaList } from "../components/AgendaGrid";
 import { FillWeekModal } from "../components/FillWeekModal";
+import { ImportFavoritesModal } from "../components/ImportFavoritesModal";
 import { ReservationList } from "../components/ReservationList";
 import { SessionModal } from "../components/SessionModal";
 import { reservationPlan } from "../reservations";
@@ -11,7 +12,15 @@ import { suggestWeek, type Suggestion } from "../suggest";
 import { buildAgenda } from "../agenda";
 import { formatTimeRange } from "../format";
 import { buildLearningPlan } from "../learningPlan";
-import type { AwsEvent, Decision, FavoritesSyncResult, PlanItem, Schedule, SessionInfo } from "../types";
+import type {
+  AwsEvent,
+  Decision,
+  FavoritesImportPreview,
+  FavoritesSyncResult,
+  PlanItem,
+  Schedule,
+  SessionInfo,
+} from "../types";
 import { usePlan } from "../usePlan";
 import { distinctSessions } from "../repeats";
 import { buildWeek } from "../week";
@@ -25,7 +34,7 @@ interface Props {
 }
 
 export function ShortlistPage({ event, eventId, answersId, session, onSignIn }: Props) {
-  const { data, error, decide } = usePlan(eventId, answersId);
+  const { data, error, decide, reload } = usePlan(eventId, answersId);
   const [schedule, setSchedule] = useState<Schedule | null>(null);
   const [sync, setSync] = useState<FavoritesSyncResult | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -50,6 +59,9 @@ export function ShortlistPage({ event, eventId, answersId, session, onSignIn }: 
   const [view, setView] = useState<"week" | "reservations">("week");
   /** Suggestions for the free time, while the fill-my-week dialog is open. */
   const [suggestions, setSuggestions] = useState<Suggestion[] | null>(null);
+  /** The difference with the portal's favorites, while the import dialog is open. */
+  const [importPreview, setImportPreview] = useState<FavoritesImportPreview | null>(null);
+  const [importing, setImporting] = useState(false);
   const reservations = useMemo(() => (data ? reservationPlan(data.results, data.swipes) : []), [data]);
 
   const liked = picked.filter((r) => data?.swipes[r.session.id]?.decision === "like");
@@ -74,6 +86,27 @@ export function ShortlistPage({ event, eventId, answersId, session, onSignIn }: 
   async function choose(id: string, decision: Decision) {
     setOpen(null);
     await decide(id, decision);
+  }
+
+  async function openImport() {
+    if (!eventId) return;
+    setImporting(true);
+    setSyncError(null);
+    try {
+      setImportPreview(await api.favoritesImport(eventId));
+    } catch (e) {
+      setSyncError(e instanceof ApiError && e.code === "signin" ? "Sign in again to import." : String(e));
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  async function applyImport(like: string[], downgrade: string[]) {
+    if (!eventId) return;
+    await api.applyFavoritesImport(eventId, like, downgrade);
+    setImportPreview(null);
+    // Imported favorites may be sessions the plan hid; the server keeps every pick, so fetch the plan again.
+    reload();
   }
 
   async function addSuggestions(ids: string[]) {
@@ -116,14 +149,24 @@ export function ShortlistPage({ event, eventId, answersId, session, onSignIn }: 
           </div>
           {event?.authenticationRequired &&
             (canSync ? (
-              <button
-                className="primary"
-                title="Adds your ❤️ to your favorites in the re:Invent portal and app, and removes the ones you downgraded here. Favorites you made only in the portal are left alone."
-                disabled={syncing || (liked.length === 0 && (schedule?.favorites.length ?? 0) === 0)}
-                onClick={runSync}
-              >
-                {syncing ? "Syncing…" : `★ Sync ${liked.length} to re:Invent favorites`}
-              </button>
+              <div className="row">
+                <button
+                  className="ghost"
+                  title="Bring back favorites you added or removed in the re:Invent portal or the AWS Events app"
+                  disabled={importing}
+                  onClick={openImport}
+                >
+                  {importing ? "Checking…" : "⬇ Import from re:Invent"}
+                </button>
+                <button
+                  className="primary"
+                  title="Adds your ❤️ to your favorites in the re:Invent portal and app, and removes the ones you downgraded here. Favorites you made only in the portal are left alone."
+                  disabled={syncing || (liked.length === 0 && (schedule?.favorites.length ?? 0) === 0)}
+                  onClick={runSync}
+                >
+                  {syncing ? "Syncing…" : `★ Sync ${liked.length} to re:Invent favorites`}
+                </button>
+              </div>
             ) : (
               <button
                 className="primary"
@@ -222,6 +265,9 @@ export function ShortlistPage({ event, eventId, answersId, session, onSignIn }: 
         )}
       </div>
       <LearningPlanPanel plan={plan} compact />
+      {importPreview && (
+        <ImportFavoritesModal preview={importPreview} onApply={applyImport} onClose={() => setImportPreview(null)} />
+      )}
       {suggestions && (
         <FillWeekModal suggestions={suggestions} onAdd={addSuggestions} onClose={() => setSuggestions(null)} />
       )}

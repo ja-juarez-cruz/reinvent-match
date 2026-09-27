@@ -23,7 +23,7 @@ import { buildReport } from "../taxonomy/report.js";
 import { PLATFORMS } from "../taxonomy/taxonomy.js";
 import { getProfile, listProfiles, saveProfile } from "../store/profiles.js";
 import { DECISIONS, loadSwipes, recordSwipe, type Decision } from "../store/swipes.js";
-import { syncFavorites } from "../sync/favorites.js";
+import { planImport, syncFavorites } from "../sync/favorites.js";
 import { cancelAndReload, reserveInOrder } from "../sync/reservations.js";
 
 /** Mutating requests must carry this header. Browsers cannot send it cross-origin without a CORS preflight,
@@ -249,6 +249,41 @@ export function createApp(ctx: AppContext) {
       async (_req, _url, [eventId]) => syncFavorites(ctx.client, eventId!, await loadSwipes(eventId!)),
     ],
     [
+      "GET",
+      /^\/api\/favorites\/([^/]+)\/import$/,
+      async (_req, _url, [eventId]) => {
+        const [schedule, swipes, { sessions }] = await Promise.all([
+          ctx.client.getSchedule(eventId!),
+          loadSwipes(eventId!),
+          sessionsFor(eventId!),
+        ]);
+        const plan = planImport(swipes, schedule.favorites);
+        const byId = new Map(sessions.map((s) => [s.id, s]));
+        const brief = (id: string) => {
+          const s = byId.get(id);
+          return {
+            id,
+            code: s?.code ?? id,
+            title: s?.title ?? "Session not in the downloaded catalog",
+            date: s?.schedule.date ?? null,
+            startTime: s?.schedule.startTime ?? null,
+            decision: swipes[id]?.decision ?? null,
+          };
+        };
+        return { toLike: plan.toLike.map(brief), notInPortal: plan.notInPortal.map(brief) };
+      },
+    ],
+    [
+      "POST",
+      /^\/api\/favorites\/([^/]+)\/import$/,
+      async (req, _url, [eventId]) => {
+        const { like, downgrade } = importBody.parse(await readBody(req));
+        for (const id of like) await recordSwipe(eventId!, id, "like");
+        for (const id of downgrade) await recordSwipe(eventId!, id, "save");
+        return loadSwipes(eventId!);
+      },
+    ],
+    [
       "POST",
       /^\/api\/reservations\/([^/]+)$/,
       async (req, _url, [eventId]) => {
@@ -316,6 +351,12 @@ export function createApp(ctx: AppContext) {
     }
   };
 }
+
+/** Portal favorites to make ❤️, and ❤️ picks no longer favorites to move to 🔖. */
+const importBody = z.object({
+  like: z.array(z.string().min(1).max(128)).max(200),
+  downgrade: z.array(z.string().min(1).max(128)).max(200),
+});
 
 /** Session IDs to reserve, in booking order. */
 const reserveBody = z.object({ sessionIds: z.array(z.string().min(1).max(128)).min(1).max(60) });

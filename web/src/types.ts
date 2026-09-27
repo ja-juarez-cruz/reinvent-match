@@ -59,6 +59,23 @@ export interface Schedule {
   favorites: string[];
 }
 
+export interface SessionBrief {
+  id: string;
+  code: string;
+  title: string;
+  date: string | null;
+  startTime: string | null;
+  decision: Decision | null;
+}
+
+/** What the re:Invent portal's favorites would change here. */
+export interface FavoritesImportPreview {
+  /** Portal favorites that are not a ❤️ here yet. */
+  toLike: SessionBrief[];
+  /** ❤️ picks that are no longer portal favorites. */
+  notInPortal: SessionBrief[];
+}
+
 export interface ReservationResult {
   reserved: string[];
   failed: { sessionId: string; code: string; conflictsWith?: string[] }[];

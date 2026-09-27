@@ -888,15 +888,8 @@ main {
   gap: 0.9rem;
 }
 
-.selected-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  align-items: center;
-  min-height: 2rem;
-}
-
 .counter {
+  align-self: flex-start;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   padding: 0.2rem 0.6rem;
@@ -909,14 +902,7 @@ main {
   background: var(--accent);
 }
 
-.tag-group h3 {
-  margin-bottom: 0.4rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.tag-group .chip .muted {
+.tag-picker .chip .muted {
   font-size: 0.72rem;
   margin-left: 0.2rem;
 }
@@ -1029,17 +1015,6 @@ main {
   .plan-panel {
     position: static;
   }
-}
-
-.chip.readonly {
-  cursor: default;
-  border-style: dashed;
-  opacity: 0.6;
-}
-
-.chip.readonly.on {
-  opacity: 1;
-  border-style: solid;
 }
 
 .includes {

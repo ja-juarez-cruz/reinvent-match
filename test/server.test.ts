@@ -161,3 +161,17 @@ describe("reservations", () => {
     vi.restoreAllMocks();
   });
 });
+
+describe("favorites import", () => {
+  it("previews the difference with the portal and applies what the attendee keeps", async () => {
+    vi.spyOn(client, "getSchedule").mockResolvedValue({ reserved: [], favorites: ["X1"], personalTime: [] });
+    await write("/api/swipes/Summit-Dubai-2026/L1", "PUT", { decision: "like" });
+    const preview = await (await fetch(`${base}/api/favorites/Summit-Dubai-2026/import`)).json();
+    expect(preview.toLike.map((s: { id: string }) => s.id)).toEqual(["X1"]);
+    expect(preview.notInPortal.map((s: { id: string }) => s.id)).toContain("L1");
+    const swipes = await (await write("/api/favorites/Summit-Dubai-2026/import", "POST", { like: ["X1"], downgrade: ["L1"] })).json();
+    expect(swipes.X1.decision).toBe("like");
+    expect(swipes.L1.decision).toBe("save");
+    vi.restoreAllMocks();
+  });
+});

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ApiError, api } from "../api";
 import { navigate } from "../App";
-import type { Answers, OnboardingOptions, TopicLevel, Vocabulary, VocabularyEntry } from "../types";
+import type { Answers, OnboardingOptions, TopicLevel, Vocabulary } from "../types";
 
 interface Props {
   eventId: string | null;
@@ -165,13 +165,9 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
         {step === 0 && (
           <>
             <h2>What do you want to learn or go deeper on?</h2>
-            <p className="muted">
-              Up to <strong>{options.maxTopics}</strong> topics, new to you or ones to master.
-            </p>
             <TagPicker
               vocab={vocab}
               selected={topicKeys}
-              exclude={[]}
               max={options.maxTopics}
               labels={labels}
               onChange={setTopicKeys}
@@ -181,7 +177,6 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
         {step === 1 && (
           <>
             <h2>What is your level in each topic?</h2>
-            <p className="muted">"New to me" means learn it; any other level means go deeper at that level.</p>
             <div className="topic-levels">
               {answers.topics.map((t) => {
                 const hint = TOPIC_LEVEL_OPTIONS.find((o) => o.id === t.level)?.hint;
@@ -207,7 +202,6 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
         {step === 2 && (
           <>
             <h2>Which of these platforms do you work with?</h2>
-            <p className="muted">Sessions built around the platforms you leave unmarked are left out.</p>
             <div className="chips">
               {vocab.platforms.map((p) => {
                 const on = usedPlatforms.includes(p.id);
@@ -243,11 +237,11 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
         {step === 3 && (
           <>
             <h2>
-              AI background <span className="muted small">(optional, but it makes a big difference)</span>
+              AI background <span className="muted small">(optional)</span>
             </h2>
             <div className="callout">
               <strong>{aiShare}% of the sessions involve AI.</strong> Tell us what you know so every AI session you pick is
-              one you can get the most out of. Skip any you are unsure about.
+              one you can get the most out of.
             </div>
             <div className="ai-grid">
               {options.aiPrerequisites.map((p) => (
@@ -345,23 +339,16 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
 
       <div className="row sticky-actions">
         {error && <span className="error">{error}</span>}
-        {step > 0 && (
+        {!editing && step > 0 && (
           <button className="ghost" onClick={() => setStep(step - 1)}>
             ← Back
           </button>
         )}
         {savedAt && <span className="small">✓ Saved</span>}
         {editing ? (
-          <>
-            {step < STEPS.length - 1 && (
-              <button className="ghost" disabled={!canContinue} onClick={() => setStep(step + 1)}>
-                Next →
-              </button>
-            )}
-            <button className="primary" disabled={!complete || saving} onClick={finish}>
-              {saving ? "Saving…" : "Save changes"}
-            </button>
-          </>
+          <button className="primary" disabled={!complete || saving} onClick={finish}>
+            {saving ? "Saving…" : "Save changes"}
+          </button>
         ) : step < STEPS.length - 1 ? (
           <button className="primary" disabled={!canContinue} onClick={() => setStep(step + 1)}>
             Next →
@@ -383,92 +370,47 @@ export function AboutYouPage({ eventId, answersId, onSaved }: Props) {
 function TagPicker({
   vocab,
   selected,
-  exclude,
   max,
   labels,
   onChange,
 }: {
   vocab: Vocabulary;
   selected: string[];
-  exclude: string[];
   max: number;
   labels: Map<string, string>;
   onChange: (keys: string[]) => void;
 }) {
-  const [query, setQuery] = useState("");
-  const [allTech, setAllTech] = useState(false);
   const full = selected.length >= max;
-  const q = query.trim().toLowerCase();
-
   const relatedOf = useMemo(() => new Map(vocab.domains.map((d) => [d.key, d.related ?? []])), [vocab]);
-  // Which picked topic brings each technology or concept along; tags already claimed by excluded topics stay out.
-  const includedBy = useMemo(() => {
-    const taken = new Set(exclude.flatMap((k) => relatedOf.get(k) ?? []));
-    const map = new Map<string, string[]>();
-    for (const topic of selected) {
-      for (const key of relatedOf.get(topic) ?? []) {
-        if (!taken.has(key)) map.set(key, [...(map.get(key) ?? []), labels.get(topic) ?? topic]);
-      }
-    }
-    return map;
-  }, [selected, exclude, relatedOf, labels]);
-  const topicsOf = useMemo(() => {
-    const map = new Map<string, string[]>();
-    for (const d of vocab.domains) {
-      for (const key of d.related ?? []) map.set(key, [...(map.get(key) ?? []), d.label]);
-    }
-    return map;
-  }, [vocab]);
-
-  const matches = (e: VocabularyEntry) => !q || e.label.toLowerCase().includes(q);
+  // The technologies and practices the picked topics bring along.
+  const included = useMemo(
+    () => [...new Set(selected.flatMap((topic) => relatedOf.get(topic) ?? []))],
+    [selected, relatedOf],
+  );
   const toggle = (key: string) =>
     onChange(selected.includes(key) ? selected.filter((k) => k !== key) : full ? selected : [...selected, key]);
 
-  const topics = vocab.domains.filter((e) => !exclude.includes(e.key) && matches(e));
-  const technologies = (q || allTech ? vocab.technologies : vocab.technologies.slice(0, 30)).filter(matches);
-  const concepts = vocab.concepts.filter(matches);
-  const included = [...includedBy.keys()];
-
-  const readOnly = (title: string, entries: VocabularyEntry[]) =>
-    entries.length === 0 ? null : (
-      <div className="tag-group">
-        <h3 className="small muted">{title}</h3>
-        <div className="chips">
-          {entries.map((e) => {
-            const by = includedBy.get(e.key);
-            const from = topicsOf.get(e.key);
-            return (
-              <span
-                key={e.key}
-                className={`chip small readonly ${by ? "on" : ""}`}
-                title={
-                  by
-                    ? `Included by ${by.join(", ")}`
-                    : from
-                      ? `Comes with ${from.join(", ")}`
-                      : "Not tied to a single topic"
-                }
-              >
-                {by ? "✓ " : ""}
-                {e.label} <span className="muted">{e.count}</span>
-              </span>
-            );
-          })}
-        </div>
-      </div>
-    );
-
   return (
     <div className="tag-picker">
-      <div className="selected-bar">
-        <span className={`counter ${full ? "full" : ""}`}>
-          {selected.length} / {max} topics
-        </span>
-        {selected.map((key) => (
-          <button key={key} className="chip on small" onClick={() => toggle(key)}>
-            {labels.get(key) ?? key} ×
-          </button>
-        ))}
+      <span className={`counter ${full ? "full" : ""}`}>
+        {selected.length} / {max} topics
+      </span>
+      <div className="chips">
+        {vocab.domains.map((e) => {
+          const on = selected.includes(e.key);
+          return (
+            <button
+              key={e.key}
+              className={`chip small ${on ? "on" : ""}`}
+              disabled={!on && full}
+              onClick={() => toggle(e.key)}
+              title={`${e.count} sessions · includes ${(e.related ?? []).map((k) => labels.get(k) ?? k).join(", ") || "no specific tags"}`}
+            >
+              {on ? "✓ " : ""}
+              {e.label} <span className="muted">{e.count}</span>
+            </button>
+          );
+        })}
       </div>
       {included.length > 0 && (
         <details className="small muted includes">
@@ -476,38 +418,6 @@ function TagPicker({
           {included.map((k) => labels.get(k) ?? k).join(", ")}.
         </details>
       )}
-      <input placeholder="Search: Serverless, DynamoDB, event-driven…" value={query} onChange={(e) => setQuery(e.target.value)} />
-
-      {topics.length > 0 && (
-        <div className="tag-group">
-          <h3 className="small muted">Topics · pick here</h3>
-          <div className="chips">
-            {topics.map((e) => {
-              const on = selected.includes(e.key);
-              return (
-                <button
-                  key={e.key}
-                  className={`chip small ${on ? "on" : ""}`}
-                  disabled={!on && full}
-                  onClick={() => toggle(e.key)}
-                  title={`${e.count} sessions · includes ${(e.related ?? []).map((k) => labels.get(k) ?? k).join(", ") || "no specific tags"}`}
-                >
-                  {on ? "✓ " : ""}
-                  {e.label} <span className="muted">{e.count}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-      <p className="small muted">Technologies and practices below are selected through their topic.</p>
-      {readOnly("Technologies", technologies)}
-      {!q && !allTech && (
-        <button className="link small" onClick={() => setAllTech(true)}>
-          Show all {vocab.technologies.length} technologies
-        </button>
-      )}
-      {readOnly("Practices & concepts", concepts)}
     </div>
   );
 }

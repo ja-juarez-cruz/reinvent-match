@@ -23,7 +23,7 @@ Four equally weighted criteria (25% each):
 | `GetEvent` | Event timezone and dates for the agenda | ⬜ |
 | `ListSessions` | Full catalog download and cache | ✅ |
 | `GetSession` | Refresh seat availability for shortlisted sessions before reserving | ⬜ |
-| `GetSchedule` | `reinvent-match schedule`; My Match shows current favorites; every favorites sync re-reads it; agenda import pending | ✅ |
+| `GetSchedule` | `reinvent-match schedule`; My Match shows current favorites and reservations; every sync re-reads it; Import from re:Invent brings portal favorites back as picks | ✅ |
 | `AssociateFavorites` | ❤️ swipe → favorite (batches of 10, `alreadyFavorited` treated as done) | ✅ |
 | `DisassociateFavorite` | ❌ on a previously favorited session → remove favorite | ✅ |
 | `CreatePersonalTime` | Travel buffers between venues, Expo, meals, Ask the Experts | ⬜ |

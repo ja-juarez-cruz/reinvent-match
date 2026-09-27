@@ -358,8 +358,8 @@ function hitStrength(key: string, primaryDomain: string): number {
 }
 
 /**
- * @param keep sessions the attendee already picked (❤️ or 🔖): list caps never drop them, so a pick does not vanish
- *   from their plan.
+ * @param keep sessions the attendee already picked (❤️ or 🔖): no rule hides them and no list cap drops them, so a
+ *   pick never vanishes from their plan, wherever it was made.
  */
 export function buildPlan(sessions: NormalizedSession[], answers: Answers, keep: ReadonlySet<string> = new Set()): Plan {
   const tagged = tagAll(sessions);
@@ -459,20 +459,24 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers, keep:
   const results: PlanItem[] = [];
 
   for (const { session, tags } of tagged) {
+    // A session the attendee already picked (❤️ or 🔖, here or in the re:Invent portal) is never hidden by the rules
+    // below: their choice outranks the plan's guess.
+    const pinned = keep.has(session.id);
     if (
-      session.format === "break" ||
-      session.format === "keynote" ||
-      session.restrictedTo.length > 0 ||
-      PARTNERS_ONLY.test(session.abstract)
+      !pinned &&
+      (session.format === "break" ||
+        session.format === "keynote" ||
+        session.restrictedTo.length > 0 ||
+        PARTNERS_ONLY.test(session.abstract))
     ) {
       hidden.other += 1;
       continue;
     }
-    if (!allowedFormats.has(session.format)) {
+    if (!pinned && !allowedFormats.has(session.format)) {
       hidden.format += 1;
       continue;
     }
-    if (tags.platforms.some((p) => ignored.has(p))) {
+    if (!pinned && tags.platforms.some((p) => ignored.has(p))) {
       hidden.ignored += 1;
       continue;
     }
@@ -533,7 +537,7 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers, keep:
     let intent: Intent;
     let deciding: string | undefined;
     if (coreKnownHit && mainIsKnown) {
-      if (level !== null && level - proficiency < -1) {
+      if (!pinned && level !== null && level - proficiency < -1) {
         hidden.tooBasic += 1;
         continue;
       }
@@ -550,6 +554,8 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers, keep:
     } else if (exploreDomains.has(tags.primaryDomain)) {
       intent = "learn";
       exploring.add(session.id);
+    } else if (pinned) {
+      intent = "broaden";
     } else {
       hidden.other += 1;
       continue;
@@ -557,6 +563,7 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers, keep:
     // Two or more levels above where the attendee stands is left out: a 400 for someone new to AWS, or for someone
     // Basic in every topic the session touches.
     if (
+      !pinned &&
       level !== null &&
       (intent === "reinforce" ? level - bestProficiency >= 2 : level - newTopicLevel >= 2)
     ) {
@@ -571,7 +578,7 @@ export function buildPlan(sessions: NormalizedSession[], answers: Answers, keep:
       tags.primaryDomain === "ai" || (!mainIsKnown && tags.aiSubtopics.length > 0 && AI_IN_TITLE.test(session.title));
     const readiness = aiReadiness(tags, answers.ai, { aiFirst, unansweredAsZero: aiUnansweredAsZero });
     // Hiding needs an explicit answer: questions left blank only lower the score.
-    if (readiness && aiFirst && readiness.answeredFit < AI_HIDE_BELOW) {
+    if (!pinned && readiness && aiFirst && readiness.answeredFit < AI_HIDE_BELOW) {
       hidden.aiNotReady += 1;
       continue;
     }

@@ -57,3 +57,15 @@ describe("syncFavorites", () => {
     expect(result.failed).toEqual([{ sessionId: "A", code: "insufficientAccess", action: "add" }]);
   });
 });
+
+describe("planImport", () => {
+  it("brings portal favorites back as picks and lists picks removed in the portal", async () => {
+    const { planImport } = await import("../src/sync/favorites.js");
+    const local = {
+      A: { decision: "like" as const, at },
+      B: { decision: "like" as const, at },
+      C: { decision: "save" as const, at },
+    };
+    expect(planImport(local, ["A", "C", "D"])).toEqual({ toLike: ["C", "D"], notInPortal: ["B"] });
+  });
+});

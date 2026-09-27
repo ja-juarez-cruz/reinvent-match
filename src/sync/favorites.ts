@@ -67,3 +67,26 @@ export async function syncFavorites(
   const after = await client.getSchedule(eventId);
   return { ...plan, added, removed, failed, favorites: after.favorites };
 }
+
+export interface FavoritesImport {
+  /** Portal favorites that are not a ❤️ here yet: to become ❤️. */
+  toLike: string[];
+  /** ❤️ here that are no longer portal favorites: removed in the portal, so probably replaced. */
+  notInPortal: string[];
+}
+
+/**
+ * The other direction of syncFavorites: what the portal's favorites would change here. Favorites made or removed
+ * in the AWS Events app (or with its AI assistant) come back as ❤️ picks, and picks removed there can be moved to
+ * 🔖 maybe. Nothing is applied here: the attendee reviews the difference first.
+ */
+export function planImport(swipes: SwipeLog, favorites: string[]): FavoritesImport {
+  const current = new Set(favorites);
+  return {
+    toLike: favorites.filter((id) => swipes[id]?.decision !== "like").sort(),
+    notInPortal: Object.entries(swipes)
+      .filter(([id, { decision }]) => decision === "like" && !current.has(id))
+      .map(([id]) => id)
+      .sort(),
+  };
+}

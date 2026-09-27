@@ -4,6 +4,7 @@ import type {
   CatalogReport,
   CatalogStatus,
   Decision,
+  FavoritesImportPreview,
   FavoritesSyncResult,
   OnboardingOptions,
   PlanResponse,
@@ -58,6 +59,9 @@ export const api = {
     call<SwipeLog>("PUT", `/api/swipes/${enc(eventId)}/${enc(sessionId)}`, { decision }),
   schedule: (eventId: string) => call<Schedule>("GET", `/api/schedule/${enc(eventId)}`),
   syncFavorites: (eventId: string) => call<FavoritesSyncResult>("POST", `/api/favorites/${enc(eventId)}/sync`),
+  favoritesImport: (eventId: string) => call<FavoritesImportPreview>("GET", `/api/favorites/${enc(eventId)}/import`),
+  applyFavoritesImport: (eventId: string, like: string[], downgrade: string[]) =>
+    call<SwipeLog>("POST", `/api/favorites/${enc(eventId)}/import`, { like, downgrade }),
   reserve: (eventId: string, sessionIds: string[]) =>
     call<ReservationResult>("POST", `/api/reservations/${enc(eventId)}`, { sessionIds }),
   cancelReservation: (eventId: string, sessionId: string) =>
