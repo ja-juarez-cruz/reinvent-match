@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ApiError } from "../api";
 import { navigate } from "../App";
 import { SessionCode } from "../components/SessionCode";
@@ -10,7 +10,7 @@ import { CARD_REASONS, type AwsEvent, type Decision, type Intent, type PlanItem,
 import { usePlan } from "../usePlan";
 import { ALTERNATIVES_PER_PICK, buildQueue } from "../queue";
 import { repeatsOf, seriesOf, settledSessions, type Series } from "../repeats";
-import { buildWeek, impactOf, nextDay } from "../week";
+import { buildWeek, impactOf } from "../week";
 
 interface Props {
   event: AwsEvent | null;
@@ -27,13 +27,10 @@ export function SwipePage({ event, eventId, answersId }: Props) {
   const [tab, setTab] = useState<Intent>("reinforce");
   const [history, setHistory] = useState<string[]>([]);
   const [dayFilter, setDayFilter] = useState<string | null>(null);
-  const [fullNotice, setFullNotice] = useState<string | null>(null);
   /** A picked session that clashes with the current card, opened to review or swap. */
   const [openClash, setOpenClash] = useState<PlanItem | null>(null);
   /** Clashing sessions beyond each pick's alternatives, shown only when asked for. */
   const [showRest, setShowRest] = useState(false);
-  /** Day of the last ❤️ and whether it was already full, to notice the moment it fills up. */
-  const pendingFullCheck = useRef<{ date: string; wasFull: boolean } | null>(null);
 
   const byIntent = useMemo(() => {
     const groups = new Map<Intent, PlanItem[]>();
@@ -74,20 +71,8 @@ export function SwipePage({ event, eventId, answersId }: Props) {
     [data, week, dayFilter],
   );
 
-  useEffect(() => {
-    const pending = pendingFullCheck.current;
-    if (!pending) return;
-    const day = week.find((d) => d.date === pending.date);
-    if (day && day.remaining <= 0 && !pending.wasFull) setFullNotice(day.date);
-    pendingFullCheck.current = null;
-  }, [week]);
-
   async function act(decision: Decision) {
     if (!current) return;
-    if (decision === "like" && current.session.schedule.date) {
-      const day = week.find((d) => d.date === current.session.schedule.date);
-      pendingFullCheck.current = { date: current.session.schedule.date, wasFull: (day?.remaining ?? 1) <= 0 };
-    }
     setHistory((h) => [...h, current.session.id]);
     await decide(current.session.id, decision);
   }
@@ -157,8 +142,6 @@ export function SwipePage({ event, eventId, answersId }: Props) {
     .join("\n");
   const meta = INTENT_META[tab];
   const impact = current ? impactOf(current, week) : null;
-  const fullDay = fullNotice ? week.find((d) => d.date === fullNotice) : undefined;
-  const following = fullDay ? nextDay(week, fullDay.date) : undefined;
 
   /** Keep the current card instead of a clashing pick; the pick stays as a 🔖 backup. */
   async function swapFor(clash: PlanItem) {
@@ -174,36 +157,12 @@ export function SwipePage({ event, eventId, answersId }: Props) {
 
   function chooseDay(date: string | null) {
     setDayFilter(date);
-    setFullNotice(null);
   }
 
   return (
     <section className="page swipe-solo">
       <div className="swipe-main">
         <WeekStrip week={week} currentDate={s?.schedule.date ?? null} selectedDate={dayFilter} onSelect={chooseDay} />
-        {fullDay && (
-          <div className="panel notice" role="status">
-            <p>
-              📅 <strong>{formatDay(fullDay.date)} is full.</strong> With your {fullDay.liked.length} picks, lunch and travel
-              between venues, no more sessions fit in your calendar that day.
-            </p>
-            <p className="muted small">{explainDay(fullDay).slice(1, -1).join(" ")}</p>
-            <div className="row">
-              <button className="ghost" onClick={() => chooseDay(fullDay.date)}>
-                Keep reviewing {formatDay(fullDay.date)}
-              </button>
-              {following ? (
-                <button className="primary" onClick={() => chooseDay(following.date)}>
-                  Go to {formatDay(following.date)} →
-                </button>
-              ) : (
-                <button className="primary" onClick={() => chooseDay(null)}>
-                  Review all days
-                </button>
-              )}
-            </div>
-          </div>
-        )}
         <div className="swipe-head">
           <div className="tabs">
             {TABS.map((i) => {

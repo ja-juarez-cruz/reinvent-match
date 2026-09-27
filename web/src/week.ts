@@ -190,8 +190,3 @@ export function impactOf(item: PlanItem, week: WeekDay[]): Impact {
   }
   return { day, clashes, full: day !== undefined && day.remaining <= 0, breaksLunch };
 }
-
-/** The next scheduled day after `date`, if any. */
-export function nextDay(week: WeekDay[], date: string): WeekDay | undefined {
-  return week.find((d) => d.date > date);
-}
