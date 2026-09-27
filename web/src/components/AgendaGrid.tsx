@@ -130,6 +130,16 @@ export function AgendaGrid({
 }
 
 function FreeTimeNote({ free }: { free: FreeTime }) {
+  if (free.transfer && free.walk) {
+    return (
+      <div className={`agenda-free agenda-walk small ${free.transfer.tight ? "tight" : ""}`} title={free.idea}>
+        <div>
+          🚶 {clock(free.start)} → <strong>{free.walk.to}</strong> · {free.walk.minutes} min walk
+        </div>
+        {free.transfer.tight && <div className="warn">⚠️ {free.idea}</div>}
+      </div>
+    );
+  }
   return (
     <div className="agenda-free small" title={free.idea}>
       <div>
@@ -179,8 +189,15 @@ function PickCard({
       </button>
       {pick.repeats.map((r) => (
         <div key={r.session.id} className="small warn">
-          🔁 Same session as {r.session.code} ({formatDay(r.session.schedule.date)} {r.session.schedule.startTime}):
-          keep one
+          🔁 Same session as{" "}
+          <button
+            className="link small clash-link"
+            onClick={() => onClash(pick.item, r)}
+            title="Choose which time to keep"
+          >
+            {r.session.code}
+          </button>{" "}
+          ({formatDay(r.session.schedule.date)} {r.session.schedule.startTime}): keep one
         </div>
       ))}
       {pick.otherTimes.length > 0 && (
@@ -191,23 +208,25 @@ function PickCard({
             .join(", ")}
         </div>
       )}
-      {pick.clashes.length > 0 && (
-        <div className="small warn">
-          ⚠️ Clashes with{" "}
-          {pick.clashes.map((c, i) => (
-            <span key={c.session.id}>
-              {i > 0 && ", "}
-              <button
-                className="link small clash-link"
-                onClick={() => onClash(pick.item, c)}
-                title="Resolve this clash"
-              >
-                {c.session.code}
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
+      {pick.clashes.map((c) => {
+        const reason = pick.clashReasons[c.session.id];
+        const link = (
+          <button className="link small clash-link" onClick={() => onClash(pick.item, c)} title="Resolve this clash">
+            {c.session.code}
+          </button>
+        );
+        return (
+          <div key={c.session.id} className="small warn">
+            {reason?.kind === "travel" ? (
+              <>
+                🚶 Too far from {link}: {reason.walk} min walk, you have {Math.max(0, reason.gap)}
+              </>
+            ) : (
+              <>⚠️ Overlaps {link}</>
+            )}
+          </div>
+        );
+      })}
       {pick.alternatives.length > 0 && (
         // Collapsed by default: the week reads cleaner, and alternatives are one click away.
         <details className="agenda-alts">

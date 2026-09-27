@@ -16,6 +16,8 @@ export interface AgendaPick {
   moreAlternatives: number;
   /** Other picks it overlaps or cannot be reached from in time. */
   clashes: PlanItem[];
+  /** Why each clash is one: the sessions overlap, or the walk between their venues takes longer than the gap. */
+  clashReasons: Record<string, { kind: "overlap" } | { kind: "travel"; walk: number; gap: number }>;
   /** The same session picked again at another time: keep one. */
   repeats: PlanItem[];
   /** Other times the session is offered, to move it if this one gets crowded. */
@@ -31,6 +33,8 @@ export interface FreeTime {
   walk?: { to: string; minutes: number };
   /** What the time is good for: the Expo, booths, the hallway track or just a breather. */
   idea: string;
+  /** Just the walk to another venue (no time to spare), and whether the gap is too short for it. */
+  transfer?: { tight: boolean };
 }
 
 export interface AgendaDay {
@@ -63,7 +67,7 @@ export function freeTimeOf(
   for (let i = 1; i < sorted.length; i++) {
     const from = sorted[i - 1]!;
     const to = sorted[i]!;
-    if (to.start <= from.end) continue;
+    if (to.start < from.end) continue;
     const walk = travelMinutes(from.venue, to.venue);
     const segments =
       lunch && lunch.start < to.start && lunch.end > from.end
@@ -72,6 +76,21 @@ export function freeTimeOf(
             { start: Math.min(to.start, lunch.end), end: to.start, last: true },
           ]
         : [{ start: from.end, end: to.start, last: true }];
+    const otherVenue = from.venue !== to.venue && to.venue;
+    const gap = to.start - from.end;
+    // Back to back in two venues: the walk is the whole gap, or more than it. Show it anyway.
+    if (otherVenue && gap - walk < MIN_FREE_MINUTES && !(lunch && lunch.start < to.start && lunch.end > from.end)) {
+      free.push({
+        start: from.end,
+        end: to.start,
+        minutes: Math.max(0, gap - walk),
+        walk: { to: to.venue!, minutes: walk },
+        idea:
+          gap >= walk ? `Walk straight to ${to.venue}` : `Not enough time: the walk takes ${walk} min, you have ${gap}`,
+        transfer: { tight: gap < walk },
+      });
+      continue;
+    }
     for (const seg of segments) {
       const minutes = seg.end - seg.start - (seg.last ? walk : 0);
       if (minutes < MIN_FREE_MINUTES) continue;
@@ -98,6 +117,11 @@ export interface Agenda {
 }
 
 const DEFAULT_HOURS = { from: 8, to: 18 };
+
+function venueName(item: PlanItem): string | null {
+  const venue = venueOf(item.session);
+  return venue === "Venue TBA" ? null : venue;
+}
 
 /**
  * Your week by hour. By default it shows the ❤️ picks with the alternatives to each; `show` adds 🔖 maybes (to settle
@@ -147,9 +171,19 @@ export function buildAgenda(
         const other = blockOf(o);
         return o !== item && other !== null && !compatible(block, other);
       });
+      const clashReasons: AgendaPick["clashReasons"] = {};
+      for (const o of clashes) {
+        const other = blockOf(o)!;
+        const overlap = other.start < block.end && block.start < other.end;
+        const [first, second] = block.start <= other.start ? [item, o] : [o, item];
+        const walk = travelMinutes(venueName(first), venueName(second));
+        const gap = blockOf(second)!.start - blockOf(first)!.end;
+        clashReasons[o.session.id] = overlap ? { kind: "overlap" } : { kind: "travel", walk, gap };
+      }
       return [
         {
           item,
+          clashReasons,
           decision: d,
           start: block.start,
           end: block.end,

@@ -40,6 +40,8 @@ export function ClashModal({
   const x = blockOf(a);
   const y = blockOf(b);
   const overlap = !!x && !!y && x.start < y.end && y.start < x.end;
+  // Two times of one session (SVS324-R and SVS324-R1): no move needed, just pick one.
+  const sameSession = otherTimes(a).some((o) => o.session.id === b.session.id);
   const decisionOf = (item: PlanItem): Decision => swipes[item.session.id]?.decision ?? "like";
   const dropped = (item: PlanItem) => (decisionOf(item) === "like" ? "becomes 🔖 maybe" : "is dropped (❌)");
 
@@ -54,9 +56,11 @@ export function ClashModal({
       >
         <h2 id="clash-title">⚠️ Resolve a clash</h2>
         <p className="muted small">
-          {overlap
-            ? "These two sessions overlap."
-            : "These two don't overlap, but there isn't enough time to get from one venue to the other."}
+          {sameSession
+            ? "The same session at two times: keep the time that suits you."
+            : overlap
+              ? "These two sessions overlap."
+              : "These two don't overlap, but there isn't enough time to get from one venue to the other."}
         </p>
         <div className="clash-sides">
           {[
@@ -64,7 +68,7 @@ export function ClashModal({
             [b, a],
           ].map(([item, other]) => {
             const s = item!.session;
-            const moves = otherTimes(item!);
+            const moves = sameSession ? [] : otherTimes(item!);
             return (
               <div key={s.id} className="panel clash-side">
                 <div className="small">

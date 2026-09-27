@@ -129,3 +129,34 @@ describe("agenda filters", () => {
     expect(passes.days[0]!.picks.map((p) => [p.item.session.id, p.decision, p.clashes.length])).toEqual([["X", "pass", 0]]);
   });
 });
+
+describe("walks between venues", () => {
+  const m = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3));
+  const at_ = (start: string, end: string, venue: string | null) => ({ start: m(start), end: m(end), venue });
+
+  it("shows the walk between back-to-back sessions in two venues, flagged when it does not fit", () => {
+    const free = freeTimeOf([at_("09:00", "10:00", "Wynn/Encore"), at_("10:00", "11:00", "MGM Grand")], null);
+    expect(free).toEqual([
+      {
+        start: 600,
+        end: 600,
+        minutes: 0,
+        walk: { to: "MGM Grand", minutes: 40 },
+        idea: "Not enough time: the walk takes 40 min, you have 0",
+        transfer: { tight: true },
+      },
+    ]);
+    const fits = freeTimeOf([at_("09:00", "10:00", "Wynn/Encore"), at_("10:45", "11:30", "MGM Grand")], null);
+    expect(fits[0]).toMatchObject({ transfer: { tight: false }, idea: "Walk straight to MGM Grand" });
+  });
+
+  it("tells an overlap from a walk that takes longer than the gap", () => {
+    const wynn = item("SEC368", "09:00", "Wynn/Encore");
+    const mgm = item("CMP319", "10:00", "MGM Grand");
+    const early = item("SVS324", "08:30", "MGM Grand");
+    const all = [early, wynn, mgm];
+    const log = swipes(["SEC368", "CMP319", "SVS324"]);
+    const pick = buildAgenda(all, log, buildWeek(all, log)).days[0]!.picks.find((p) => p.item.session.id === "SEC368")!;
+    expect(pick.clashReasons).toEqual({ SVS324: { kind: "overlap" }, CMP319: { kind: "travel", walk: 40, gap: 0 } });
+  });
+});

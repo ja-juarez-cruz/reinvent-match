@@ -1821,3 +1821,11 @@ a.icon-button {
   text-decoration: underline;
   padding: 0;
 }
+
+.agenda-walk {
+  border-style: dotted;
+}
+
+.agenda-walk.tight {
+  border-color: var(--warn);
+}
