@@ -48,7 +48,7 @@ Reserved seating opens on **October 6** in the portal, but write access through 
 | Sep 24 | ✅ Match engine against public catalogs, concept docs, Builder ID sign-in |
 | Sep 25 – 27 | ✅ Rules and weights calibrated with seven test personas; `reinvent2026` with the author's own profile still to do |
 | Sep 28 – Oct 1 | ✅ Swipe (web) with ❤️ synced to favorites; import from the portal (`GetSchedule`) |
-| Oct 2 – 4 | ✅ My Match (clashes, travel between venues, free time, backups), Fill my week, reservation plan, booking through the API · ⬜ personal time |
+| Oct 2 – 4 | ✅ My Match (clashes, travel between venues, free time, backups), Fill my week, reservation plan, booking through the API, personal time and .ics |
 | **Oct 5** | Tool complete for opening day; dry run end to end |
 | Oct 6 | Reserve in the portal following the plan |
 | Oct 8 | `reinvent-match reserve` live against the API (first real test of write access) |

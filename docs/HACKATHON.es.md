@@ -20,9 +20,9 @@ Cuatro criterios con el mismo peso (25% cada uno):
 | Operación | Función en Reinvent:Match | Estado |
 |---|---|---|
 | `ListEvents` | `reinvent-match events`: elegir el evento | ✅ |
-| `GetEvent` | Zona horaria y fechas del evento para la agenda | ⬜ |
+| `GetEvent` | 📅 Calendar lee la zona horaria del evento para escribir el tiempo personal y el .ics en UTC | ✅ |
 | `ListSessions` | Descarga y caché del catálogo completo | ✅ |
-| `GetSession` | Actualizar la disponibilidad de asientos de las sesiones preseleccionadas antes de reservar | ⬜ |
+| `GetSession` | 🎟 Reservations → ↻ Check seats: disponibilidad al momento (disponible, limitada, muy limitada, llena) de cada sesión por reservar | ✅ |
 | `GetSchedule` | `reinvent-match schedule`; My Match muestra los favoritos y reservas actuales; cada sincronización lo vuelve a leer; Import from re:Invent trae de vuelta como elegidas los favoritos del portal | ✅ |
 | `AssociateFavorites` | ❤️ en el swipe → favorito (lotes de 10; `alreadyFavorited` cuenta como hecho) | ✅ |
 | `DisassociateFavorite` | ❌ sobre una sesión que ya era favorita → se quita | ✅ |
@@ -48,7 +48,7 @@ La reserva abre el **6 de octubre** en el portal, pero la escritura por API (res
 | 24 sep | ✅ Motor de match con catálogos públicos, documentación, inicio de sesión con Builder ID |
 | 25 – 27 sep | ✅ Reglas y pesos calibrados con siete perfiles de prueba; falta `reinvent2026` con el perfil del autor |
 | 28 sep – 1 oct | ✅ Swipe (web) con ❤️ sincronizado con favoritos; importar desde el portal (`GetSchedule`) |
-| 2 – 4 oct | ✅ My Match (choques, traslados entre venues, tiempo libre, respaldos), Fill my week, plan de reserva, reservas por el API · ⬜ tiempo personal |
+| 2 – 4 oct | ✅ My Match (choques, traslados entre venues, tiempo libre, respaldos), Fill my week, plan de reserva, reservas por el API, tiempo personal y .ics |
 | **5 oct** | Herramienta completa para el día de apertura; prueba completa de punta a punta |
 | 6 oct | Reservar en el portal siguiendo el plan |
 | 8 oct | `reinvent-match reserve` en vivo contra el API (primera prueba real de escritura) |
