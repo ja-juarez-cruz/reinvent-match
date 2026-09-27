@@ -1,4 +1,4 @@
-import type { Agenda, AgendaPick } from "../agenda";
+import type { Agenda, AgendaPick, FreeTime } from "../agenda";
 import { clock, formatDay, formatTimeRange, venueOf } from "../format";
 import { INTENTS, INTENT_META } from "../intents";
 import type { PlanItem, SwipeLog } from "../types";
@@ -27,6 +27,9 @@ export function AgendaGrid({
         ))}
         <span className="legend-item" title="Clashes with another pick, or the same session picked twice">
           <span className="legend-swatch warn-swatch" /> Needs a decision
+        </span>
+        <span className="legend-item" title="Free time between sessions, after the walk to the next venue">
+          <span className="legend-swatch free-swatch" /> ☕ Free time
         </span>
       </div>
       <div className="agenda-scroll">
@@ -59,20 +62,37 @@ export function AgendaGrid({
                           ↳ {p.item.session.code} until {clock(p.end)}
                         </div>
                       ))}
-                      {lunch && (
-                        <div className="agenda-lunch small">
-                          🍽 Lunch {clock(lunch.start)}–{clock(lunch.end)}
-                        </div>
-                      )}
-                      {starting.map((p) => (
-                        <PickCard
-                          key={p.item.session.id}
-                          pick={p}
-                          swipes={swipes}
-                          favorite={favorites.has(p.item.session.id)}
-                          onOpen={onOpen}
-                        />
-                      ))}
+                      {[
+                        ...(lunch
+                          ? [
+                              {
+                                start: lunch.start,
+                                node: (
+                                  <div key="lunch" className="agenda-lunch small">
+                                    🍽 Lunch {clock(lunch.start)}–{clock(lunch.end)}
+                                  </div>
+                                ),
+                              },
+                            ]
+                          : []),
+                        ...d.freeTime
+                          .filter((f) => f.start >= from && f.start < to)
+                          .map((f) => ({ start: f.start, node: <FreeTimeNote key={`free-${f.start}`} free={f} /> })),
+                        ...starting.map((p) => ({
+                          start: p.start,
+                          node: (
+                            <PickCard
+                              key={p.item.session.id}
+                              pick={p}
+                              swipes={swipes}
+                              favorite={favorites.has(p.item.session.id)}
+                              onOpen={onOpen}
+                            />
+                          ),
+                        })),
+                      ]
+                        .sort((a, b) => a.start - b.start)
+                        .map((entry) => entry.node)}
                     </td>
                   );
                 })}
@@ -82,6 +102,22 @@ export function AgendaGrid({
         </table>
       </div>
     </>
+  );
+}
+
+function FreeTimeNote({ free }: { free: FreeTime }) {
+  return (
+    <div className="agenda-free small" title={free.idea}>
+      <div>
+        ☕ {clock(free.start)}–{clock(free.end)} · <strong>{free.minutes} min free</strong>
+      </div>
+      <div className="muted">{free.idea}</div>
+      {free.walk && (
+        <div className="muted">
+          🚶 then {free.walk.minutes} min to {free.walk.to}
+        </div>
+      )}
+    </div>
   );
 }
 

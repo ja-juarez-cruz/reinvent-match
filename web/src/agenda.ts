@@ -1,7 +1,8 @@
 import { ALTERNATIVES_PER_PICK } from "./queue";
 import { repeatsOf } from "./repeats";
 import type { PlanItem, SwipeLog } from "./types";
-import { blockOf, compatible, type WeekDay } from "./week";
+import { venueOf } from "./format";
+import { blockOf, compatible, travelMinutes, type WeekDay } from "./week";
 
 export interface AgendaPick {
   item: PlanItem;
@@ -19,10 +20,69 @@ export interface AgendaPick {
   otherTimes: PlanItem[];
 }
 
+export interface FreeTime {
+  start: number;
+  end: number;
+  /** Minutes you actually have, once the walk to the next session is taken out. */
+  minutes: number;
+  /** The walk to the next session when it is in another venue. */
+  walk?: { to: string; minutes: number };
+  /** What the time is good for: the Expo, booths, the hallway track or just a breather. */
+  idea: string;
+}
+
 export interface AgendaDay {
   date: string;
   picks: AgendaPick[];
   lunchSlot: WeekDay["lunchSlot"];
+  /** Gaps between picks worth knowing about (lunch apart). */
+  freeTime: FreeTime[];
+}
+
+/** Gaps shorter than this, walk taken out, are not worth a note. */
+export const MIN_FREE_MINUTES = 20;
+
+function ideaFor(minutes: number): string {
+  if (minutes >= 60) return "Expo hall, partner booths or the hallway track";
+  if (minutes >= 30) return "A walk through the Expo, or a coffee with someone new";
+  return "A breather: charge up, refill water";
+}
+
+/**
+ * The free time between consecutive picks of a day: the walk to the next venue comes off the end of each gap, and a
+ * lunch slot inside a gap splits it in two.
+ */
+export function freeTimeOf(
+  picks: { start: number; end: number; venue: string | null }[],
+  lunch: WeekDay["lunchSlot"],
+): FreeTime[] {
+  const sorted = [...picks].sort((a, b) => a.start - b.start);
+  const free: FreeTime[] = [];
+  for (let i = 1; i < sorted.length; i++) {
+    const from = sorted[i - 1]!;
+    const to = sorted[i]!;
+    if (to.start <= from.end) continue;
+    const walk = travelMinutes(from.venue, to.venue);
+    const segments =
+      lunch && lunch.start < to.start && lunch.end > from.end
+        ? [
+            { start: from.end, end: Math.max(from.end, lunch.start), last: false },
+            { start: Math.min(to.start, lunch.end), end: to.start, last: true },
+          ]
+        : [{ start: from.end, end: to.start, last: true }];
+    for (const seg of segments) {
+      const minutes = seg.end - seg.start - (seg.last ? walk : 0);
+      if (minutes < MIN_FREE_MINUTES) continue;
+      free.push({
+        start: seg.start,
+        end: seg.last ? seg.end - walk : seg.end,
+        minutes,
+        walk: seg.last && from.venue !== to.venue && to.venue ? { to: to.venue, minutes: walk } : undefined,
+        idea: ideaFor(minutes),
+      });
+    }
+  }
+  return free;
 }
 
 export interface Agenda {
@@ -76,7 +136,11 @@ export function buildAgenda(items: PlanItem[], swipes: SwipeLog, week: WeekDay[]
         },
       ];
     });
-    return { date: day.date, picks, lunchSlot: day.lunchSlot };
+    const venues = picks.map((p) => {
+      const venue = venueOf(p.item.session);
+      return { start: p.start, end: p.end, venue: venue === "Venue TBA" ? null : venue };
+    });
+    return { date: day.date, picks, lunchSlot: day.lunchSlot, freeTime: freeTimeOf(venues, day.lunchSlot) };
   });
 
   const starts = days.flatMap((d) => d.picks.map((p) => p.start));

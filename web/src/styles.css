@@ -1777,3 +1777,17 @@ a.icon-button {
   width: 1rem;
   text-align: center;
 }
+
+.agenda-free {
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  padding: 0.25rem 0.4rem;
+  margin-bottom: 0.3rem;
+  background: color-mix(in srgb, var(--surface-2) 60%, transparent);
+}
+
+.legend-swatch.free-swatch {
+  background: var(--surface-2);
+  outline: 1px dashed var(--muted);
+  outline-offset: -1px;
+}

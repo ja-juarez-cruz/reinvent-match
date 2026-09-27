@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PlanItem, SwipeLog } from "../web/src/types.js";
-import { buildAgenda } from "../web/src/agenda.js";
+import { buildAgenda, freeTimeOf } from "../web/src/agenda.js";
 import { buildWeek } from "../web/src/week.js";
 
 function item(id: string, startTime: string, venue: string, durationMin = 60, date = "2026-12-01"): PlanItem {
@@ -76,4 +76,31 @@ it("only offers sessions at the same time as alternatives, not ones merely too f
   const log = swipes(["P"]);
   const agenda = buildAgenda([pick, later], log, buildWeek([pick, later], log));
   expect(agenda.days[0]!.picks[0]!.alternatives).toEqual([]);
+});
+
+describe("free time", () => {
+  const at = (start: string, end: string, venue: string | null) => {
+    const m = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3));
+    return { start: m(start), end: m(end), venue };
+  };
+
+  it("takes the walk to the next venue off the gap and suggests what to do", () => {
+    const free = freeTimeOf([at("09:00", "10:00", "Venetian"), at("11:30", "12:30", "MGM Grand")], null);
+    expect(free).toEqual([
+      { start: 600, end: 650, minutes: 50, walk: { to: "MGM Grand", minutes: 40 }, idea: "A walk through the Expo, or a coffee with someone new" },
+    ]);
+  });
+
+  it("splits a gap around lunch and skips gaps too short to use", () => {
+    const free = freeTimeOf(
+      [at("09:00", "10:00", "Venetian"), at("10:15", "11:00", "Venetian"), at("14:00", "15:00", "Venetian")],
+      { start: 690, end: 750 },
+    );
+    expect(free.map((f) => [f.start, f.end, f.minutes])).toEqual([
+      [660, 690, 30],
+      [750, 830, 80],
+    ]);
+    expect(free[1]!.idea).toMatch(/Expo hall/);
+    expect(free[1]!.walk).toBeUndefined();
+  });
 });
