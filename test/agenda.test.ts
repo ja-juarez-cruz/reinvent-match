@@ -104,3 +104,28 @@ describe("free time", () => {
     expect(free[1]!.walk).toBeUndefined();
   });
 });
+
+describe("agenda filters", () => {
+  const pick = item("P", "10:00", "Venetian");
+  const maybe = item("M", "10:30", "Venetian");
+  const passed = item("X", "14:00", "Venetian");
+  const all = [pick, maybe, passed];
+  const log: SwipeLog = {
+    ...swipes(["P"], ["X"]),
+    M: { decision: "save", at },
+  };
+
+  it("shows only picks by default, and flags a pick overlapping a maybe once maybes are shown", () => {
+    const byDefault = buildAgenda(all, log, buildWeek(all, log));
+    expect(byDefault.days[0]!.picks.map((p) => p.item.session.id)).toEqual(["P"]);
+    const withMaybes = buildAgenda(all, log, buildWeek(all, log), new Set(["like", "save"]));
+    const [p, m] = withMaybes.days[0]!.picks;
+    expect([p!.decision, m!.decision]).toEqual(["like", "save"]);
+    expect(p!.clashes.map((c) => c.session.id)).toEqual(["M"]);
+  });
+
+  it("shows sessions marked not for me on their own, without clashes", () => {
+    const passes = buildAgenda(all, log, buildWeek(all, log), new Set(["pass"]));
+    expect(passes.days[0]!.picks.map((p) => [p.item.session.id, p.decision, p.clashes.length])).toEqual([["X", "pass", 0]]);
+  });
+});

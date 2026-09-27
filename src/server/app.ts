@@ -199,7 +199,8 @@ export function createApp(ctx: AppContext) {
         const answers = await getAnswers(id);
         if (!answers) throw new HttpError(404, "answers-missing", `No answers saved as ${id}.`);
         const [{ sessions, fetchedAt }, swipes] = await Promise.all([sessionsFor(eventId!), loadSwipes(eventId!)]);
-        const picked = new Set(Object.keys(swipes).filter((id) => swipes[id]?.decision !== "pass"));
+        // Every decided session stays in the plan, ❌ included, so My Match can show them and take a decision back.
+        const picked = new Set(Object.keys(swipes));
         const liked = new Set(Object.keys(swipes).filter((id) => swipes[id]?.decision === "like"));
         return { fetchedAt, answers, ...buildPlan(sessions, answers, picked, liked), swipes };
       },

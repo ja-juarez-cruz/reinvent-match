@@ -1,11 +1,13 @@
 import { ALTERNATIVES_PER_PICK } from "./queue";
 import { repeatsOf } from "./repeats";
-import type { PlanItem, SwipeLog } from "./types";
+import type { Decision, PlanItem, SwipeLog } from "./types";
 import { venueOf } from "./format";
 import { blockOf, compatible, travelMinutes, type WeekDay } from "./week";
 
 export interface AgendaPick {
   item: PlanItem;
+  /** ❤️ interested, 🔖 maybe or ❌ not for me: the agenda can show any of them. */
+  decision: Decision;
   start: number;
   end: number;
   /** Sessions at the same time to swap in: your 🔖 maybes first, then the highest-scoring ones not yet reviewed. */
@@ -97,8 +99,16 @@ export interface Agenda {
 
 const DEFAULT_HOURS = { from: 8, to: 18 };
 
-/** Your week by hour: the session to attend in each slot, with the alternatives to it. */
-export function buildAgenda(items: PlanItem[], swipes: SwipeLog, week: WeekDay[]): Agenda {
+/**
+ * Your week by hour. By default it shows the ❤️ picks with the alternatives to each; `show` adds 🔖 maybes (to settle
+ * overlaps between picks and maybes side by side) or shows the ❌ sessions (to take a "not for me" back).
+ */
+export function buildAgenda(
+  items: PlanItem[],
+  swipes: SwipeLog,
+  week: WeekDay[],
+  show: ReadonlySet<Decision> = new Set(["like"]),
+): Agenda {
   const decision = (item: PlanItem) => swipes[item.session.id]?.decision;
   const liked = items.filter((i) => decision(i) === "like");
   const repeats = repeatsOf(items);
@@ -108,38 +118,56 @@ export function buildAgenda(items: PlanItem[], swipes: SwipeLog, week: WeekDay[]
     (i) => decision(i) !== "like" && decision(i) !== "pass" && blockOf(i) && !pickedElsewhere.has(i.session.id),
   );
 
+  const shown = items.filter((i) => {
+    const d = decision(i);
+    return d !== undefined && show.has(d) && blockOf(i);
+  });
   const days = week.map((day) => {
     const dayCandidates = candidates.filter((c) => c.session.schedule.date === day.date);
-    const picks = day.liked.flatMap((item): AgendaPick[] => {
+    const dayShown = shown
+      .filter((i) => i.session.schedule.date === day.date)
+      .sort((a, b) => blockOf(a)!.start - blockOf(b)!.start);
+    const picks = dayShown.flatMap((item): AgendaPick[] => {
       const block = blockOf(item);
       if (!block) return [];
-      const rivals = dayCandidates
-        .filter((c) => {
-          const other = blockOf(c)!;
-          return other.start < block.end && block.start < other.end;
-        })
-        .sort((a, b) => Number(decision(b) === "save") - Number(decision(a) === "save") || b.score - a.score);
-      const clashes = day.liked.filter((o) => {
+      const d = decision(item)!;
+      // Alternatives are offered for ❤️ picks only; with maybes on the grid they are already in view.
+      const rivals =
+        d !== "like" || show.has("save")
+          ? []
+          : dayCandidates
+              .filter((c) => {
+                const other = blockOf(c)!;
+                return other.start < block.end && block.start < other.end;
+              })
+              .sort((a, b) => Number(decision(b) === "save") - Number(decision(a) === "save") || b.score - a.score);
+      // A clash is with anything in view that is not ❌: a pick against a pick, or a pick against a maybe.
+      const clashes = dayShown.filter((o) => {
+        if (d === "pass" || decision(o) === "pass") return false;
         const other = blockOf(o);
         return o !== item && other !== null && !compatible(block, other);
       });
       return [
         {
           item,
+          decision: d,
           start: block.start,
           end: block.end,
           alternatives: rivals.slice(0, ALTERNATIVES_PER_PICK),
           moreAlternatives: Math.max(0, rivals.length - ALTERNATIVES_PER_PICK),
           clashes,
-          repeats: (repeats.get(item.session.id) ?? []).filter((o) => decision(o) === "like"),
+          repeats: d === "like" ? (repeats.get(item.session.id) ?? []).filter((o) => decision(o) === "like") : [],
           otherTimes: (repeats.get(item.session.id) ?? []).filter((o) => decision(o) !== "like" && blockOf(o)),
         },
       ];
     });
-    const venues = picks.map((p) => {
-      const venue = venueOf(p.item.session);
-      return { start: p.start, end: p.end, venue: venue === "Venue TBA" ? null : venue };
-    });
+    // Free time is between the sessions you will attend.
+    const venues = picks
+      .filter((p) => p.decision === "like")
+      .map((p) => {
+        const venue = venueOf(p.item.session);
+        return { start: p.start, end: p.end, venue: venue === "Venue TBA" ? null : venue };
+      });
     return { date: day.date, picks, lunchSlot: day.lunchSlot, freeTime: freeTimeOf(venues, day.lunchSlot) };
   });
 
@@ -151,11 +179,17 @@ export function buildAgenda(items: PlanItem[], swipes: SwipeLog, week: WeekDay[]
   return {
     days,
     hours: Array.from({ length: Math.max(1, to - from) }, (_, i) => from + i),
-    unscheduled: items.filter((i) => (decision(i) === "like" || decision(i) === "save") && !blockOf(i)),
-    freeMaybes: items.filter((i) => {
-      const block = decision(i) === "save" ? blockOf(i) : null;
-      const picks = week.find((d) => d.date === i.session.schedule.date)?.liked ?? [];
-      return block !== null && picks.every((p) => compatible(block, blockOf(p)!));
+    unscheduled: items.filter((i) => {
+      const d = decision(i);
+      return d !== undefined && show.has(d) && !blockOf(i);
     }),
+    // With maybes on the grid, listing the free ones apart would repeat them.
+    freeMaybes: show.has("save")
+      ? []
+      : items.filter((i) => {
+          const block = decision(i) === "save" ? blockOf(i) : null;
+          const picks = week.find((d) => d.date === i.session.schedule.date)?.liked ?? [];
+          return block !== null && picks.every((p) => compatible(block, blockOf(p)!));
+        }),
   };
 }

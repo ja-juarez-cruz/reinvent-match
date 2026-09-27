@@ -1,35 +1,54 @@
 import type { Agenda, AgendaPick, FreeTime } from "../agenda";
 import { clock, formatDay, formatTimeRange, venueOf } from "../format";
-import { INTENTS, INTENT_META } from "../intents";
-import type { PlanItem, SwipeLog } from "../types";
+import { INTENT_META } from "../intents";
+import type { Decision, PlanItem, SwipeLog } from "../types";
 
 type OnOpen = (item: PlanItem, pick?: PlanItem) => void;
+
+/** The marks the agenda can show, as filters. */
+export const AGENDA_FILTERS: { decision: Decision; icon: string; label: string; hint: string }[] = [
+  { decision: "like", icon: "❤️", label: "Interested", hint: "Your picks: the sessions you plan to attend" },
+  { decision: "save", icon: "🔖", label: "Maybe", hint: "Backups: add them to see where they overlap your picks" },
+  { decision: "pass", icon: "❌", label: "Not for me", hint: "Sessions you passed on: open one to take it back" },
+];
+
+const DECISION_MARK: Record<Decision, string> = { like: "", save: "🔖 Maybe", pass: "❌ Not for me" };
 
 /** Your week as a table: days across, hours down; each pick sits in the hour it starts, with its alternatives. */
 export function AgendaGrid({
   agenda,
   swipes,
   favorites,
+  show,
+  counts,
+  onToggle,
   onOpen,
 }: {
   agenda: Agenda;
   swipes: SwipeLog;
   favorites: Set<string>;
+  /** The marks shown on the grid. */
+  show: ReadonlySet<Decision>;
+  counts: Record<Decision, number>;
+  onToggle: (decision: Decision) => void;
   onOpen: OnOpen;
 }) {
   return (
     <>
-      <div className="agenda-legend small muted">
-        {INTENTS.map((i) => (
-          <span key={i} className={`legend-item intent-${i}`} title={INTENT_META[i].hint}>
-            <span className="legend-swatch" /> {INTENT_META[i].icon} {INTENT_META[i].label}
-          </span>
+      <div className="agenda-filters" role="group" aria-label="Show on the calendar">
+        {AGENDA_FILTERS.map((f) => (
+          <button
+            key={f.decision}
+            className={`chip small ${show.has(f.decision) ? "on" : ""}`}
+            aria-pressed={show.has(f.decision)}
+            title={f.hint}
+            onClick={() => onToggle(f.decision)}
+          >
+            {f.icon} {f.label} <span className="count">{counts[f.decision]}</span>
+          </button>
         ))}
-        <span className="legend-item" title="Clashes with another pick, or the same session picked twice">
-          <span className="legend-swatch warn-swatch" /> Needs a decision
-        </span>
-        <span className="legend-item" title="Free time between sessions, after the walk to the next venue">
-          <span className="legend-swatch free-swatch" /> ☕ Free time
+        <span className="muted small" title="Free time between sessions, after the walk to the next venue">
+          ☕ free time · <span className="warn">⚠️</span> overlap
         </span>
       </div>
       <div className="agenda-scroll">
@@ -40,7 +59,7 @@ export function AgendaGrid({
               {agenda.days.map((d) => (
                 <th key={d.date}>
                   {formatDay(d.date)}
-                  <span className="muted small"> · {d.picks.length} ❤️</span>
+                  <span className="muted small"> · {d.picks.filter((p) => p.decision === "like").length} ❤️</span>
                 </th>
               ))}
             </tr>
@@ -58,7 +77,7 @@ export function AgendaGrid({
                   return (
                     <td key={d.date}>
                       {continuing.map((p) => (
-                        <div key={p.item.session.id} className={`agenda-cont intent-${p.item.intent}`}>
+                        <div key={p.item.session.id} className="agenda-cont">
                           ↳ {p.item.session.code} until {clock(p.end)}
                         </div>
                       ))}
@@ -135,16 +154,19 @@ function PickCard({
   const s = pick.item.session;
   return (
     <div
-      className={`agenda-pick intent-${pick.item.intent} ${pick.clashes.length + pick.repeats.length > 0 ? "clash" : ""}`}
+      className={`agenda-pick decision-${pick.decision} ${pick.clashes.length + pick.repeats.length > 0 ? "clash" : ""}`}
     >
       <button className="agenda-pick-main" onClick={() => onOpen(pick.item)} title={`${s.code}: ${s.title}`}>
+        <span className="small agenda-mark">
+          {INTENT_META[pick.item.intent].icon} {INTENT_META[pick.item.intent].label}
+          {DECISION_MARK[pick.decision] && <span className="muted"> · {DECISION_MARK[pick.decision]}</span>}
+        </span>
         <span className="muted small">
           {formatTimeRange(s)} · {venueOf(s)}
         </span>
         <strong className="agenda-title">{s.title}</strong>
         <span className="muted small">
-          <span title={INTENT_META[pick.item.intent].label}>{INTENT_META[pick.item.intent].icon}</span> {s.code} ·{" "}
-          {pick.item.score}%{pick.item.reservable ? " · 🎟" : ""}
+          {s.code} · {pick.item.score}%{pick.item.reservable ? " · 🎟" : ""}
           {favorite ? " · ★" : ""}
         </span>
       </button>

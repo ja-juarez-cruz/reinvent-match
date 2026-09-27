@@ -1398,11 +1398,32 @@ main {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
-  border-left: 4px solid var(--cat);
+  border: 1px solid var(--border);
   border-radius: 6px;
-  background: color-mix(in srgb, var(--cat) 10%, var(--surface));
+  background: var(--surface);
   padding: 0.35rem 0.4rem;
   margin-bottom: 0.3rem;
+}
+
+/* Maybes and passed sessions read as secondary next to the picks. */
+.agenda-pick.decision-save {
+  border-style: dashed;
+}
+
+.agenda-pick.decision-pass {
+  border-style: dashed;
+  opacity: 0.7;
+}
+
+.agenda-mark {
+  font-weight: 600;
+}
+
+.agenda-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.6rem;
 }
 
 .agenda-pick.clash {
@@ -1469,7 +1490,7 @@ main {
 }
 
 .agenda-cont {
-  border-left: 4px solid var(--cat);
+  border-left: 3px solid var(--border);
   padding-left: 0.4rem;
   font-size: 0.75rem;
   color: var(--muted);

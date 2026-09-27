@@ -53,7 +53,24 @@ export function ShortlistPage({ event, eventId, answersId, session, onSignIn }: 
     });
   }, [data]);
   const week = useMemo(() => (data ? buildWeek(data.results, data.swipes) : []), [data]);
-  const agenda = useMemo(() => (data ? buildAgenda(data.results, data.swipes, week) : null), [data, week]);
+  /** The marks shown on the calendar: ❤️ by default; add 🔖 to settle overlaps, or ❌ to take a pass back. */
+  const [show, setShow] = useState<ReadonlySet<Decision>>(() => new Set<Decision>(["like"]));
+  const toggleShow = (d: Decision) =>
+    setShow((s) => {
+      const next = new Set(s);
+      if (next.has(d)) next.delete(d);
+      else next.add(d);
+      return next.size === 0 ? new Set<Decision>(["like"]) : next;
+    });
+  const agenda = useMemo(() => (data ? buildAgenda(data.results, data.swipes, week, show) : null), [data, week, show]);
+  const counts = useMemo(() => {
+    const c: Record<Decision, number> = { like: 0, save: 0, pass: 0 };
+    for (const r of data?.results ?? []) {
+      const d = data?.swipes[r.session.id]?.decision;
+      if (d) c[d] += 1;
+    }
+    return c;
+  }, [data]);
   /** A session opened from the agenda: a pick to keep or drop, or an alternative to swap in for `pick`. */
   const [open, setOpen] = useState<{ item: PlanItem; pick?: PlanItem } | null>(null);
   const [view, setView] = useState<"week" | "reservations">("week");
@@ -112,6 +129,12 @@ export function ShortlistPage({ event, eventId, answersId, session, onSignIn }: 
   async function addSuggestions(ids: string[]) {
     for (const id of ids) await decide(id, "like");
     setSuggestions(null);
+  }
+
+  /** Clears a decision: the session goes back to the swipe queue. */
+  async function undecide(id: string) {
+    setOpen(null);
+    await decide(id, null);
   }
 
   /** ❤️ the alternative instead of the pick; the pick stays as a 🔖 backup. */
@@ -231,7 +254,7 @@ export function ShortlistPage({ event, eventId, answersId, session, onSignIn }: 
             }}
             onSignIn={onSignIn}
           />
-        ) : picked.length === 0 ? (
+        ) : picked.length === 0 && counts.pass === 0 ? (
           <div className="panel">
             <p>Nothing here yet. Swipe right (❤️) on sessions you want.</p>
             <button className="primary" onClick={() => navigate("swipe")}>
@@ -244,6 +267,9 @@ export function ShortlistPage({ event, eventId, answersId, session, onSignIn }: 
               agenda={agenda}
               swipes={data.swipes}
               favorites={favorites}
+              show={show}
+              counts={counts}
+              onToggle={toggleShow}
               onOpen={(item, pick) => setOpen({ item, pick })}
             />
             {agenda.freeMaybes.length > 0 && (
@@ -279,7 +305,9 @@ export function ShortlistPage({ event, eventId, answersId, session, onSignIn }: 
               ? `Alternative to ${open.pick.session.code} (${formatTimeRange(open.pick.session)})`
               : data.swipes[open.item.session.id]?.decision === "like"
                 ? "❤️ In your agenda"
-                : "🔖 Maybe"
+                : data.swipes[open.item.session.id]?.decision === "pass"
+                  ? "❌ Not for me"
+                  : "🔖 Maybe"
           }
           onClose={() => setOpen(null)}
         >
@@ -298,9 +326,15 @@ export function ShortlistPage({ event, eventId, answersId, session, onSignIn }: 
               🔖 {data.swipes[open.item.session.id]?.decision === "like" ? "Move to maybe" : "Keep as maybe"}
             </button>
           )}
-          <button className="ghost" onClick={() => choose(open.item.session.id, "pass")}>
-            ❌ Not for me
-          </button>
+          {data.swipes[open.item.session.id]?.decision === "pass" ? (
+            <button className="ghost" onClick={() => undecide(open.item.session.id)}>
+              ↩ Take back "Not for me"
+            </button>
+          ) : (
+            <button className="ghost" onClick={() => choose(open.item.session.id, "pass")}>
+              ❌ Not for me
+            </button>
+          )}
           <button className="link" onClick={() => setOpen(null)}>
             Close
           </button>
