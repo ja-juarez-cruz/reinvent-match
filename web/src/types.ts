@@ -59,6 +59,13 @@ export interface Schedule {
   favorites: string[];
 }
 
+export interface ReservationResult {
+  reserved: string[];
+  failed: { sessionId: string; code: string; conflictsWith?: string[] }[];
+  /** Every reservation the event reports after the request. */
+  schedule: string[];
+}
+
 export interface FavoritesSyncResult {
   toAdd: string[];
   toRemove: string[];

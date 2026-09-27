@@ -192,10 +192,17 @@ interface Tagged {
   tags: SessionTags;
 }
 
+/** Tags per catalog: the server keeps one normalized array per catalog download, so tagging runs once per download. */
+const taggedCache = new WeakMap<NormalizedSession[], Tagged[]>();
+
 function tagAll(sessions: NormalizedSession[]): Tagged[] {
+  const cached = taggedCache.get(sessions);
+  if (cached) return cached;
   const labels = new Set(sessions.flatMap((s) => s.services.map(technologyLabel)));
   const knownServices = new Map([...labels].map((label) => [label, textAliases(label)]));
-  return sessions.map((session) => ({ session, tags: tagSession(session, knownServices) }));
+  const tagged = sessions.map((session) => ({ session, tags: tagSession(session, knownServices) }));
+  taggedCache.set(sessions, tagged);
+  return tagged;
 }
 
 /** Topic a technology is curated under in the taxonomy (service lists and extra technologies), if any. */

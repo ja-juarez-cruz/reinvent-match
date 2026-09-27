@@ -175,7 +175,19 @@ export function ShortlistPage({ event, eventId, answersId, session, onSignIn }: 
         )}
 
         {view === "reservations" ? (
-          <ReservationList eventId={eventId ?? ""} plan={reservations} />
+          <ReservationList
+            eventId={eventId ?? ""}
+            plan={reservations}
+            reservedOfficially={canSync ? (schedule?.reserved ?? []) : null}
+            onReservedChange={(reserved) =>
+              setSchedule((s) => (s ? { ...s, reserved } : { reserved, favorites: [], personalTime: [] }))
+            }
+            onSwap={async (from, to) => {
+              await decide(to.session.id, "like");
+              await decide(from.session.id, "save");
+            }}
+            onSignIn={onSignIn}
+          />
         ) : picked.length === 0 ? (
           <div className="panel">
             <p>Nothing here yet. Swipe right (❤️) on sessions you want.</p>

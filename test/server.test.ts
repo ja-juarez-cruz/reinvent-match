@@ -126,3 +126,38 @@ describe("onboarding and plan", () => {
     expect(options.topicLevels).toEqual(["new", "basic", "intermediate", "advanced"]);
   });
 });
+
+describe("reservations", () => {
+  it("reserves in the given order and returns the schedule", async () => {
+    const reserve = vi.spyOn(client, "reserveSessions").mockResolvedValue({ successful: ["A", "B"], failed: [] });
+    vi.spyOn(client, "getSchedule")
+      .mockResolvedValueOnce({ reserved: [], favorites: [], personalTime: [] })
+      .mockResolvedValueOnce({ reserved: ["A", "B"], favorites: [], personalTime: [] });
+    const res = await write("/api/reservations/reinvent2026", "POST", { sessionIds: ["A", "B"] });
+    expect(res.status).toBe(200);
+    expect((await res.json()).schedule).toEqual(["A", "B"]);
+    expect(reserve).toHaveBeenCalledWith("reinvent2026", ["A", "B"]);
+    vi.restoreAllMocks();
+  });
+
+  it("passes on a refusal from the event instead of calling it an unregistered Builder ID", async () => {
+    const { EventsApiError } = await import("../src/api/client.js");
+    vi.spyOn(client, "getSchedule").mockResolvedValue({ reserved: [], favorites: [], personalTime: [] });
+    vi.spyOn(client, "reserveSessions").mockRejectedValue(new EventsApiError("Reserved seating is not open", 403, null));
+    const res = await write("/api/reservations/reinvent2026", "POST", { sessionIds: ["A"] });
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error).toBe("reservations-refused");
+    expect(body.message).toMatch(/Reserved seating is not open/);
+    vi.restoreAllMocks();
+  });
+
+  it("validates the request and cancels with DELETE", async () => {
+    expect((await write("/api/reservations/reinvent2026", "POST", { sessionIds: [] })).status).toBe(400);
+    vi.spyOn(client, "cancelReservation").mockResolvedValue();
+    vi.spyOn(client, "getSchedule").mockResolvedValue({ reserved: ["B"], favorites: [], personalTime: [] });
+    const res = await write("/api/reservations/reinvent2026/A", "DELETE");
+    expect(await res.json()).toEqual({ schedule: ["B"] });
+    vi.restoreAllMocks();
+  });
+});

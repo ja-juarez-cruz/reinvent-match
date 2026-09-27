@@ -41,7 +41,14 @@ export function escapeRegExp(value: string): string {
 }
 
 /** Word-boundary search that tolerates "multi-region" vs "multi region". */
+const keywordPatterns = new Map<string, RegExp>();
+
 export function textContains(normalizedText: string, keyword: string): boolean {
-  const pattern = escapeRegExp(normalizeText(keyword)).replace(/\\?[-\s]+/g, "[-\\s]?");
-  return new RegExp(`(^|[^a-z0-9])${pattern}($|[^a-z0-9])`).test(normalizedText);
+  let regex = keywordPatterns.get(keyword);
+  if (!regex) {
+    const pattern = escapeRegExp(normalizeText(keyword)).replace(/\\?[-\s]+/g, "[-\\s]?");
+    regex = new RegExp(`(^|[^a-z0-9])${pattern}($|[^a-z0-9])`);
+    keywordPatterns.set(keyword, regex);
+  }
+  return regex.test(normalizedText);
 }

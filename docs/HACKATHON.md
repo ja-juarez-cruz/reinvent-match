@@ -29,8 +29,8 @@ Four equally weighted criteria (25% each):
 | `CreatePersonalTime` | Travel buffers between venues, Expo, meals, Ask the Experts | ⬜ |
 | `UpdatePersonalTime` | Move buffers when the agenda changes | ⬜ |
 | `DeletePersonalTime` | Remove buffers Reinvent:Match created that are no longer needed | ⬜ |
-| `ReserveSessions` | Reserve the confirmed agenda | ⬜ |
-| `CancelReservation` | Swap to a better-matching session, with confirmation | ⬜ |
+| `ReserveSessions` | My Match → Reservations: books the ❤️ sessions in priority order, ten at a time, and a backup when one is full (live from October 8) | ✅ |
+| `CancelReservation` | Cancel a reservation from the Reservations view, with an inline confirmation | ✅ |
 
 Reinvent:Match only touches personal time entries it created (tagged in the description), never the attendee's own.
 

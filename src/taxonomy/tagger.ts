@@ -117,17 +117,53 @@ export function textAliases(label: string): TextAlias[] {
  * AgentCore, not also Bedrock.
  */
 export function servicesInText(raw: string, knownServices: Map<string, TextAlias[]>): string[] {
-  const candidates = [...knownServices].flatMap(([label, aliases]) => aliases.map((alias) => ({ label, alias })));
-  candidates.sort((a, b) => b.alias.text.length - a.alias.text.length);
   let text = raw;
+  let lower = raw.toLowerCase();
   const found = new Set<string>();
-  for (const { label, alias } of candidates) {
-    const pattern = new RegExp(`(^|[^A-Za-z0-9])${escape(alias.text).replace(/\\?[-\s]+/g, "[-\\s]?")}(?=$|[^A-Za-z0-9])`, alias.caseSensitive ? "g" : "gi");
+  for (const { label, needle, pattern } of compiled(knownServices)) {
+    // A plain substring check first: most services are not in most abstracts, and regexes are the expensive part.
+    if (!lower.includes(needle)) continue;
+    pattern.lastIndex = 0;
     if (!pattern.test(text)) continue;
     found.add(label);
+    pattern.lastIndex = 0;
     text = text.replace(pattern, "$1 ");
+    lower = text.toLowerCase();
   }
   return [...found];
+}
+
+interface CompiledAlias {
+  label: string;
+  /** Lower-case text that must appear for the pattern to have a chance. */
+  needle: string;
+  pattern: RegExp;
+}
+
+const compiledCache = new WeakMap<Map<string, TextAlias[]>, CompiledAlias[]>();
+
+/** Longest aliases first, each compiled once per service list. */
+function compiled(knownServices: Map<string, TextAlias[]>): CompiledAlias[] {
+  let list = compiledCache.get(knownServices);
+  if (!list) {
+    list = [...knownServices]
+      .flatMap(([label, aliases]) => aliases.map((alias) => ({ label, alias })))
+      .sort((a, b) => b.alias.text.length - a.alias.text.length)
+      .map(({ label, alias }) => ({
+        label,
+        // Its longest word: "Amazon" is in most abstracts, "SageMaker" is not.
+        needle: alias.text
+          .toLowerCase()
+          .split(/[-\s]+/)
+          .reduce((a, b) => (b.length > a.length ? b : a), ""),
+        pattern: new RegExp(
+          `(^|[^A-Za-z0-9])${escape(alias.text).replace(/\\?[-\s]+/g, "[-\\s]?")}(?=$|[^A-Za-z0-9])`,
+          alias.caseSensitive ? "g" : "gi",
+        ),
+      }));
+    compiledCache.set(knownServices, list);
+  }
+  return list;
 }
 
 function escape(text: string): string {

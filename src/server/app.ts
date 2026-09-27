@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { extname, join, normalize } from "node:path";
-import { ZodError } from "zod";
+import { z, ZodError } from "zod";
 import { EventsApiError, type EventsClient } from "../api/client.js";
 import {
   beginSignIn,
@@ -24,6 +24,7 @@ import { PLATFORMS } from "../taxonomy/taxonomy.js";
 import { getProfile, listProfiles, saveProfile } from "../store/profiles.js";
 import { DECISIONS, loadSwipes, recordSwipe, type Decision } from "../store/swipes.js";
 import { syncFavorites } from "../sync/favorites.js";
+import { cancelAndReload, reserveInOrder } from "../sync/reservations.js";
 
 /** Mutating requests must carry this header. Browsers cannot send it cross-origin without a CORS preflight,
  * which this server never approves, so other websites cannot drive the local API. */
@@ -247,6 +248,20 @@ export function createApp(ctx: AppContext) {
       /^\/api\/favorites\/([^/]+)\/sync$/,
       async (_req, _url, [eventId]) => syncFavorites(ctx.client, eventId!, await loadSwipes(eventId!)),
     ],
+    [
+      "POST",
+      /^\/api\/reservations\/([^/]+)$/,
+      async (req, _url, [eventId]) => {
+        const { sessionIds } = reserveBody.parse(await readBody(req));
+        return withReservationErrors(() => reserveInOrder(ctx.client, eventId!, sessionIds));
+      },
+    ],
+    [
+      "DELETE",
+      /^\/api\/reservations\/([^/]+)\/([^/]+)$/,
+      async (_req, _url, [eventId, sessionId]) =>
+        withReservationErrors(async () => ({ schedule: await cancelAndReload(ctx.client, eventId!, sessionId!) })),
+    ],
   ];
 
   async function handleCallback(url: URL, res: ServerResponse) {
@@ -300,6 +315,28 @@ export function createApp(ctx: AppContext) {
       sendJson(res, status, body);
     }
   };
+}
+
+/** Session IDs to reserve, in booking order. */
+const reserveBody = z.object({ sessionIds: z.array(z.string().min(1).max(128)).min(1).max(60) });
+
+/**
+ * A refused reservation call (reserved seating not open yet, a closed window) is not an unregistered Builder ID:
+ * pass the API's own words on instead of the generic 403 message.
+ */
+async function withReservationErrors<T>(run: () => Promise<T>): Promise<T> {
+  try {
+    return await run();
+  } catch (error) {
+    if (error instanceof EventsApiError && [400, 403, 409].includes(error.status)) {
+      throw new HttpError(
+        error.status,
+        "reservations-refused",
+        `The event refused the reservation request (${error.status}): ${error.message}. Reserving through the API opens October 8; until then, book in the re:Invent portal.`,
+      );
+    }
+    throw error;
+  }
 }
 
 function toErrorResponse(error: unknown): { status: number; body: { error: string; message: string } } {

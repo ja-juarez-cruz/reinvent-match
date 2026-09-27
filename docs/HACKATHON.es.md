@@ -29,8 +29,8 @@ Cuatro criterios con el mismo peso (25% cada uno):
 | `CreatePersonalTime` | Tiempo de traslado entre venues, Expo, comidas, Ask the Experts | ⬜ |
 | `UpdatePersonalTime` | Mover esos bloques cuando cambia la agenda | ⬜ |
 | `DeletePersonalTime` | Quitar bloques creados por Reinvent:Match que ya no hacen falta | ⬜ |
-| `ReserveSessions` | Reservar la agenda confirmada | ⬜ |
-| `CancelReservation` | Cambiar a una sesión con mejor match, con confirmación | ⬜ |
+| `ReserveSessions` | My Match → Reservations: reserva las ❤️ en orden de prioridad, de diez en diez, y un respaldo cuando una está llena (activo desde el 8 de octubre) | ✅ |
+| `CancelReservation` | Cancelar una reserva desde la vista Reservations, con confirmación en la página | ✅ |
 
 Reinvent:Match solo modifica los bloques de tiempo personal que él mismo creó (marcados en la descripción), nunca los del asistente.
 

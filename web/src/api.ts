@@ -7,6 +7,7 @@ import type {
   FavoritesSyncResult,
   OnboardingOptions,
   PlanResponse,
+  ReservationResult,
   Schedule,
   SessionInfo,
   SwipeLog,
@@ -57,4 +58,8 @@ export const api = {
     call<SwipeLog>("PUT", `/api/swipes/${enc(eventId)}/${enc(sessionId)}`, { decision }),
   schedule: (eventId: string) => call<Schedule>("GET", `/api/schedule/${enc(eventId)}`),
   syncFavorites: (eventId: string) => call<FavoritesSyncResult>("POST", `/api/favorites/${enc(eventId)}/sync`),
+  reserve: (eventId: string, sessionIds: string[]) =>
+    call<ReservationResult>("POST", `/api/reservations/${enc(eventId)}`, { sessionIds }),
+  cancelReservation: (eventId: string, sessionId: string) =>
+    call<{ schedule: string[] }>("DELETE", `/api/reservations/${enc(eventId)}/${enc(sessionId)}`),
 };

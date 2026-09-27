@@ -1770,3 +1770,10 @@ a.icon-button {
   opacity: 0.55;
   text-decoration: line-through;
 }
+
+.reserved-mark {
+  color: var(--ok);
+  font-weight: 700;
+  width: 1rem;
+  text-align: center;
+}

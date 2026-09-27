@@ -73,6 +73,27 @@ export class EventsClient {
     );
   }
 
+  /**
+   * Reserves seats in 1-10 distinct sessions. Check `failed`: results are per session, and an already reserved
+   * session is reported there, so re-sending is not a safe retry.
+   */
+  async reserveSessions(eventId: string, sessionIds: string[]): Promise<BulkResult> {
+    const res = await this.request<{ result: BulkResult }>(
+      "POST",
+      `/v1/events/${encodeURIComponent(eventId)}/reservations`,
+      { sessionIds },
+    );
+    return res.result;
+  }
+
+  /** Cancels one reservation. A session that is not reserved is a 404, so this is not a safe blind retry. */
+  async cancelReservation(eventId: string, sessionId: string): Promise<void> {
+    await this.request<unknown>(
+      "DELETE",
+      `/v1/events/${encodeURIComponent(eventId)}/reservations/${encodeURIComponent(sessionId)}`,
+    );
+  }
+
   /** Walks every page of an event's catalog. The API returns at most 250 sessions per page. */
   async listAllSessions(
     eventId: string,
