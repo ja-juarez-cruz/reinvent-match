@@ -174,6 +174,17 @@ describe("favorites import", () => {
     expect(swipes.L1.decision).toBe("save");
     vi.restoreAllMocks();
   });
+
+  it("removes one favorite right away, and an already removed one is no error", async () => {
+    const { EventsApiError } = await import("../src/api/client.js");
+    const remove = vi.spyOn(client, "disassociateFavorite").mockResolvedValueOnce();
+    vi.spyOn(client, "getSchedule").mockResolvedValue({ reserved: [], favorites: ["X2"], personalTime: [] });
+    expect(await (await write("/api/favorites/reinvent2026/X1", "DELETE")).json()).toEqual({ favorites: ["X2"] });
+    expect(remove).toHaveBeenCalledWith("reinvent2026", "X1");
+    remove.mockRejectedValueOnce(new EventsApiError("Not a favorite", 404, null));
+    expect((await write("/api/favorites/reinvent2026/X1", "DELETE")).status).toBe(200);
+    vi.restoreAllMocks();
+  });
 });
 
 describe("onboarding from favorites", () => {

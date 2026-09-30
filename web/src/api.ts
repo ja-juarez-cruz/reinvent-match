@@ -65,6 +65,8 @@ export const api = {
   swipe: (eventId: string, sessionId: string, decision: Decision | null) =>
     call<SwipeLog>("PUT", `/api/swipes/${enc(eventId)}/${enc(sessionId)}`, { decision }),
   schedule: (eventId: string) => call<Schedule>("GET", `/api/schedule/${enc(eventId)}`),
+  removeFavorite: (eventId: string, sessionId: string) =>
+    call<{ favorites: string[] }>("DELETE", `/api/favorites/${enc(eventId)}/${enc(sessionId)}`),
   syncFavorites: (eventId: string) => call<FavoritesSyncResult>("POST", `/api/favorites/${enc(eventId)}/sync`),
   fromFavorites: (eventId: string) =>
     call<{ favorites: string[]; answers: Answers | null; basis: { key: string; favorites: number }[] }>(

@@ -272,6 +272,19 @@ export function createApp(ctx: AppContext) {
       async (_req, _url, [eventId]) => syncFavorites(ctx.client, eventId!, await loadSwipes(eventId!)),
     ],
     [
+      "DELETE",
+      /^\/api\/favorites\/([^/]+)\/([^/]+)$/,
+      async (_req, _url, [eventId, sessionId]) => {
+        // One favorite off the re:Invent schedule now, without waiting for a sync. Already gone is fine.
+        try {
+          await ctx.client.disassociateFavorite(eventId!, sessionId!);
+        } catch (error) {
+          if (!(error instanceof EventsApiError && error.status === 404)) throw error;
+        }
+        return { favorites: (await ctx.client.getSchedule(eventId!)).favorites };
+      },
+    ],
+    [
       "GET",
       /^\/api\/onboarding\/([^/]+)\/from-favorites$/,
       async (_req, _url, [eventId]) => {

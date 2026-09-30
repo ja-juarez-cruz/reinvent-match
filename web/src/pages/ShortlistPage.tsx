@@ -155,6 +155,29 @@ export function ShortlistPage({ event, eventId, answersId, session, onSignIn }: 
   }
 
   /** Clears a decision: the session goes back to the swipe queue. */
+  /**
+   * Takes a ❤️ out of the agenda without calling it "not for me": the decision is cleared here and, signed in, the
+   * session leaves the re:Invent favorites right away (a later sync would otherwise leave an undecided favorite alone).
+   */
+  async function removeFavorite(id: string) {
+    setOpen(null);
+    if (canSync && eventId && favorites.has(id)) {
+      try {
+        const { favorites: left } = await api.removeFavorite(eventId, id);
+        setSchedule((s) => (s ? { ...s, favorites: left } : s));
+        setSync((s) => (s ? { ...s, favorites: left } : s));
+      } catch (e) {
+        setSyncError(
+          e instanceof ApiError && e.code === "signin"
+            ? "Sign in again to remove it from your re:Invent favorites."
+            : `Could not remove it from your re:Invent favorites: ${e instanceof Error ? e.message : String(e)}`,
+        );
+        return;
+      }
+    }
+    await decide(id, null);
+  }
+
   async function undecide(id: string) {
     setOpen(null);
     await decide(id, null);
@@ -392,7 +415,19 @@ export function ShortlistPage({ event, eventId, answersId, session, onSignIn }: 
               🔖 {data.swipes[open.item.session.id]?.decision === "like" ? "Move to maybe" : "Keep as maybe"}
             </button>
           )}
-          {data.swipes[open.item.session.id]?.decision === "pass" ? (
+          {data.swipes[open.item.session.id]?.decision === "like" ? (
+            <button
+              className="ghost"
+              onClick={() => removeFavorite(open.item.session.id)}
+              title={
+                canSync
+                  ? "Out of your agenda and your re:Invent favorites, without marking it not for me"
+                  : "Out of your agenda, without marking it not for me"
+              }
+            >
+              ★ Remove from favorites
+            </button>
+          ) : data.swipes[open.item.session.id]?.decision === "pass" ? (
             <button className="ghost" onClick={() => undecide(open.item.session.id)}>
               ↩ Take back "Not for me"
             </button>
